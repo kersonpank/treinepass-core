@@ -66,6 +66,66 @@ export type Database = {
         }
         Relationships: []
       }
+      business_profiles: {
+        Row: {
+          address: string
+          cnpj: string
+          company_name: string
+          contact_email: string
+          contact_person: string
+          contact_phone: string
+          contact_position: string
+          created_at: string
+          email: string
+          id: string
+          industry: string | null
+          number_of_employees: number
+          phone: string
+          status: string
+          trading_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          cnpj: string
+          company_name: string
+          contact_email: string
+          contact_person: string
+          contact_phone: string
+          contact_position: string
+          created_at?: string
+          email: string
+          id?: string
+          industry?: string | null
+          number_of_employees: number
+          phone: string
+          status?: string
+          trading_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          cnpj?: string
+          company_name?: string
+          contact_email?: string
+          contact_person?: string
+          contact_phone?: string
+          contact_position?: string
+          created_at?: string
+          email?: string
+          id?: string
+          industry?: string | null
+          number_of_employees?: number
+          phone?: string
+          status?: string
+          trading_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       modalidades: {
         Row: {
           created_at: string

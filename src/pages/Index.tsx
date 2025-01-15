@@ -14,12 +14,20 @@ export default function Index() {
           <p className="text-lg text-gray-600 mb-8">
             Conectando pessoas a academias de qualidade
           </p>
-          <Button
-            onClick={() => navigate("/cadastro-academia")}
-            className="bg-[#0125F0] hover:bg-blue-700 text-white"
-          >
-            Cadastrar Academia
-          </Button>
+          <div className="space-y-4">
+            <Button
+              onClick={() => navigate("/cadastro-academia")}
+              className="w-full md:w-auto bg-[#0125F0] hover:bg-blue-700 text-white"
+            >
+              Cadastrar Academia
+            </Button>
+            <Button
+              onClick={() => navigate("/cadastro-empresa")}
+              className="w-full md:w-auto bg-[#0125F0] hover:bg-blue-700 text-white ml-0 md:ml-4"
+            >
+              Cadastrar Empresa
+            </Button>
+          </div>
         </div>
       </div>
     </div>
