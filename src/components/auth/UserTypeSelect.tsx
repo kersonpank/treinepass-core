@@ -12,20 +12,20 @@ interface UserType {
 const userTypes: UserType[] = [
   {
     id: "individual",
-    title: "Individual",
-    description: "Access multiple gyms with a single membership",
+    title: "Pessoa Física",
+    description: "Acesse múltiplas academias com uma única assinatura",
     icon: <User className="w-6 h-6" />,
   },
   {
     id: "business",
-    title: "Business",
-    description: "Provide gym access to your employees",
+    title: "Empresa",
+    description: "Ofereça acesso à academia como benefício aos seus funcionários",
     icon: <Building2 className="w-6 h-6" />,
   },
   {
     id: "gym",
-    title: "Gym",
-    description: "Partner with us to reach more customers",
+    title: "Academia",
+    description: "Seja parceiro e alcance mais clientes",
     icon: <Dumbbell className="w-6 h-6" />,
   },
 ];
@@ -44,12 +44,12 @@ export const UserTypeSelect = ({ onSelect }: UserTypeSelectProps) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: index * 0.1 }}
           onClick={() => onSelect(type.id)}
-          className="flex items-center p-4 border rounded-lg hover:border-primary hover:bg-primary-50 transition-colors"
+          className="flex items-center p-4 border rounded-lg hover:border-[#0125F0] hover:bg-blue-50 transition-colors text-left w-full"
         >
-          <div className="p-2 bg-primary-100 rounded-lg text-primary">
+          <div className="p-2 bg-blue-100 rounded-lg text-[#0125F0]">
             {type.icon}
           </div>
-          <div className="ml-4 text-left">
+          <div className="ml-4">
             <h3 className="font-semibold text-gray-900">{type.title}</h3>
             <p className="text-sm text-gray-600">{type.description}</p>
           </div>
