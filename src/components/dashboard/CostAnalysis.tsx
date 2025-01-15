@@ -9,6 +9,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+interface CostAnalysisData {
+  costCenter: string;
+  department: string;
+  employeeCount: number;
+  totalCost: number;
+}
+
 export function CostAnalysis() {
   const { data: costs } = useQuery({
     queryKey: ["costAnalysis"],
@@ -16,9 +23,9 @@ export function CostAnalysis() {
       const { data: businessProfile } = await supabase
         .from("business_profiles")
         .select("id")
-        .single();
+        .maybeSingle();
 
-      if (!businessProfile) throw new Error("Business profile not found");
+      if (!businessProfile) return [];
 
       const { data, error } = await supabase
         .from("employees")
@@ -39,7 +46,7 @@ export function CostAnalysis() {
       if (error) throw error;
 
       // Agrupa custos por centro de custo
-      const costsByCenter = data.reduce((acc, employee) => {
+      const costsByCenter = data.reduce<Record<string, CostAnalysisData>>((acc, employee) => {
         const costCenter = employee.cost_center || "Sem Centro de Custo";
         const department = employee.department || "Sem Departamento";
         

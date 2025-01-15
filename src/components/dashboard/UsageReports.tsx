@@ -16,9 +16,18 @@ export function UsageReports() {
       const { data: businessProfile } = await supabase
         .from("business_profiles")
         .select("id")
-        .single();
+        .maybeSingle();
 
-      if (!businessProfile) throw new Error("Business profile not found");
+      if (!businessProfile) return [];
+
+      const { data: employees } = await supabase
+        .from("employees")
+        .select("id")
+        .eq("business_id", businessProfile.id);
+
+      if (!employees?.length) return [];
+
+      const employeeIds = employees.map(e => e.id);
 
       const { data, error } = await supabase
         .from("benefit_usage")
@@ -33,13 +42,7 @@ export function UsageReports() {
             nome
           )
         `)
-        .in(
-          "employee_id",
-          supabase
-            .from("employees")
-            .select("id")
-            .eq("business_id", businessProfile.id)
-        )
+        .in("employee_id", employeeIds)
         .order("created_at", { ascending: false })
         .limit(100);
 

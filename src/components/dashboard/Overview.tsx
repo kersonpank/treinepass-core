@@ -16,9 +16,13 @@ export function Overview() {
       const { data: businessProfile } = await supabase
         .from("business_profiles")
         .select("id")
-        .single();
+        .maybeSingle();
 
-      if (!businessProfile) throw new Error("Business profile not found");
+      if (!businessProfile) return {
+        employeesCount: 0,
+        activePlansCount: 0,
+        monthlyUsage: 0,
+      };
 
       const [
         { count: employeesCount },
@@ -38,12 +42,7 @@ export function Overview() {
         supabase
           .from("benefit_usage")
           .select("*")
-          .eq("employee_id", supabase
-            .from("employees")
-            .select("id")
-            .eq("business_id", businessProfile.id)
-            .in("id", []) // Isso será substituído pelo Supabase com os IDs reais
-          )
+          .eq("employee_id", businessProfile.id)
           .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
 
