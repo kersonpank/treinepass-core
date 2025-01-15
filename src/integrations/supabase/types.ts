@@ -66,6 +66,89 @@ export type Database = {
         }
         Relationships: []
       }
+      benefit_plans: {
+        Row: {
+          business_id: string
+          created_at: string
+          description: string | null
+          id: string
+          monthly_cost: number
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          monthly_cost: number
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          monthly_cost?: number
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benefit_plans_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      benefit_usage: {
+        Row: {
+          academia_id: string
+          check_in: string
+          check_out: string | null
+          created_at: string
+          employee_id: string
+          id: string
+        }
+        Insert: {
+          academia_id: string
+          check_in?: string
+          check_out?: string | null
+          created_at?: string
+          employee_id: string
+          id?: string
+        }
+        Update: {
+          academia_id?: string
+          check_in?: string
+          check_out?: string | null
+          created_at?: string
+          employee_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benefit_usage_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "benefit_usage_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_profiles: {
         Row: {
           address: string
@@ -125,6 +208,101 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      employee_benefits: {
+        Row: {
+          created_at: string
+          employee_id: string
+          end_date: string | null
+          id: string
+          plan_id: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          end_date?: string | null
+          id?: string
+          plan_id: string
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          end_date?: string | null
+          id?: string
+          plan_id?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_benefits_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_benefits_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employees: {
+        Row: {
+          business_id: string
+          cost_center: string | null
+          cpf: string
+          created_at: string
+          department: string | null
+          email: string
+          full_name: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          cost_center?: string | null
+          cpf: string
+          created_at?: string
+          department?: string | null
+          email: string
+          full_name: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          cost_center?: string | null
+          cpf?: string
+          created_at?: string
+          department?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employees_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       modalidades: {
         Row: {
