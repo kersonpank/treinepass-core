@@ -5,6 +5,7 @@ import CadastroAcademia from "./pages/CadastroAcademia";
 import CadastroPessoaFisica from "./pages/CadastroPessoaFisica";
 import CadastroEmpresa from "./pages/CadastroEmpresa";
 import DashboardEmpresa from "./pages/DashboardEmpresa";
+import AppMobile from "./pages/AppMobile";
 import { Toaster } from "./components/ui/toaster";
 
 // Create a client
@@ -20,6 +21,7 @@ function App() {
           <Route path="/cadastro-pessoa-fisica" element={<CadastroPessoaFisica />} />
           <Route path="/cadastro-empresa" element={<CadastroEmpresa />} />
           <Route path="/dashboard-empresa" element={<DashboardEmpresa />} />
+          <Route path="/app" element={<AppMobile />} />
         </Routes>
         <Toaster />
       </Router>
