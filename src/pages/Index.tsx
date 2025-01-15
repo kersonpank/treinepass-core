@@ -1,36 +1,27 @@
-import React, { useState } from "react";
-import { AuthLayout } from "@/components/auth/AuthLayout";
-import { UserTypeSelect } from "@/components/auth/UserTypeSelect";
-import { LoginForm } from "@/components/auth/LoginForm";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
-const Index = () => {
-  const [step, setStep] = useState<"type" | "login">("type");
-  const [userType, setUserType] = useState<string | null>(null);
-
-  const handleUserTypeSelect = (type: string) => {
-    setUserType(type);
-    setStep("login");
-  };
+export default function Index() {
+  const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen">
-      {step === "type" ? (
-        <AuthLayout
-          title="Welcome to TreinePass"
-          subtitle="Choose how you want to use TreinePass"
-        >
-          <UserTypeSelect onSelect={handleUserTypeSelect} />
-        </AuthLayout>
-      ) : (
-        <AuthLayout
-          title="Sign In"
-          subtitle="Welcome back! Please enter your details"
-        >
-          <LoginForm />
-        </AuthLayout>
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="container mx-auto px-4 py-16">
+        <div className="max-w-3xl mx-auto text-center">
+          <h1 className="text-4xl font-bold text-gray-900 mb-6">
+            TreinePass
+          </h1>
+          <p className="text-lg text-gray-600 mb-8">
+            Conectando pessoas a academias de qualidade
+          </p>
+          <Button
+            onClick={() => navigate("/cadastro-academia")}
+            className="bg-[#0125F0] hover:bg-blue-700 text-white"
+          >
+            Cadastrar Academia
+          </Button>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default Index;
+}
