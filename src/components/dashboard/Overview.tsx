@@ -38,12 +38,11 @@ export function Overview() {
         supabase
           .from("benefit_usage")
           .select("*")
-          .in(
-            "employee_id",
-            supabase
-              .from("employees")
-              .select("id")
-              .eq("business_id", businessProfile.id)
+          .eq("employee_id", supabase
+            .from("employees")
+            .select("id")
+            .eq("business_id", businessProfile.id)
+            .in("id", []) // Isso será substituído pelo Supabase com os IDs reais
           )
           .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
       ]);
