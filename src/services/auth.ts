@@ -16,6 +16,11 @@ export async function registerUser(data: RegisterData) {
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
+    options: {
+      data: {
+        full_name: data.full_name,
+      },
+    },
   });
 
   if (authError) {
@@ -30,24 +35,8 @@ export async function registerUser(data: RegisterData) {
 
   console.log("Auth user created successfully", { userId: authData.user.id });
 
-  // Get the session to ensure we have the correct auth context
-  console.log("Step 2: Getting session...");
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError) {
-    console.error("Session Error:", sessionError);
-    throw sessionError;
-  }
-
-  if (!sessionData.session) {
-    console.error("No session found after signup");
-    throw new Error("Sessão não encontrada");
-  }
-
-  console.log("Session obtained successfully");
-
   // 2. Create user profile with the same ID as auth user
-  console.log("Step 3: Creating user profile...", {
+  console.log("Step 2: Creating user profile...", {
     userId: authData.user.id,
     fullName: data.full_name,
   });
@@ -69,7 +58,7 @@ export async function registerUser(data: RegisterData) {
   console.log("User profile created successfully");
 
   // 3. Create user type entry
-  console.log("Step 4: Creating user type entry...");
+  console.log("Step 3: Creating user type entry...");
   const { error: typeError } = await supabase
     .from("user_types")
     .insert({
