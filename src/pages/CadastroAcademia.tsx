@@ -25,7 +25,8 @@ export default function CadastroAcademia() {
       setIsSubmitting(true);
       
       // Primeiro tenta criar um novo usuário
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      let authData = null;
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -46,6 +47,8 @@ export default function CadastroAcademia() {
         authData = signInData;
       } else if (signUpError) {
         throw signUpError;
+      } else {
+        authData = signUpData;
       }
 
       const userId = authData?.user?.id;
