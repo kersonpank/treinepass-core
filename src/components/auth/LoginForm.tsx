@@ -29,14 +29,14 @@ export const LoginForm = () => {
       return 'email';
     }
     
-    // Verifica se é um CPF (11 dígitos)
-    if (cleanCredential.length === 11) {
-      return 'cpf';
-    }
-    
     // Verifica se é um CNPJ (14 dígitos)
     if (cleanCredential.length === 14) {
       return 'cnpj';
+    }
+    
+    // Verifica se é um CPF (11 dígitos)
+    if (cleanCredential.length === 11) {
+      return 'cpf';
     }
     
     return 'email'; // fallback para email
@@ -84,37 +84,18 @@ export const LoginForm = () => {
       setIsLoading(true);
       const credentialType = detectCredentialType(data.credential);
       
-      // Buscar o email associado ao CPF/CNPJ se necessário
+      // Buscar o email associado ao CNPJ se necessário
       let email = data.credential;
-      
-      if (credentialType === 'cpf') {
-        const { data: userProfile } = await supabase
-          .from('user_profiles')
-          .select('id')
-          .eq('cpf', data.credential.replace(/\D/g, ''))
-          .single();
-          
-        if (!userProfile) throw new Error('CPF não encontrado');
-        
-        // Get user email from auth metadata using admin functions
-        const { data: userData } = await supabase.auth.admin.getUserById(userProfile.id);
-        if (!userData?.user) throw new Error('Usuário não encontrado');
-        email = userData.user.email;
-      }
       
       if (credentialType === 'cnpj') {
         const { data: business } = await supabase
           .from('business_profiles')
-          .select('user_id')
+          .select('user_id, email')
           .eq('cnpj', data.credential.replace(/\D/g, ''))
           .single();
           
         if (!business) throw new Error('CNPJ não encontrado');
-        
-        // Get user email from auth metadata using admin functions
-        const { data: userData } = await supabase.auth.admin.getUserById(business.user_id);
-        if (!userData?.user) throw new Error('Usuário não encontrado');
-        email = userData.user.email;
+        email = business.email;
       }
 
       const { data: authData, error } = await supabase.auth.signInWithPassword({
@@ -175,13 +156,13 @@ export const LoginForm = () => {
       className="space-y-4"
     >
       <div className="space-y-2">
-        <Label htmlFor="credential">Email, CPF ou CNPJ</Label>
+        <Label htmlFor="credential">Email ou CNPJ</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
           <Input
             id="credential"
             className="pl-10"
-            placeholder="Digite seu email, CPF ou CNPJ"
+            placeholder="Digite seu email ou CNPJ"
             {...register("credential", {
               required: "Credencial é obrigatória",
             })}
