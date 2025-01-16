@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { Mail, Lock, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface LoginFormData {
-  email: string;
+  credential: string;
   password: string;
 }
 
@@ -17,16 +18,123 @@ export const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const detectCredentialType = (credential: string): 'email' | 'cpf' | 'cnpj' => {
+    // Remove caracteres especiais para verificação
+    const cleanCredential = credential.replace(/[^\w\s]/gi, '');
+    
+    // Verifica se é um email
+    if (credential.includes('@')) {
+      return 'email';
+    }
+    
+    // Verifica se é um CPF (11 dígitos)
+    if (cleanCredential.length === 11) {
+      return 'cpf';
+    }
+    
+    // Verifica se é um CNPJ (14 dígitos)
+    if (cleanCredential.length === 14) {
+      return 'cnpj';
+    }
+    
+    return 'email'; // fallback para email
+  };
+
+  const handleRedirect = async (userId: string) => {
+    // Buscar os tipos de perfil do usuário
+    const { data: userTypes } = await supabase
+      .from('user_types')
+      .select('type')
+      .eq('user_id', userId);
+
+    if (!userTypes || userTypes.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Nenhum perfil encontrado para este usuário",
+      });
+      return;
+    }
+
+    // Se houver apenas um perfil, redireciona diretamente
+    if (userTypes.length === 1) {
+      switch (userTypes[0].type) {
+        case 'individual':
+          navigate('/app');
+          break;
+        case 'business':
+          navigate('/dashboard-empresa');
+          break;
+        case 'gym':
+          navigate('/dashboard-academia');
+          break;
+        default:
+          navigate('/');
+      }
+    } else {
+      // Se houver múltiplos perfis, redireciona para a tela de seleção
+      navigate('/selecionar-perfil');
+    }
+  };
 
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
+      const credentialType = detectCredentialType(data.credential);
+      
+      // Buscar o email associado ao CPF/CNPJ se necessário
+      let email = data.credential;
+      
+      if (credentialType === 'cpf') {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('cpf', data.credential.replace(/\D/g, ''))
+          .single();
+          
+        if (!profile) throw new Error('CPF não encontrado');
+        
+        const { data: authUser } = await supabase
+          .from('auth.users')
+          .select('email')
+          .eq('id', profile.id)
+          .single();
+          
+        if (!authUser) throw new Error('Usuário não encontrado');
+        email = authUser.email;
+      }
+      
+      if (credentialType === 'cnpj') {
+        const { data: business } = await supabase
+          .from('business_profiles')
+          .select('user_id')
+          .eq('cnpj', data.credential.replace(/\D/g, ''))
+          .single();
+          
+        if (!business) throw new Error('CNPJ não encontrado');
+        
+        const { data: authUser } = await supabase
+          .from('auth.users')
+          .select('email')
+          .eq('id', business.user_id)
+          .single();
+          
+        if (!authUser) throw new Error('Usuário não encontrado');
+        email = authUser.email;
+      }
+
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email,
         password: data.password,
       });
 
       if (error) throw error;
+
+      if (authData.user) {
+        await handleRedirect(authData.user.id);
+      }
 
     } catch (error: any) {
       toast({
@@ -75,25 +183,20 @@ export const LoginForm = () => {
       className="space-y-4"
     >
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="credential">Email, CPF ou CNPJ</Label>
         <div className="relative">
           <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
           <Input
-            id="email"
-            type="email"
+            id="credential"
             className="pl-10"
-            placeholder="seu@email.com"
-            {...register("email", {
-              required: "Email é obrigatório",
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: "Email inválido",
-              },
+            placeholder="Digite seu email, CPF ou CNPJ"
+            {...register("credential", {
+              required: "Credencial é obrigatória",
             })}
           />
         </div>
-        {errors.email && (
-          <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
+        {errors.credential && (
+          <p className="text-sm text-red-500 mt-1">{errors.credential.message}</p>
         )}
       </div>
 
