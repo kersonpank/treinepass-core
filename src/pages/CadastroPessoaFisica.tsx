@@ -49,11 +49,15 @@ export default function CadastroPessoaFisica() {
       if (authError) throw authError;
       if (!authData.user?.id) throw new Error("Erro ao criar usuário");
 
+      // Get the session to ensure we have the correct auth context
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) throw new Error("Sessão não encontrada");
+
       // 2. Create user profile with the same ID as auth user
       const { error: profileError } = await supabase
         .from("user_profiles")
         .insert({
-          id: authData.user.id,
+          id: authData.user.id, // This must match auth.uid()
           full_name: data.full_name,
           cpf: data.cpf.replace(/\D/g, ""),
           birth_date: data.birth_date,
@@ -79,7 +83,7 @@ export default function CadastroPessoaFisica() {
 
       navigate("/");
     } catch (error: any) {
-      console.error(error);
+      console.error("Error details:", error);
       toast({
         title: "Erro ao realizar cadastro",
         description: error.message || "Ocorreu um erro ao salvar os dados. Tente novamente.",
