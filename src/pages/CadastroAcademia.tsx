@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 interface AcademiaFormData {
   nome: string;
@@ -48,6 +49,16 @@ export default function CadastroAcademia() {
     handleSubmit,
     formState: { errors },
   } = useForm<AcademiaFormData>();
+
+  // Fetch modalidades
+  const { data: modalidades } = useQuery({
+    queryKey: ["modalidades"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("modalidades").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Check for logged-in user
   useEffect(() => {
