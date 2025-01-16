@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cnpj } from "cpf-cnpj-validator";
+import { useState } from "react";
+import { Switch } from "@/components/ui/switch";
 
 interface GymFormData {
   // Dados do usuário
@@ -34,8 +36,12 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<GymFormData>();
+
+  const [replicateHours, setReplicateHours] = useState(false);
 
   const diasSemana = [
     "segunda",
@@ -46,6 +52,29 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
     "sabado",
     "domingo",
   ];
+
+  // Watch segunda-feira's hours to replicate
+  const segundaAbertura = watch("horario_funcionamento.segunda.abertura");
+  const segundaFechamento = watch("horario_funcionamento.segunda.fechamento");
+
+  // Function to replicate hours
+  const handleReplicateHours = () => {
+    if (replicateHours && segundaAbertura && segundaFechamento) {
+      diasSemana.forEach((dia) => {
+        if (dia !== "segunda") {
+          setValue(`horario_funcionamento.${dia}.abertura`, segundaAbertura);
+          setValue(`horario_funcionamento.${dia}.fechamento`, segundaFechamento);
+        }
+      });
+    }
+  };
+
+  // Watch for changes in segunda-feira's hours and replicate if enabled
+  React.useEffect(() => {
+    if (replicateHours) {
+      handleReplicateHours();
+    }
+  }, [segundaAbertura, segundaFechamento, replicateHours]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -161,7 +190,18 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
 
       {/* Operating Hours */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Horários de Funcionamento</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Horários de Funcionamento</h3>
+          <div className="flex items-center space-x-2">
+            <Switch
+              checked={replicateHours}
+              onCheckedChange={setReplicateHours}
+              id="replicate-hours"
+            />
+            <Label htmlFor="replicate-hours">Replicar horários</Label>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {diasSemana.map((dia) => (
             <div key={dia} className="space-y-2">
@@ -172,6 +212,7 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
                   {...register(`horario_funcionamento.${dia}.abertura` as const, {
                     required: true,
                   })}
+                  disabled={replicateHours && dia !== "segunda"}
                 />
                 <Input
                   type="time"
@@ -179,6 +220,7 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
                     `horario_funcionamento.${dia}.fechamento` as const,
                     { required: true }
                   )}
+                  disabled={replicateHours && dia !== "segunda"}
                 />
               </div>
             </div>

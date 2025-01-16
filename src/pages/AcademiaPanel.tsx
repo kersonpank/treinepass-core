@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { GymSettingsForm } from "@/components/gym/GymSettingsForm";
 
 interface StaffMember {
   id: string;
@@ -109,6 +110,7 @@ export default function AcademiaPanel() {
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="access">Gestão de Acessos</TabsTrigger>
+          <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -190,6 +192,25 @@ export default function AcademiaPanel() {
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Configurações da Academia</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {academia && (
+                <GymSettingsForm
+                  academia={academia}
+                  onSuccess={() => {
+                    // Recarrega os dados da academia
+                    queryClient.invalidateQueries({ queryKey: ["academia", id] });
+                  }}
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
