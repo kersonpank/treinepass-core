@@ -22,6 +22,8 @@ export async function uploadFiles(files: FileList, path: string) {
 }
 
 export async function registerGym(data: any, userId: string) {
+  console.log("Starting gym registration process...", { userId });
+
   const fotosUrls = await uploadFiles(data.fotos, "fotos");
   const documentosUrls = await uploadFiles(data.documentos, "documentos");
 
@@ -43,16 +45,27 @@ export async function registerGym(data: any, userId: string) {
     .select()
     .single();
 
-  if (academiaError) throw academiaError;
+  if (academiaError) {
+    console.error("Error creating gym:", academiaError);
+    throw academiaError;
+  }
+
+  console.log("Gym created successfully:", academia);
 
   // Assign gym owner role
   const { error: roleError } = await supabase.from("user_gym_roles").insert({
     user_id: userId,
     gym_id: academia.id,
     role: "gym_owner",
+    active: true,
   });
 
-  if (roleError) throw roleError;
+  if (roleError) {
+    console.error("Error assigning gym owner role:", roleError);
+    throw roleError;
+  }
+
+  console.log("Gym owner role assigned successfully");
 
   return academia;
 }

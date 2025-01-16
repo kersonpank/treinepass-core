@@ -26,13 +26,34 @@ export default function CadastroAcademia() {
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setCurrentUser(session?.user || null);
+      if (session?.user) {
+        // Check if user already has a profile
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        setCurrentUser({ ...session.user, hasProfile: !!profile });
+      } else {
+        setCurrentUser(null);
+      }
     };
     
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user || null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+
+        setCurrentUser({ ...session.user, hasProfile: !!profile });
+      } else {
+        setCurrentUser(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -43,8 +64,8 @@ export default function CadastroAcademia() {
       setIsSubmitting(true);
       let userId = currentUser?.id;
 
-      // If user is not logged in, create a new account
-      if (!userId) {
+      // If user is not logged in or doesn't have a profile, create a new account
+      if (!userId || !currentUser?.hasProfile) {
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: data.email,
           password: crypto.randomUUID(), // Generate a random password
@@ -66,6 +87,7 @@ export default function CadastroAcademia() {
         });
       }
 
+      // Register the gym and assign the gym_owner role
       await registerGym(data, userId);
 
       toast({
@@ -75,10 +97,10 @@ export default function CadastroAcademia() {
 
       navigate("/app");
     } catch (error: any) {
-      console.error(error);
+      console.error("Error during gym registration:", error);
       toast({
         title: "Erro ao cadastrar academia",
-        description: "Ocorreu um erro ao salvar os dados. Tente novamente.",
+        description: error.message || "Ocorreu um erro ao salvar os dados. Tente novamente.",
         variant: "destructive",
       });
     } finally {
