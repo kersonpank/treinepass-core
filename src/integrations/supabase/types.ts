@@ -74,6 +74,7 @@ export type Database = {
           id: string
           monthly_cost: number
           name: string
+          plan_type: string
           status: string
           updated_at: string
         }
@@ -84,6 +85,7 @@ export type Database = {
           id?: string
           monthly_cost: number
           name: string
+          plan_type?: string
           status?: string
           updated_at?: string
         }
@@ -94,6 +96,7 @@ export type Database = {
           id?: string
           monthly_cost?: number
           name?: string
+          plan_type?: string
           status?: string
           updated_at?: string
         }
@@ -348,6 +351,142 @@ export type Database = {
           nome?: string
         }
         Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          business_id: string
+          created_at: string
+          due_date: string
+          id: string
+          invoice_url: string | null
+          payment_date: string | null
+          payment_method: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          business_id: string
+          created_at?: string
+          due_date: string
+          id?: string
+          invoice_url?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          business_id?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          invoice_url?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_change_history: {
+        Row: {
+          changed_by: string | null
+          changes: Json
+          created_at: string
+          id: string
+          plan_id: string
+          version_id: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          changes: Json
+          created_at?: string
+          id?: string
+          plan_id: string
+          version_id?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          changes?: Json
+          created_at?: string
+          id?: string
+          plan_id?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_change_history_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_change_history_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "plan_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_versions: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          description: string | null
+          id: string
+          monthly_cost: number
+          name: string
+          plan_id: string
+          rules: Json | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          monthly_cost: number
+          name: string
+          plan_id: string
+          rules?: Json | null
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          monthly_cost?: number
+          name?: string
+          plan_id?: string
+          rules?: Json | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_versions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_gym_roles: {
         Row: {
