@@ -59,7 +59,7 @@ export function PlansList() {
                 <TableCell>R$ {plan.monthly_cost.toFixed(2)}</TableCell>
                 <TableCell>
                   <Badge
-                    variant={plan.status === "active" ? "success" : "destructive"}
+                    variant={plan.status === "active" ? "default" : "destructive"}
                   >
                     {plan.status === "active" ? "Ativo" : "Inativo"}
                   </Badge>

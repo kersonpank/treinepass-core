@@ -43,6 +43,28 @@ export function PaymentsList() {
     },
   });
 
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "default" as const;
+      case "pending":
+        return "secondary" as const;
+      default:
+        return "destructive" as const;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "Pago";
+      case "pending":
+        return "Pendente";
+      default:
+        return "Atrasado";
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-md border">
@@ -65,20 +87,8 @@ export function PaymentsList() {
                 </TableCell>
                 <TableCell>R$ {payment.amount.toFixed(2)}</TableCell>
                 <TableCell>
-                  <Badge
-                    variant={
-                      payment.status === "paid"
-                        ? "success"
-                        : payment.status === "pending"
-                        ? "warning"
-                        : "destructive"
-                    }
-                  >
-                    {payment.status === "paid"
-                      ? "Pago"
-                      : payment.status === "pending"
-                      ? "Pendente"
-                      : "Atrasado"}
+                  <Badge variant={getStatusBadgeVariant(payment.status)}>
+                    {getStatusText(payment.status)}
                   </Badge>
                 </TableCell>
                 <TableCell>
