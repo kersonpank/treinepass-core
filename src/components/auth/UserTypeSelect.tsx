@@ -32,12 +32,17 @@ const userTypes: UserType[] = [
 
 interface UserTypeSelectProps {
   onSelect: (type: string) => void;
+  availableTypes?: string[];
 }
 
-export const UserTypeSelect = ({ onSelect }: UserTypeSelectProps) => {
+export const UserTypeSelect = ({ onSelect, availableTypes }: UserTypeSelectProps) => {
+  const filteredTypes = availableTypes 
+    ? userTypes.filter(type => availableTypes.includes(type.id))
+    : userTypes;
+
   return (
     <div className="grid gap-4">
-      {userTypes.map((type, index) => (
+      {filteredTypes.map((type, index) => (
         <motion.button
           key={type.id}
           initial={{ opacity: 0, y: 20 }}
@@ -57,4 +62,4 @@ export const UserTypeSelect = ({ onSelect }: UserTypeSelectProps) => {
       ))}
     </div>
   );
-};
+}

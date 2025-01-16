@@ -7,6 +7,7 @@ import CadastroEmpresa from "./pages/CadastroEmpresa";
 import DashboardEmpresa from "./pages/DashboardEmpresa";
 import AppMobile from "./pages/AppMobile";
 import AcademiaPanel from "./pages/AcademiaPanel";
+import SelecionarPerfil from "./pages/SelecionarPerfil";
 import { Toaster } from "./components/ui/toaster";
 
 // Create a client
@@ -24,6 +25,7 @@ function App() {
           <Route path="/dashboard-empresa" element={<DashboardEmpresa />} />
           <Route path="/app" element={<AppMobile />} />
           <Route path="/academia/:id" element={<AcademiaPanel />} />
+          <Route path="/selecionar-perfil" element={<SelecionarPerfil />} />
         </Routes>
         <Toaster />
       </Router>
