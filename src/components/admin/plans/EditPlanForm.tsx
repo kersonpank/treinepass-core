@@ -27,7 +27,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlanRulesConfig } from "./PlanRulesConfig";
 import { PlanPreview } from "./PlanPreview";
 
@@ -72,6 +71,15 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
 
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      monthly_cost: "",
+      plan_type: "corporate",
+      period_type: "monthly",
+      status: "active",
+      rules: {},
+    },
   });
 
   useEffect(() => {
@@ -83,7 +91,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         plan_type: plan.plan_type as "corporate" | "individual",
         period_type: plan.period_type as "monthly" | "quarterly" | "semiannual" | "annual",
         status: plan.status as "active" | "inactive",
-        rules: plan.rules || {},
+        rules: plan.rules as Record<string, any>,
       });
     }
   }, [plan, form]);
