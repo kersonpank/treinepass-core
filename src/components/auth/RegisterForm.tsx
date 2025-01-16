@@ -33,6 +33,14 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       .replace(/(-\d{2})\d+?$/, "$1");
   };
 
+  const formatDate = (value: string) => {
+    return value
+      .replace(/\D/g, "")
+      .replace(/(\d{2})(\d)/, "$1/$2")
+      .replace(/(\d{2})(\d)/, "$1/$2")
+      .replace(/(\d{4})\d+?$/, "$1");
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
@@ -110,16 +118,27 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
         <Label htmlFor="birth_date">Data de Nascimento</Label>
         <Input
           id="birth_date"
-          type="date"
+          placeholder="DD/MM/AAAA"
           {...register("birth_date", {
             required: "Data de nascimento é obrigatória",
             validate: (value) => {
-              const birthDate = new Date(value);
+              const [day, month, year] = value.split("/");
+              const birthDate = new Date(Number(year), Number(month) - 1, Number(day));
               const today = new Date();
               const age = today.getFullYear() - birthDate.getFullYear();
+              const monthDiff = today.getMonth() - birthDate.getMonth();
+              
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+              }
+              
               return age >= 18 || "Você deve ter pelo menos 18 anos";
             },
           })}
+          onChange={(e) => {
+            e.target.value = formatDate(e.target.value);
+          }}
+          maxLength={10}
         />
         {errors.birth_date && (
           <p className="text-sm text-red-500 mt-1">{errors.birth_date.message}</p>
@@ -133,6 +152,11 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       >
         {isSubmitting ? "Cadastrando..." : "Cadastrar"}
       </Button>
+
+      <p className="text-sm text-gray-500 text-center mt-4">
+        Após o cadastro, você receberá um e-mail de confirmação.
+        Por favor, verifique sua caixa de entrada.
+      </p>
     </form>
   );
 }
