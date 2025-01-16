@@ -32,15 +32,31 @@ export default function AcademiaPanel() {
           role,
           active,
           user_id,
-          user_profiles!inner (
-            full_name,
+          users:user_id (
             email
           )
         `)
         .eq("gym_id", id);
 
       if (error) throw error;
-      return data;
+
+      // Fetch user profiles for each staff member
+      const staffWithProfiles = await Promise.all(
+        data.map(async (staff) => {
+          const { data: profile } = await supabase
+            .from("user_profiles")
+            .select("full_name")
+            .eq("id", staff.user_id)
+            .single();
+
+          return {
+            ...staff,
+            user_profile: profile,
+          };
+        })
+      );
+
+      return staffWithProfiles;
     },
   });
 
@@ -118,10 +134,10 @@ export default function AcademiaPanel() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium">
-                              {member.user_profiles.full_name}
+                              {member.user_profile?.full_name || "Nome não disponível"}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {member.user_profiles.email}
+                              {member.users?.email || "Email não disponível"}
                             </p>
                           </div>
                           <div className="flex items-center gap-4">
