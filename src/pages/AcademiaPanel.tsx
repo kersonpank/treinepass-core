@@ -10,16 +10,18 @@ import { GymSettingsForm } from "@/components/gym/GymSettingsForm";
 import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
 import { StaffPanel } from "@/components/gym/panels/StaffPanel";
 
+interface UserProfile {
+  full_name: string | null;
+  email: string | null;
+}
+
 interface StaffMember {
   id: string;
   role: "gym_owner" | "gym_admin" | "gym_staff";
   active: boolean;
   user_id: string;
   user: {
-    user_profiles: Array<{
-      full_name: string | null;
-      email: string | null;
-    }>;
+    user_profiles: UserProfile[];
   } | null;
 }
 
@@ -68,8 +70,7 @@ export default function AcademiaPanel() {
         .eq("gym_id", id);
 
       if (error) throw error;
-
-      return data as StaffMember[];
+      return data as unknown as StaffMember[];
     },
     enabled: !!id,
   });
@@ -149,4 +150,3 @@ export default function AcademiaPanel() {
       </Tabs>
     </div>
   );
-}
