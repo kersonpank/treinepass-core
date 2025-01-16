@@ -15,14 +15,7 @@ interface GymSettingsFormProps {
   onSuccess: () => void;
 }
 
-type GymFormData = {
-  nome: string;
-  cnpj: string;
-  telefone: string;
-  email: string;
-  endereco: string;
-  horario_funcionamento: Tables<"academias">["horario_funcionamento"];
-};
+type GymFormData = Pick<Academia, "nome" | "cnpj" | "telefone" | "email" | "endereco" | "horario_funcionamento">;
 
 export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
   const { toast } = useToast();
