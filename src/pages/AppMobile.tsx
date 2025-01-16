@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, Building2 } from "lucide-react";
 import { Feed } from "@/components/mobile/Feed";
 import { GymSearch } from "@/components/mobile/GymSearch";
 import { ClassSchedule } from "@/components/mobile/ClassSchedule";
@@ -29,6 +29,21 @@ export default function AppMobile() {
     },
   });
 
+  const { data: userGym } = useQuery({
+    queryKey: ["userGym"],
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from("user_gym_roles")
+        .select("gym_id")
+        .eq("role", "gym_owner")
+        .eq("active", true)
+        .single();
+      
+      return roles;
+    },
+    enabled: isGymOwner,
+  });
+
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -42,9 +57,23 @@ export default function AppMobile() {
     navigate("/");
   };
 
+  const goToGymPanel = () => {
+    if (userGym?.gym_id) {
+      navigate(`/academia/${userGym.gym_id}`);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex gap-2">
+          {isGymOwner && (
+            <Button variant="outline" onClick={goToGymPanel}>
+              <Building2 className="mr-2 h-4 w-4" />
+              Painel da Academia
+            </Button>
+          )}
+        </div>
         <Button variant="outline" onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           Sair
