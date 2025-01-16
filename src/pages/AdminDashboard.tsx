@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle } from "lucide-react";
 import { RevenueOverview } from "@/components/admin/financial/RevenueOverview";
 import { PaymentsList } from "@/components/admin/financial/PaymentsList";
-import { PlansList } from "@/components/admin/plans/PlansList";
+import { PlansManagement } from "@/components/admin/plans/PlansManagement";
 
 export default function AdminDashboard() {
   return (
@@ -49,14 +49,7 @@ export default function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="plans">
-          <div className="space-y-8">
-            <div className="rounded-lg border bg-card">
-              <div className="p-6">
-                <h3 className="text-lg font-medium">Planos Disponíveis</h3>
-                <PlansList />
-              </div>
-            </div>
-          </div>
+          <PlansManagement />
         </TabsContent>
       </Tabs>
     </div>
