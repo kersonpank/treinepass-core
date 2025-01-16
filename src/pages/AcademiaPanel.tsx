@@ -7,6 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
+interface StaffMember {
+  id: string;
+  role: "gym_owner" | "gym_admin" | "gym_staff";
+  active: boolean;
+  user_id: string;
+  user_profiles?: {
+    full_name: string | null;
+    email: string | null;
+  } | null;
+}
+
 export default function AcademiaPanel() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -41,7 +52,7 @@ export default function AcademiaPanel() {
           role,
           active,
           user_id,
-          user_profiles (
+          user_profiles!user_id (
             full_name,
             email
           )
@@ -49,7 +60,7 @@ export default function AcademiaPanel() {
         .eq("gym_id", id);
 
       if (error) throw error;
-      return data;
+      return data as StaffMember[];
     },
     enabled: !!id,
   });
