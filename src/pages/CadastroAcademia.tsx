@@ -88,14 +88,15 @@ export default function CadastroAcademia() {
       }
 
       // Register the gym and assign the gym_owner role
-      await registerGym(data, userId);
+      const academia = await registerGym(data, userId);
 
       toast({
         title: "Academia cadastrada com sucesso!",
         description: "Seus dados foram salvos e estão em análise.",
       });
 
-      navigate("/app");
+      // Redirect to the gym's dashboard
+      navigate(`/academia/${academia.id}`);
     } catch (error: any) {
       console.error("Error during gym registration:", error);
       toast({

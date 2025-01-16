@@ -36,29 +36,20 @@ export default function AcademiaPanel() {
 
       const { data: roles, error: rolesError } = await supabase
         .from("user_gym_roles")
-        .select("id, role, active, user_id")
+        .select(`
+          id,
+          role,
+          active,
+          user_id,
+          user_profiles:user_id (
+            full_name,
+            email
+          )
+        `)
         .eq("gym_id", id);
 
       if (rolesError) throw rolesError;
-
-      if (!roles?.length) return [];
-
-      const staffWithProfiles = await Promise.all(
-        roles.map(async (role) => {
-          const { data: profile } = await supabase
-            .from("user_profiles")
-            .select("full_name, email")
-            .eq("id", role.user_id)
-            .single();
-
-          return {
-            ...role,
-            user_profile: profile,
-          };
-        })
-      );
-
-      return staffWithProfiles;
+      return roles;
     },
     enabled: !!id,
   });
@@ -156,10 +147,10 @@ export default function AcademiaPanel() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium">
-                              {member.user_profile?.full_name || "Nome não disponível"}
+                              {member.user_profiles?.full_name || "Nome não disponível"}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {member.user_profile?.email || "Email não disponível"}
+                              {member.user_profiles?.email || "Email não disponível"}
                             </p>
                           </div>
                           <div className="flex items-center gap-4">
