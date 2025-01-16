@@ -7,6 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, MapPin } from "lucide-react";
 
+interface Academia {
+  id: string;
+  nome: string;
+  endereco: string;
+  modalidades: string[];
+  latitude: number | null;
+  longitude: number | null;
+  distance?: number;
+}
+
 export function GymSearch() {
   const [search, setSearch] = useState("");
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -21,7 +31,6 @@ export function GymSearch() {
       }
 
       if (userLocation) {
-        // Ordenar por proximidade se tivermos a localização do usuário
         query = query.not("latitude", "is", null);
       }
 
@@ -29,8 +38,7 @@ export function GymSearch() {
       if (error) throw error;
 
       if (userLocation && data) {
-        // Calcular distância e ordenar resultados
-        return data
+        return (data as Academia[])
           .map(academia => ({
             ...academia,
             distance: academia.latitude && academia.longitude
@@ -42,10 +50,10 @@ export function GymSearch() {
                 )
               : Infinity,
           }))
-          .sort((a, b) => a.distance - b.distance);
+          .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
       }
 
-      return data;
+      return data as Academia[];
     },
   });
 
@@ -104,7 +112,7 @@ export function GymSearch() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">{academia.endereco}</p>
-                {academia.distance && (
+                {academia.distance !== undefined && (
                   <p className="text-sm text-primary mt-1">
                     {academia.distance.toFixed(1)} km de distância
                   </p>

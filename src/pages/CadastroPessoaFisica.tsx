@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { cpf } from "cpf-cnpj-validator";
 
@@ -25,7 +25,6 @@ export default function CadastroPessoaFisica() {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
   } = useForm<UserFormData>();
 
   const formatCPF = (value: string) => {
@@ -41,27 +40,37 @@ export default function CadastroPessoaFisica() {
     try {
       setIsSubmitting(true);
 
-      // Registrar usuário no Supabase Auth
+      // 1. Register user in Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
       });
 
       if (authError) throw authError;
+      if (!authData.user?.id) throw new Error("Erro ao criar usuário");
 
-      if (!authData.user?.id) {
-        throw new Error("Erro ao criar usuário");
-      }
-
-      // Criar perfil do usuário
-      const { error: profileError } = await supabase.from("user_profiles").insert({
-        id: authData.user.id,
-        full_name: data.full_name,
-        cpf: data.cpf.replace(/\D/g, ""),
-        birth_date: data.birth_date,
-      });
+      // 2. Create user profile with the same ID as auth user
+      const { error: profileError } = await supabase
+        .from("user_profiles")
+        .insert({
+          id: authData.user.id,
+          full_name: data.full_name,
+          cpf: data.cpf.replace(/\D/g, ""),
+          birth_date: data.birth_date,
+        });
 
       if (profileError) throw profileError;
+
+      // 3. Create user type entry
+      const { error: typeError } = await supabase
+        .from("user_types")
+        .insert({
+          user_id: authData.user.id,
+          type: "individual",
+          profile_id: authData.user.id,
+        });
+
+      if (typeError) throw typeError;
 
       toast({
         title: "Cadastro realizado com sucesso!",
