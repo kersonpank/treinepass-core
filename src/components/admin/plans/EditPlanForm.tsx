@@ -1,48 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanRulesConfig } from "./PlanRulesConfig";
 import { PlanPreview } from "./PlanPreview";
-
-const planFormSchema = z.object({
-  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  description: z.string().optional(),
-  monthly_cost: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Custo mensal deve ser um número maior que 0",
-  }),
-  plan_type: z.enum(["corporate", "individual"]),
-  period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
-  status: z.enum(["active", "inactive"]),
-  rules: z.record(z.any()).default({}),
-});
-
-type PlanFormValues = z.infer<typeof planFormSchema>;
+import { PlanDetailsForm } from "./forms/PlanDetailsForm";
+import { planFormSchema, type PlanFormValues } from "./types/plan";
 
 interface EditPlanFormProps {
   planId: string;
@@ -180,125 +149,8 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <TabsContent value="details" className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome do Plano</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descrição</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="monthly_cost"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Custo</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="period_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Periodicidade</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a periodicidade" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="monthly">Mensal</SelectItem>
-                        <SelectItem value="quarterly">Trimestral</SelectItem>
-                        <SelectItem value="semiannual">Semestral</SelectItem>
-                        <SelectItem value="annual">Anual</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="plan_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tipo do Plano</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo do plano" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="corporate">Corporativo</SelectItem>
-                      <SelectItem value="individual">Individual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">Status</FormLabel>
-                    <FormDescription>
-                      Ative ou desative a disponibilidade do plano
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value === "active"}
-                      onCheckedChange={(checked) =>
-                        field.onChange(checked ? "active" : "inactive")
-                      }
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+          <TabsContent value="details">
+            <PlanDetailsForm form={form} />
           </TabsContent>
 
           <TabsContent value="rules">
