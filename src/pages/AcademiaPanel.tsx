@@ -44,20 +44,13 @@ export default function AcademiaPanel() {
         roles.map(async (role) => {
           const { data: profile } = await supabase
             .from("user_profiles")
-            .select("full_name")
-            .eq("id", role.user_id)
-            .single();
-
-          const { data: user } = await supabase
-            .from("auth")
-            .select("email")
+            .select("full_name, email")
             .eq("id", role.user_id)
             .single();
 
           return {
             ...role,
             user_profile: profile,
-            user: user,
           };
         })
       );
@@ -144,7 +137,7 @@ export default function AcademiaPanel() {
                               {member.user_profile?.full_name || "Nome não disponível"}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {member.user?.email || "Email não disponível"}
+                              {member.user_profile?.email || "Email não disponível"}
                             </p>
                           </div>
                           <div className="flex items-center gap-4">
