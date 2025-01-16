@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -44,15 +43,24 @@ export default function CadastroEmpresa() {
         throw new Error("Erro ao criar usuário");
       }
 
-      // Criar perfil da empresa
+      // Criar perfil da empresa com todos os campos obrigatórios
       const { error: profileError } = await supabase.from("business_profiles").insert({
         user_id: authData.user.id,
         company_name: data.company_name,
-        cnpj: data.cnpj.replace(/\D/g, ""),
         trading_name: data.trading_name,
+        cnpj: data.cnpj.replace(/\D/g, ""),
         email: data.email,
         inscricao_estadual: data.inscricao_estadual,
-        status: "pending",
+        // Campos obrigatórios adicionados com valores padrão
+        // Estes serão atualizados nas próximas etapas do cadastro
+        address: "A ser preenchido",
+        phone: "A ser preenchido",
+        number_of_employees: 1,
+        contact_person: "A ser preenchido",
+        contact_position: "A ser preenchido",
+        contact_phone: "A ser preenchido",
+        contact_email: data.email, // Usando o mesmo email corporativo inicialmente
+        status: "pending"
       });
 
       if (profileError) throw profileError;
