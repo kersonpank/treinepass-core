@@ -1,61 +1,55 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Feed } from "@/components/mobile/Feed";
 import { GymSearch } from "@/components/mobile/GymSearch";
 import { ClassSchedule } from "@/components/mobile/ClassSchedule";
 import { DigitalCard } from "@/components/mobile/DigitalCard";
+import { GymManagement } from "@/components/dashboard/GymManagement";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 export default function AppMobile() {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("feed");
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/");
-      }
-    };
-    checkAuth();
-  }, [navigate]);
+  const { data: isGymOwner } = useQuery({
+    queryKey: ["isGymOwner"],
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from("user_gym_roles")
+        .select("role")
+        .eq("role", "gym_owner")
+        .eq("active", true);
+      
+      return roles && roles.length > 0;
+    },
+  });
 
   return (
-    <div className="min-h-screen bg-background">
-      <Tabs defaultValue="feed" className="w-full" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="fixed bottom-0 left-0 right-0 grid w-full grid-cols-4 bg-background border-t">
-          <TabsTrigger value="feed" className="data-[state=active]:bg-primary/10">
-            Feed
-          </TabsTrigger>
-          <TabsTrigger value="search" className="data-[state=active]:bg-primary/10">
-            Academias
-          </TabsTrigger>
-          <TabsTrigger value="schedule" className="data-[state=active]:bg-primary/10">
-            Aulas
-          </TabsTrigger>
-          <TabsTrigger value="card" className="data-[state=active]:bg-primary/10">
-            Carteirinha
-          </TabsTrigger>
+    <div className="container mx-auto px-4 py-8">
+      <Tabs defaultValue="feed" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="feed">Feed</TabsTrigger>
+          <TabsTrigger value="search">Buscar</TabsTrigger>
+          <TabsTrigger value="schedule">Agenda</TabsTrigger>
+          <TabsTrigger value="card">Cartão</TabsTrigger>
         </TabsList>
 
-        <div className="pb-16">
-          <TabsContent value="feed" className="m-0">
-            <Feed />
-          </TabsContent>
-          <TabsContent value="search" className="m-0">
-            <GymSearch />
-          </TabsContent>
-          <TabsContent value="schedule" className="m-0">
-            <ClassSchedule />
-          </TabsContent>
-          <TabsContent value="card" className="m-0">
-            <DigitalCard />
-          </TabsContent>
-        </div>
+        <TabsContent value="feed">
+          <Feed />
+        </TabsContent>
+
+        <TabsContent value="search">
+          <GymSearch />
+        </TabsContent>
+
+        <TabsContent value="schedule">
+          <ClassSchedule />
+        </TabsContent>
+
+        <TabsContent value="card">
+          <DigitalCard />
+        </TabsContent>
       </Tabs>
+
+      {isGymOwner && <GymManagement />}
     </div>
   );
 }

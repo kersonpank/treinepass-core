@@ -321,7 +321,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
-          nome?: string
+          nome: string
         }
         Relationships: []
       }
@@ -375,6 +375,51 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_gym_roles: {
+        Row: {
+          id: string
+          user_id: string
+          gym_id: string
+          role: 'gym_owner' | 'gym_admin' | 'gym_staff'
+          active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          gym_id: string
+          role: 'gym_owner' | 'gym_admin' | 'gym_staff'
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          gym_id?: string
+          role?: 'gym_owner' | 'gym_admin' | 'gym_staff'
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_gym_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_gym_roles_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {

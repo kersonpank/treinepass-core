@@ -103,32 +103,62 @@ export default function CadastroAcademia() {
     try {
       setIsSubmitting(true);
 
+      // Get current user session
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+
+      if (!userId) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para cadastrar uma academia.",
+          variant: "destructive",
+        });
+        navigate("/login");
+        return;
+      }
+
       const fotosUrls = await uploadFiles(data.fotos, "fotos");
       const documentosUrls = await uploadFiles(data.documentos, "documentos");
 
-      const { error } = await supabase.from("academias").insert({
-        nome: data.nome,
-        cnpj: data.cnpj,
-        telefone: data.telefone,
-        email: data.email,
-        endereco: data.endereco,
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
-        horario_funcionamento: data.horario_funcionamento,
-        modalidades: data.modalidades,
-        fotos: fotosUrls,
-        documentos: documentosUrls,
-        user_id: (await supabase.auth.getUser()).data.user?.id,
-      });
+      // Insert academia
+      const { data: academia, error: academiaError } = await supabase
+        .from("academias")
+        .insert({
+          nome: data.nome,
+          cnpj: data.cnpj,
+          telefone: data.telefone,
+          email: data.email,
+          endereco: data.endereco,
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          horario_funcionamento: data.horario_funcionamento,
+          modalidades: data.modalidades,
+          fotos: fotosUrls,
+          documentos: documentosUrls,
+          user_id: userId,
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (academiaError) throw academiaError;
+
+      // Assign gym owner role
+      const { error: roleError } = await supabase
+        .from("user_gym_roles")
+        .insert({
+          user_id: userId,
+          gym_id: academia.id,
+          role: "gym_owner",
+        });
+
+      if (roleError) throw roleError;
 
       toast({
         title: "Academia cadastrada com sucesso!",
         description: "Seus dados foram salvos e estão em análise.",
       });
 
-      navigate("/");
+      navigate("/app");
     } catch (error) {
       console.error(error);
       toast({
