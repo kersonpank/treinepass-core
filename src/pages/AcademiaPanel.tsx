@@ -6,11 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function AcademiaPanel() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
 
   const { data: academia, isLoading: loadingAcademia } = useQuery({
     queryKey: ["academia", id],
     queryFn: async () => {
+      if (!id) throw new Error("ID da academia não fornecido");
+
       const { data, error } = await supabase
         .from("academias")
         .select("*")
@@ -20,11 +22,14 @@ export default function AcademiaPanel() {
       if (error) throw error;
       return data;
     },
+    enabled: !!id,
   });
 
   const { data: staffMembers, isLoading: loadingStaff } = useQuery({
     queryKey: ["academia-staff", id],
     queryFn: async () => {
+      if (!id) throw new Error("ID da academia não fornecido");
+
       const { data: roles, error: rolesError } = await supabase
         .from("user_gym_roles")
         .select("id, role, active, user_id")
@@ -55,6 +60,7 @@ export default function AcademiaPanel() {
 
       return staffWithProfiles;
     },
+    enabled: !!id,
   });
 
   if (loadingAcademia || loadingStaff) {
