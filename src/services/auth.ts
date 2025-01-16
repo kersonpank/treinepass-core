@@ -35,6 +35,10 @@ export async function registerUser(data: RegisterData) {
 
   console.log("Auth user created successfully", { userId: authData.user.id });
 
+  // Convert date from DD/MM/YYYY to YYYY-MM-DD
+  const [day, month, year] = data.birth_date.split('/');
+  const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
   // 2. Create user profile with the same ID as auth user
   console.log("Step 2: Creating user profile...", {
     userId: authData.user.id,
@@ -47,7 +51,7 @@ export async function registerUser(data: RegisterData) {
       id: authData.user.id,
       full_name: data.full_name,
       cpf: data.cpf.replace(/\D/g, ""),
-      birth_date: data.birth_date,
+      birth_date: formattedDate,
     });
 
   if (profileError) {
