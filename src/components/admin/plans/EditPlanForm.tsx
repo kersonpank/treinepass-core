@@ -62,9 +62,10 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         .from("benefit_plans")
         .select("*")
         .eq("id", planId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error("Plano não encontrado");
       return data;
     },
   });

@@ -66,13 +66,15 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
   const onSubmit = async (data: PlanFormValues) => {
     setIsSubmitting(true);
     try {
-      // Primeiro, buscar o business_id do usuário logado
       const { data: businessProfile, error: businessError } = await supabase
         .from("business_profiles")
         .select("id")
-        .single();
+        .maybeSingle();
 
       if (businessError) throw businessError;
+      if (!businessProfile) {
+        throw new Error("Perfil da empresa não encontrado");
+      }
 
       const { error } = await supabase.from("benefit_plans").insert({
         name: data.name,
@@ -239,4 +241,4 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
       </form>
     </Form>
   );
-}
+});
