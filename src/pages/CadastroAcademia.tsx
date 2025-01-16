@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { GymRegistrationForm } from "@/components/gym/GymRegistrationForm";
@@ -10,7 +10,6 @@ export default function CadastroAcademia() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Fetch modalidades
   const { data: modalidades } = useQuery({
@@ -22,99 +21,72 @@ export default function CadastroAcademia() {
     },
   });
 
-  // Check for logged-in user
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-
-        setCurrentUser({ ...session.user, hasProfile: !!profile });
-      } else {
-        setCurrentUser(null);
-      }
-    };
-    
-    checkUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-
-        setCurrentUser({ ...session.user, hasProfile: !!profile });
-      } else {
-        setCurrentUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const onSubmit = async (data: any) => {
     try {
       setIsSubmitting(true);
-      let userId = currentUser?.id;
+      
+      // Primeiro tenta fazer login
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
 
-      // If user is not logged in or doesn't have a profile
-      if (!userId || !currentUser?.hasProfile) {
-        // Try to sign in first
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      let userId;
+
+      // Se o login falhar por credenciais inválidas, cria um novo usuário
+      if (signInError && signInError.message.includes("Invalid login credentials")) {
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: data.email,
-          password: data.password || crypto.randomUUID(), // Use provided password or generate one
-        });
-
-        // If sign in fails (user doesn't exist), create new account
-        if (signInError && signInError.message.includes("Invalid login credentials")) {
-          const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: data.email,
-            password: crypto.randomUUID(),
-            options: {
-              emailRedirectTo: `${window.location.origin}/reset-password`,
+          password: data.password,
+          options: {
+            data: {
+              full_name: data.full_name,
             },
-          });
-
-          if (authError) throw authError;
-          userId = authData.user?.id;
-        } else if (signInError) {
-          throw signInError;
-        } else {
-          userId = signInData.user?.id;
-        }
-
-        if (!userId) {
-          throw new Error("Erro ao processar usuário");
-        }
-
-        toast({
-          title: "Conta processada com sucesso!",
-          description: "Verifique seu email para definir sua senha.",
+          },
         });
+
+        if (signUpError) throw signUpError;
+        userId = authData.user?.id;
+
+        // Criar perfil do usuário
+        if (userId) {
+          const { error: profileError } = await supabase
+            .from("user_profiles")
+            .insert({
+              id: userId,
+              full_name: data.full_name,
+              cpf: "", // Como é academia, CPF não é obrigatório
+              birth_date: new Date().toISOString(), // Data atual como placeholder
+            });
+
+          if (profileError) throw profileError;
+        }
+      } else if (signInError) {
+        throw signInError;
+      } else {
+        userId = signInData.user?.id;
       }
 
-      // Register the gym and assign the gym_owner role
+      if (!userId) {
+        throw new Error("Erro ao processar usuário");
+      }
+
+      // Registra a academia
       const academia = await registerGym(data, userId);
 
       toast({
         title: "Academia cadastrada com sucesso!",
-        description: "Seus dados foram salvos e estão em análise.",
+        description: "Seus dados foram salvos e você será redirecionado para o painel.",
       });
 
-      // Redirect to the gym's dashboard
+      // Redireciona para o painel da academia
       navigate(`/academia/${academia.id}`);
     } catch (error: any) {
       console.error("Error during gym registration:", error);
       toast({
+        variant: "destructive",
         title: "Erro ao cadastrar academia",
         description: error.message || "Ocorreu um erro ao salvar os dados. Tente novamente.",
-        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);

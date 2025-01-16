@@ -6,10 +6,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { cnpj } from "cpf-cnpj-validator";
 
 interface GymFormData {
+  // Dados do usuário
+  email: string;
+  password: string;
+  full_name: string;
+
+  // Dados da academia
   nome: string;
   cnpj: string;
   telefone: string;
-  email: string;
   endereco: string;
   horario_funcionamento: {
     [key: string]: { abertura: string; fechamento: string };
@@ -44,8 +49,68 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Basic Information */}
+      {/* Dados do Usuário */}
       <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Dados do Responsável</h3>
+        
+        <div>
+          <Label htmlFor="full_name">Nome Completo</Label>
+          <Input
+            id="full_name"
+            {...register("full_name", { 
+              required: "Nome é obrigatório",
+              minLength: {
+                value: 3,
+                message: "Nome deve ter pelo menos 3 caracteres"
+              }
+            })}
+          />
+          {errors.full_name && (
+            <p className="text-sm text-red-500">{errors.full_name.message}</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="email">E-mail</Label>
+          <Input
+            id="email"
+            type="email"
+            {...register("email", {
+              required: "E-mail é obrigatório",
+              pattern: {
+                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                message: "E-mail inválido",
+              },
+            })}
+          />
+          {errors.email && (
+            <p className="text-sm text-red-500">{errors.email.message}</p>
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="password">Senha</Label>
+          <Input
+            id="password"
+            type="password"
+            {...register("password", {
+              required: "Senha é obrigatória",
+              minLength: {
+                value: 6,
+                message: "Senha deve ter pelo menos 6 caracteres"
+              }
+            })}
+          />
+          {errors.password && (
+            <p className="text-sm text-red-500">{errors.password.message}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Dados da Academia */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Dados da Academia</h3>
+        
         <div>
           <Label htmlFor="nome">Nome da Academia</Label>
           <Input
@@ -79,24 +144,6 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
           />
           {errors.telefone && (
             <p className="text-sm text-red-500">{errors.telefone.message}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="email">E-mail</Label>
-          <Input
-            id="email"
-            type="email"
-            {...register("email", {
-              required: "E-mail é obrigatório",
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: "E-mail inválido",
-              },
-            })}
-          />
-          {errors.email && (
-            <p className="text-sm text-red-500">{errors.email.message}</p>
           )}
         </div>
 
