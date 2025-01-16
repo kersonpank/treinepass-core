@@ -11,9 +11,17 @@ import {
 } from "@/components/ui/dialog";
 import { PlansList } from "./PlansList";
 import { CreatePlanForm } from "./CreatePlanForm";
+import { EditPlanForm } from "./EditPlanForm";
 
 export function PlansManagement() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+
+  const handleEditPlan = (planId: string) => {
+    setSelectedPlanId(planId);
+    setIsEditDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -25,7 +33,7 @@ export function PlansManagement() {
           </p>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -39,12 +47,29 @@ export function PlansManagement() {
                 Preencha as informações abaixo para criar um novo plano no sistema.
               </DialogDescription>
             </DialogHeader>
-            <CreatePlanForm />
+            <CreatePlanForm onSuccess={() => setIsCreateDialogOpen(false)} />
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Editar Plano</DialogTitle>
+              <DialogDescription>
+                Atualize as informações do plano selecionado.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedPlanId && (
+              <EditPlanForm 
+                planId={selectedPlanId} 
+                onSuccess={() => setIsEditDialogOpen(false)} 
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>
 
-      <PlansList />
+      <PlansList onEditPlan={handleEditPlan} />
     </div>
   );
 }

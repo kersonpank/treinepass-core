@@ -74,7 +74,9 @@ export type Database = {
           id: string
           monthly_cost: number
           name: string
+          period_type: string
           plan_type: string
+          rules: Json
           status: string
           updated_at: string
         }
@@ -85,7 +87,9 @@ export type Database = {
           id?: string
           monthly_cost: number
           name: string
+          period_type?: string
           plan_type?: string
+          rules?: Json
           status?: string
           updated_at?: string
         }
@@ -96,7 +100,9 @@ export type Database = {
           id?: string
           monthly_cost?: number
           name?: string
+          period_type?: string
           plan_type?: string
+          rules?: Json
           status?: string
           updated_at?: string
         }
@@ -440,6 +446,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plan_rules: {
+        Row: {
+          created_at: string
+          default_value: Json
+          description: string | null
+          id: string
+          name: string
+          rule_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_value?: Json
+          description?: string | null
+          id?: string
+          name: string
+          rule_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_value?: Json
+          description?: string | null
+          id?: string
+          name?: string
+          rule_type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       plan_versions: {
         Row: {
