@@ -88,22 +88,18 @@ export const LoginForm = () => {
       let email = data.credential;
       
       if (credentialType === 'cpf') {
-        const { data: profile } = await supabase
+        const { data: userProfile } = await supabase
           .from('user_profiles')
           .select('id')
           .eq('cpf', data.credential.replace(/\D/g, ''))
           .single();
           
-        if (!profile) throw new Error('CPF não encontrado');
+        if (!userProfile) throw new Error('CPF não encontrado');
         
-        const { data: authUser } = await supabase
-          .from('auth.users')
-          .select('email')
-          .eq('id', profile.id)
-          .single();
-          
-        if (!authUser) throw new Error('Usuário não encontrado');
-        email = authUser.email;
+        // Get user email from auth metadata using admin functions
+        const { data: userData } = await supabase.auth.admin.getUserById(userProfile.id);
+        if (!userData?.user) throw new Error('Usuário não encontrado');
+        email = userData.user.email;
       }
       
       if (credentialType === 'cnpj') {
@@ -115,14 +111,10 @@ export const LoginForm = () => {
           
         if (!business) throw new Error('CNPJ não encontrado');
         
-        const { data: authUser } = await supabase
-          .from('auth.users')
-          .select('email')
-          .eq('id', business.user_id)
-          .single();
-          
-        if (!authUser) throw new Error('Usuário não encontrado');
-        email = authUser.email;
+        // Get user email from auth metadata using admin functions
+        const { data: userData } = await supabase.auth.admin.getUserById(business.user_id);
+        if (!userData?.user) throw new Error('Usuário não encontrado');
+        email = userData.user.email;
       }
 
       const { data: authData, error } = await supabase.auth.signInWithPassword({

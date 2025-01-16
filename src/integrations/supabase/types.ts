@@ -321,9 +321,47 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
-          nome: string
+          nome?: string
         }
         Relationships: []
+      }
+      user_gym_roles: {
+        Row: {
+          active: boolean
+          created_at: string
+          gym_id: string
+          id: string
+          role: Database["public"]["Enums"]["gym_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          gym_id: string
+          id?: string
+          role: Database["public"]["Enums"]["gym_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          gym_id?: string
+          id?: string
+          role?: Database["public"]["Enums"]["gym_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_gym_roles_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_profiles: {
         Row: {
@@ -376,51 +414,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_gym_roles: {
-        Row: {
-          id: string
-          user_id: string
-          gym_id: string
-          role: 'gym_owner' | 'gym_admin' | 'gym_staff'
-          active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          gym_id: string
-          role: 'gym_owner' | 'gym_admin' | 'gym_staff'
-          active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          gym_id?: string
-          role?: 'gym_owner' | 'gym_admin' | 'gym_staff'
-          active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_gym_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_gym_roles_gym_id_fkey"
-            columns: ["gym_id"]
-            isOneToOne: false
-            referencedRelation: "academias"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
     }
     Views: {
       [_ in never]: never
@@ -429,7 +422,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      gym_role: "gym_owner" | "gym_admin" | "gym_staff"
     }
     CompositeTypes: {
       [_ in never]: never
