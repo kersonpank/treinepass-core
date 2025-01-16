@@ -159,12 +159,20 @@ export type Database = {
           contact_phone: string
           contact_position: string
           created_at: string
+          data_termos_aceitos: string | null
+          documentos: Json | null
           email: string
           id: string
           industry: string | null
+          inscricao_estadual: string | null
           number_of_employees: number
           phone: string
+          plano_modalidade: string | null
+          plano_pagamento_dia: number | null
+          plano_tipo: string | null
           status: string
+          telefone_secundario: string | null
+          termos_aceitos: boolean | null
           trading_name: string | null
           updated_at: string
           user_id: string
@@ -178,12 +186,20 @@ export type Database = {
           contact_phone: string
           contact_position: string
           created_at?: string
+          data_termos_aceitos?: string | null
+          documentos?: Json | null
           email: string
           id?: string
           industry?: string | null
+          inscricao_estadual?: string | null
           number_of_employees: number
           phone: string
+          plano_modalidade?: string | null
+          plano_pagamento_dia?: number | null
+          plano_tipo?: string | null
           status?: string
+          telefone_secundario?: string | null
+          termos_aceitos?: boolean | null
           trading_name?: string | null
           updated_at?: string
           user_id: string
@@ -197,12 +213,20 @@ export type Database = {
           contact_phone?: string
           contact_position?: string
           created_at?: string
+          data_termos_aceitos?: string | null
+          documentos?: Json | null
           email?: string
           id?: string
           industry?: string | null
+          inscricao_estadual?: string | null
           number_of_employees?: number
           phone?: string
+          plano_modalidade?: string | null
+          plano_pagamento_dia?: number | null
+          plano_tipo?: string | null
           status?: string
+          telefone_secundario?: string | null
+          termos_aceitos?: boolean | null
           trading_name?: string | null
           updated_at?: string
           user_id?: string
