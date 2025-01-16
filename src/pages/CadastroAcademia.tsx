@@ -27,7 +27,6 @@ export default function CadastroAcademia() {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        // Check if user already has a profile
         const { data: profile } = await supabase
           .from("user_profiles")
           .select("*")
@@ -64,25 +63,38 @@ export default function CadastroAcademia() {
       setIsSubmitting(true);
       let userId = currentUser?.id;
 
-      // If user is not logged in or doesn't have a profile, create a new account
+      // If user is not logged in or doesn't have a profile
       if (!userId || !currentUser?.hasProfile) {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // Try to sign in first
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: data.email,
-          password: crypto.randomUUID(), // Generate a random password
-          options: {
-            emailRedirectTo: `${window.location.origin}/reset-password`,
-          },
+          password: data.password || crypto.randomUUID(), // Use provided password or generate one
         });
 
-        if (authError) throw authError;
-        userId = authData.user?.id;
+        // If sign in fails (user doesn't exist), create new account
+        if (signInError && signInError.message.includes("Invalid login credentials")) {
+          const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: data.email,
+            password: crypto.randomUUID(),
+            options: {
+              emailRedirectTo: `${window.location.origin}/reset-password`,
+            },
+          });
+
+          if (authError) throw authError;
+          userId = authData.user?.id;
+        } else if (signInError) {
+          throw signInError;
+        } else {
+          userId = signInData.user?.id;
+        }
 
         if (!userId) {
-          throw new Error("Erro ao criar usuário");
+          throw new Error("Erro ao processar usuário");
         }
 
         toast({
-          title: "Conta criada com sucesso!",
+          title: "Conta processada com sucesso!",
           description: "Verifique seu email para definir sua senha.",
         });
       }

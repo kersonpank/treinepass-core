@@ -34,22 +34,22 @@ export default function AcademiaPanel() {
     queryFn: async () => {
       if (!id) throw new Error("ID da academia não fornecido");
 
-      const { data: roles, error: rolesError } = await supabase
+      const { data, error } = await supabase
         .from("user_gym_roles")
         .select(`
           id,
           role,
           active,
           user_id,
-          user_profiles:user_id (
+          user_profiles (
             full_name,
             email
           )
         `)
         .eq("gym_id", id);
 
-      if (rolesError) throw rolesError;
-      return roles;
+      if (error) throw error;
+      return data;
     },
     enabled: !!id,
   });
