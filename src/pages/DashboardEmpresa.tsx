@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { LogOut } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -9,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
@@ -45,6 +47,19 @@ export default function DashboardEmpresa() {
     },
   });
 
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao sair",
+        description: "Não foi possível fazer logout. Tente novamente.",
+      });
+      return;
+    }
+    navigate("/");
+  };
+
   // Redirect if not authenticated or no business profile
   useEffect(() => {
     const checkAuth = async () => {
@@ -66,6 +81,10 @@ export default function DashboardEmpresa() {
         <h2 className="text-3xl font-bold tracking-tight">
           Bem-vindo, {profile?.company_name}
         </h2>
+        <Button variant="outline" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sair
+        </Button>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">

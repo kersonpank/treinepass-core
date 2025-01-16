@@ -1,12 +1,16 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function AcademiaPanel() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const { data: academia, isLoading: loadingAcademia } = useQuery({
     queryKey: ["academia", id],
@@ -39,7 +43,6 @@ export default function AcademiaPanel() {
 
       if (!roles?.length) return [];
 
-      // Fetch user profiles for each staff member
       const staffWithProfiles = await Promise.all(
         roles.map(async (role) => {
           const { data: profile } = await supabase
@@ -60,6 +63,19 @@ export default function AcademiaPanel() {
     enabled: !!id,
   });
 
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao sair",
+        description: "Não foi possível fazer logout. Tente novamente.",
+      });
+      return;
+    }
+    navigate("/");
+  };
+
   if (loadingAcademia || loadingStaff) {
     return <div>Carregando...</div>;
   }
@@ -70,9 +86,15 @@ export default function AcademiaPanel() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">{academia.nome}</h1>
-        <p className="text-gray-500">{academia.endereco}</p>
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">{academia.nome}</h1>
+          <p className="text-gray-500">{academia.endereco}</p>
+        </div>
+        <Button variant="outline" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sair
+        </Button>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
