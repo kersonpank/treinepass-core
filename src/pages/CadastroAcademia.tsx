@@ -11,7 +11,6 @@ export default function CadastroAcademia() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch modalidades
   const { data: modalidades } = useQuery({
     queryKey: ["modalidades"],
     queryFn: async () => {
@@ -25,50 +24,53 @@ export default function CadastroAcademia() {
     try {
       setIsSubmitting(true);
       
-      // Primeiro tenta fazer login
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      // Primeiro tenta criar um novo usuário
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
+        options: {
+          data: {
+            full_name: data.full_name,
+          },
+        },
       });
 
-      let userId;
-
-      // Se o login falhar por credenciais inválidas, cria um novo usuário
-      if (signInError && signInError.message.includes("Invalid login credentials")) {
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      // Se o usuário já existe, tenta fazer login
+      if (signUpError?.message.includes("User already registered")) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
-          options: {
-            data: {
-              full_name: data.full_name,
-            },
-          },
         });
 
-        if (signUpError) throw signUpError;
-        userId = authData.user?.id;
-
-        // Criar perfil do usuário
-        if (userId) {
-          const { error: profileError } = await supabase
-            .from("user_profiles")
-            .insert({
-              id: userId,
-              full_name: data.full_name,
-              cpf: "", // Como é academia, CPF não é obrigatório
-              birth_date: new Date().toISOString(), // Data atual como placeholder
-            });
-
-          if (profileError) throw profileError;
-        }
-      } else if (signInError) {
-        throw signInError;
-      } else {
-        userId = signInData.user?.id;
+        if (signInError) throw signInError;
+        authData = signInData;
+      } else if (signUpError) {
+        throw signUpError;
       }
 
+      const userId = authData?.user?.id;
       if (!userId) {
         throw new Error("Erro ao processar usuário");
+      }
+
+      // Criar perfil do usuário se necessário
+      const { data: existingProfile } = await supabase
+        .from("user_profiles")
+        .select()
+        .eq("id", userId)
+        .single();
+
+      if (!existingProfile) {
+        const { error: profileError } = await supabase
+          .from("user_profiles")
+          .insert({
+            id: userId,
+            full_name: data.full_name,
+            cpf: "", // Como é academia, CPF não é obrigatório
+            birth_date: new Date().toISOString(), // Data atual como placeholder
+          });
+
+        if (profileError) throw profileError;
       }
 
       // Registra a academia

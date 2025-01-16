@@ -45,15 +45,24 @@ export default function AcademiaPanel() {
           role,
           active,
           user_id,
-          user_profiles:user_id (
-            full_name,
-            email
+          user:user_id (
+            user_profiles:user_profiles (
+              full_name,
+              email
+            )
           )
         `)
         .eq("gym_id", id);
 
       if (error) throw error;
-      return data;
+
+      return data.map((staff) => ({
+        id: staff.id,
+        role: staff.role,
+        active: staff.active,
+        user_id: staff.user_id,
+        user_profiles: staff.user?.user_profiles?.[0] || { full_name: "", email: "" }
+      }));
     },
     enabled: !!id,
   });

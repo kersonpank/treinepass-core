@@ -21,7 +21,7 @@ type GymFormData = {
   telefone: string;
   email: string;
   endereco: string;
-  horario_funcionamento: Record<string, unknown>;
+  horario_funcionamento: Tables<"academias">["horario_funcionamento"];
 };
 
 export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
