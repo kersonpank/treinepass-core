@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -31,15 +32,26 @@ export default function CadastroEmpresa() {
     try {
       setIsSubmitting(true);
 
-      // Registrar usuário no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Primeiro tenta criar um novo usuário
+      let { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
       });
 
-      if (authError) throw authError;
+      // Se o usuário já existe, tenta fazer login
+      if (signUpError?.message.includes("User already registered")) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
 
-      if (!authData.user?.id) {
+        if (signInError) throw signInError;
+        authData = signInData;
+      } else if (signUpError) {
+        throw signUpError;
+      }
+
+      if (!authData?.user?.id) {
         throw new Error("Erro ao criar usuário");
       }
 
@@ -75,9 +87,9 @@ export default function CadastroEmpresa() {
     } catch (error: any) {
       console.error(error);
       toast({
+        variant: "destructive",
         title: "Erro ao realizar cadastro",
         description: error.message || "Ocorreu um erro ao salvar os dados. Tente novamente.",
-        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
