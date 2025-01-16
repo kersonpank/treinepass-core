@@ -15,13 +15,22 @@ interface GymSettingsFormProps {
   onSuccess: () => void;
 }
 
+type GymFormData = {
+  nome: string;
+  cnpj: string;
+  telefone: string;
+  email: string;
+  endereco: string;
+  horario_funcionamento: Record<string, unknown>;
+};
+
 export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
   const { toast } = useToast();
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm({
+  } = useForm<GymFormData>({
     defaultValues: {
       nome: academia.nome,
       cnpj: academia.cnpj,
@@ -32,7 +41,7 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
     },
   });
 
-  const onSubmit = async (data: Partial<Academia>) => {
+  const onSubmit = async (data: GymFormData) => {
     try {
       const { error } = await supabase
         .from("academias")
