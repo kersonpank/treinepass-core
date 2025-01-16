@@ -48,12 +48,16 @@ export default function AcademiaPanel() {
             .eq("id", role.user_id)
             .single();
 
-          const { data: user } = await supabase.auth.admin.getUserById(role.user_id);
+          const { data: user } = await supabase
+            .from("auth")
+            .select("email")
+            .eq("id", role.user_id)
+            .single();
 
           return {
             ...role,
             user_profile: profile,
-            user: user?.user,
+            user: user,
           };
         })
       );
