@@ -7,8 +7,9 @@ interface PlanPreviewProps {
     name: string;
     description?: string;
     monthly_cost: string;
-    plan_type: string;
-    period_type: string;
+    plan_type: "corporate" | "individual";
+    period_type: "monthly" | "quarterly" | "semiannual" | "annual";
+    status: "active" | "inactive";
     rules: Record<string, any>;
   };
 }

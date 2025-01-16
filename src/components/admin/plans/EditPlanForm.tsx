@@ -79,9 +79,9 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         name: plan.name,
         description: plan.description || "",
         monthly_cost: String(plan.monthly_cost),
-        plan_type: plan.plan_type,
-        period_type: plan.period_type,
-        status: plan.status,
+        plan_type: plan.plan_type as "corporate" | "individual",
+        period_type: plan.period_type as "monthly" | "quarterly" | "semiannual" | "annual",
+        status: plan.status as "active" | "inactive",
         rules: plan.rules || {},
       });
     }

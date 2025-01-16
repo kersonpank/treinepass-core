@@ -34,6 +34,7 @@ const planFormSchema = z.object({
     message: "Custo mensal deve ser um número maior que 0",
   }),
   plan_type: z.enum(["corporate", "individual"]),
+  period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
   status: z.enum(["active", "inactive"]),
 });
 
@@ -44,10 +45,15 @@ const defaultValues: Partial<PlanFormValues> = {
   description: "",
   monthly_cost: "",
   plan_type: "corporate",
+  period_type: "monthly",
   status: "active",
 };
 
-export function CreatePlanForm() {
+interface CreatePlanFormProps {
+  onSuccess?: () => void;
+}
+
+export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -60,12 +66,23 @@ export function CreatePlanForm() {
   const onSubmit = async (data: PlanFormValues) => {
     setIsSubmitting(true);
     try {
+      // Primeiro, buscar o business_id do usuário logado
+      const { data: businessProfile, error: businessError } = await supabase
+        .from("business_profiles")
+        .select("id")
+        .single();
+
+      if (businessError) throw businessError;
+
       const { error } = await supabase.from("benefit_plans").insert({
         name: data.name,
         description: data.description,
         monthly_cost: Number(data.monthly_cost),
         plan_type: data.plan_type,
+        period_type: data.period_type,
         status: data.status,
+        business_id: businessProfile.id,
+        rules: {},
       });
 
       if (error) throw error;
@@ -77,6 +94,7 @@ export function CreatePlanForm() {
 
       queryClient.invalidateQueries({ queryKey: ["plans"] });
       form.reset(defaultValues);
+      onSuccess?.();
     } catch (error) {
       console.error("Error creating plan:", error);
       toast({
@@ -143,27 +161,53 @@ export function CreatePlanForm() {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="plan_type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Tipo do Plano</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo do plano" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="corporate">Corporativo</SelectItem>
-                  <SelectItem value="individual">Individual</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="plan_type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tipo do Plano</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo do plano" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="corporate">Corporativo</SelectItem>
+                    <SelectItem value="individual">Individual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="period_type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Periodicidade</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a periodicidade" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                    <SelectItem value="quarterly">Trimestral</SelectItem>
+                    <SelectItem value="semiannual">Semestral</SelectItem>
+                    <SelectItem value="annual">Anual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}
