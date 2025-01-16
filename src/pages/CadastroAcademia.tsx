@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { cnpj } from "cpf-cnpj-validator";
 import { useNavigate } from "react-router-dom";
@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 
 interface AcademiaFormData {
   nome: string;
@@ -38,6 +37,7 @@ export default function CadastroAcademia() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [coordinates, setCoordinates] = useState<{
     latitude: number | null;
     longitude: number | null;
@@ -47,17 +47,23 @@ export default function CadastroAcademia() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
   } = useForm<AcademiaFormData>();
 
-  const { data: modalidades } = useQuery({
-    queryKey: ["modalidades"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("modalidades").select("*");
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Check for logged-in user
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setCurrentUser(session?.user || null);
+    };
+    
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleGeolocation = async (endereco: string) => {
     try {
@@ -102,19 +108,29 @@ export default function CadastroAcademia() {
   const onSubmit = async (data: AcademiaFormData) => {
     try {
       setIsSubmitting(true);
+      let userId = currentUser?.id;
 
-      // Get current user session
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session?.session?.user?.id;
-
+      // If user is not logged in, create a new account
       if (!userId) {
-        toast({
-          title: "Erro",
-          description: "Você precisa estar logado para cadastrar uma academia.",
-          variant: "destructive",
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: data.email,
+          password: crypto.randomUUID(), // Generate a random password
+          options: {
+            emailRedirectTo: `${window.location.origin}/reset-password`,
+          },
         });
-        navigate("/login");
-        return;
+
+        if (authError) throw authError;
+        userId = authData.user?.id;
+
+        if (!userId) {
+          throw new Error("Erro ao criar usuário");
+        }
+
+        toast({
+          title: "Conta criada com sucesso!",
+          description: "Verifique seu email para definir sua senha.",
+        });
       }
 
       const fotosUrls = await uploadFiles(data.fotos, "fotos");
