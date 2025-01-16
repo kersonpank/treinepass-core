@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { LogOut, Smartphone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,22 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { GymSettingsForm } from "@/components/gym/GymSettingsForm";
-
-interface StaffMember {
-  id: string;
-  role: "gym_owner" | "gym_admin" | "gym_staff";
-  active: boolean;
-  user_id: string;
-  user_profiles?: {
-    full_name: string | null;
-    email: string | null;
-  } | null;
-}
+import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
+import { StaffPanel } from "@/components/gym/panels/StaffPanel";
 
 export default function AcademiaPanel() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: academia, isLoading: loadingAcademia } = useQuery({
     queryKey: ["academia", id],
@@ -61,7 +53,7 @@ export default function AcademiaPanel() {
         .eq("gym_id", id);
 
       if (error) throw error;
-      return data as StaffMember[];
+      return data;
     },
     enabled: !!id,
   });
@@ -114,86 +106,11 @@ export default function AcademiaPanel() {
         </TabsList>
 
         <TabsContent value="overview">
-          <Card>
-            <CardHeader>
-              <CardTitle>Informações Gerais</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-medium">CNPJ</h3>
-                  <p>{academia.cnpj}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Email</h3>
-                  <p>{academia.email}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Telefone</h3>
-                  <p>{academia.telefone}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Modalidades</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {academia.modalidades.map((modalidade: string) => (
-                      <span
-                        key={modalidade}
-                        className="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm"
-                      >
-                        {modalidade}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <OverviewPanel academia={academia} />
         </TabsContent>
 
         <TabsContent value="access">
-          <Card>
-            <CardHeader>
-              <CardTitle>Equipe</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <Button>Convidar Funcionário</Button>
-
-                <div className="grid gap-4">
-                  {staffMembers?.map((member) => (
-                    <Card key={member.id}>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">
-                              {member.user_profiles?.full_name || "Nome não disponível"}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {member.user_profiles?.email || "Email não disponível"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <span
-                              className={`px-2 py-1 rounded-full text-sm ${
-                                member.active
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-red-100 text-red-700"
-                              }`}
-                            >
-                              {member.active ? "Ativo" : "Inativo"}
-                            </span>
-                            <Button variant="outline" size="sm">
-                              Gerenciar Acesso
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <StaffPanel staffMembers={staffMembers} />
         </TabsContent>
 
         <TabsContent value="settings">
@@ -206,7 +123,6 @@ export default function AcademiaPanel() {
                 <GymSettingsForm
                   academia={academia}
                   onSuccess={() => {
-                    // Recarrega os dados da academia
                     queryClient.invalidateQueries({ queryKey: ["academia", id] });
                   }}
                 />

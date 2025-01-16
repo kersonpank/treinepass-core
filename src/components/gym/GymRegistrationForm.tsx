@@ -1,11 +1,11 @@
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { cnpj } from "cpf-cnpj-validator";
 import { useState } from "react";
-import { Switch } from "@/components/ui/switch";
+import { UserDataForm } from "./forms/UserDataForm";
+import { GymDataForm } from "./forms/GymDataForm";
+import { OperatingHoursForm } from "./forms/OperatingHoursForm";
+import { ModalitiesForm } from "./forms/ModalitiesForm";
+import { FileUploadsForm } from "./forms/FileUploadsForm";
 
 interface GymFormData {
   // Dados do usuário
@@ -43,247 +43,19 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
 
   const [replicateHours, setReplicateHours] = useState(false);
 
-  const diasSemana = [
-    "segunda",
-    "terca",
-    "quarta",
-    "quinta",
-    "sexta",
-    "sabado",
-    "domingo",
-  ];
-
-  // Watch segunda-feira's hours to replicate
-  const segundaAbertura = watch("horario_funcionamento.segunda.abertura");
-  const segundaFechamento = watch("horario_funcionamento.segunda.fechamento");
-
-  // Function to replicate hours
-  const handleReplicateHours = () => {
-    if (replicateHours && segundaAbertura && segundaFechamento) {
-      diasSemana.forEach((dia) => {
-        if (dia !== "segunda") {
-          setValue(`horario_funcionamento.${dia}.abertura`, segundaAbertura);
-          setValue(`horario_funcionamento.${dia}.fechamento`, segundaFechamento);
-        }
-      });
-    }
-  };
-
-  // Watch for changes in segunda-feira's hours and replicate if enabled
-  React.useEffect(() => {
-    if (replicateHours) {
-      handleReplicateHours();
-    }
-  }, [segundaAbertura, segundaFechamento, replicateHours]);
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Dados do Usuário */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Dados do Responsável</h3>
-        
-        <div>
-          <Label htmlFor="full_name">Nome Completo</Label>
-          <Input
-            id="full_name"
-            {...register("full_name", { 
-              required: "Nome é obrigatório",
-              minLength: {
-                value: 3,
-                message: "Nome deve ter pelo menos 3 caracteres"
-              }
-            })}
-          />
-          {errors.full_name && (
-            <p className="text-sm text-red-500">{errors.full_name.message}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="email">E-mail</Label>
-          <Input
-            id="email"
-            type="email"
-            {...register("email", {
-              required: "E-mail é obrigatório",
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: "E-mail inválido",
-              },
-            })}
-          />
-          {errors.email && (
-            <p className="text-sm text-red-500">{errors.email.message}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="password">Senha</Label>
-          <Input
-            id="password"
-            type="password"
-            {...register("password", {
-              required: "Senha é obrigatória",
-              minLength: {
-                value: 6,
-                message: "Senha deve ter pelo menos 6 caracteres"
-              }
-            })}
-          />
-          {errors.password && (
-            <p className="text-sm text-red-500">{errors.password.message}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Dados da Academia */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Dados da Academia</h3>
-        
-        <div>
-          <Label htmlFor="nome">Nome da Academia</Label>
-          <Input
-            id="nome"
-            {...register("nome", { required: "Nome é obrigatório" })}
-          />
-          {errors.nome && (
-            <p className="text-sm text-red-500">{errors.nome.message}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="cnpj">CNPJ</Label>
-          <Input
-            id="cnpj"
-            {...register("cnpj", {
-              required: "CNPJ é obrigatório",
-              validate: (value) => cnpj.isValid(value) || "CNPJ inválido",
-            })}
-          />
-          {errors.cnpj && (
-            <p className="text-sm text-red-500">{errors.cnpj.message}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="telefone">Telefone</Label>
-          <Input
-            id="telefone"
-            {...register("telefone", { required: "Telefone é obrigatório" })}
-          />
-          {errors.telefone && (
-            <p className="text-sm text-red-500">{errors.telefone.message}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="endereco">Endereço</Label>
-          <Textarea
-            id="endereco"
-            {...register("endereco", { required: "Endereço é obrigatório" })}
-          />
-          {errors.endereco && (
-            <p className="text-sm text-red-500">{errors.endereco.message}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Operating Hours */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Horários de Funcionamento</h3>
-          <div className="flex items-center space-x-2">
-            <Switch
-              checked={replicateHours}
-              onCheckedChange={setReplicateHours}
-              id="replicate-hours"
-            />
-            <Label htmlFor="replicate-hours">Replicar horários</Label>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {diasSemana.map((dia) => (
-            <div key={dia} className="space-y-2">
-              <Label>{dia.charAt(0).toUpperCase() + dia.slice(1)}</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="time"
-                  {...register(`horario_funcionamento.${dia}.abertura` as const, {
-                    required: true,
-                  })}
-                  disabled={replicateHours && dia !== "segunda"}
-                />
-                <Input
-                  type="time"
-                  {...register(
-                    `horario_funcionamento.${dia}.fechamento` as const,
-                    { required: true }
-                  )}
-                  disabled={replicateHours && dia !== "segunda"}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Modalities */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Modalidades Oferecidas</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {modalidades?.map((modalidade) => (
-            <div key={modalidade.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={modalidade.id}
-                value={modalidade.id}
-                {...register("modalidades", {
-                  required: "Selecione pelo menos uma modalidade",
-                })}
-                className="w-4 h-4 text-[#0125F0] border-gray-300 rounded focus:ring-[#0125F0]"
-              />
-              <Label htmlFor={modalidade.id}>{modalidade.nome}</Label>
-            </div>
-          ))}
-        </div>
-        {errors.modalidades && (
-          <p className="text-sm text-red-500">{errors.modalidades.message}</p>
-        )}
-      </div>
-
-      {/* File Uploads */}
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="fotos">Fotos do Espaço</Label>
-          <Input
-            id="fotos"
-            type="file"
-            accept="image/*"
-            multiple
-            {...register("fotos", { required: "Envie pelo menos uma foto" })}
-          />
-          {errors.fotos && (
-            <p className="text-sm text-red-500">{errors.fotos.message}</p>
-          )}
-        </div>
-
-        <div>
-          <Label htmlFor="documentos">Documentos</Label>
-          <Input
-            id="documentos"
-            type="file"
-            accept=".pdf,.doc,.docx"
-            multiple
-            {...register("documentos", {
-              required: "Envie os documentos necessários",
-            })}
-          />
-          {errors.documentos && (
-            <p className="text-sm text-red-500">{errors.documentos.message}</p>
-          )}
-        </div>
-      </div>
+      <UserDataForm register={register} errors={errors} />
+      <GymDataForm register={register} errors={errors} />
+      <OperatingHoursForm
+        register={register}
+        watch={watch}
+        setValue={setValue}
+        replicateHours={replicateHours}
+        setReplicateHours={setReplicateHours}
+      />
+      <ModalitiesForm register={register} errors={errors} modalidades={modalidades} />
+      <FileUploadsForm register={register} errors={errors} />
 
       <Button
         type="submit"
