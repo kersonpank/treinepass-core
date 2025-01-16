@@ -241,4 +241,4 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
       </form>
     </Form>
   );
-});
+}
