@@ -25,33 +25,30 @@ export default function AcademiaPanel() {
   const { data: staffMembers, isLoading: loadingStaff } = useQuery({
     queryKey: ["academia-staff", id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: roles, error: rolesError } = await supabase
         .from("user_gym_roles")
-        .select(`
-          id,
-          role,
-          active,
-          user_id,
-          users:user_id (
-            email
-          )
-        `)
+        .select("id, role, active, user_id")
         .eq("gym_id", id);
 
-      if (error) throw error;
+      if (rolesError) throw rolesError;
+
+      if (!roles?.length) return [];
 
       // Fetch user profiles for each staff member
       const staffWithProfiles = await Promise.all(
-        data.map(async (staff) => {
+        roles.map(async (role) => {
           const { data: profile } = await supabase
             .from("user_profiles")
             .select("full_name")
-            .eq("id", staff.user_id)
+            .eq("id", role.user_id)
             .single();
 
+          const { data: user } = await supabase.auth.admin.getUserById(role.user_id);
+
           return {
-            ...staff,
+            ...role,
             user_profile: profile,
+            user: user?.user,
           };
         })
       );
@@ -137,7 +134,7 @@ export default function AcademiaPanel() {
                               {member.user_profile?.full_name || "Nome não disponível"}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {member.users?.email || "Email não disponível"}
+                              {member.user?.email || "Email não disponível"}
                             </p>
                           </div>
                           <div className="flex items-center gap-4">
