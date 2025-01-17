@@ -21,82 +21,72 @@ export default function CadastroAcademia() {
   });
 
   const onSubmit = async (data: any) => {
+    console.log("Iniciando processo de cadastro de academia...");
     try {
       setIsSubmitting(true);
 
-      // 1. Verificar se o email já existe
+      // 1. Verificar se o email já existe em qualquer academia
+      console.log("Verificando existência do email:", data.email);
       const { count: emailCount, error: emailError } = await supabase
         .from("academias")
         .select("id", { count: 'exact', head: true })
         .eq("email", data.email);
 
-      if (emailError) throw emailError;
+      if (emailError) {
+        console.error("Erro ao verificar email:", emailError);
+        throw emailError;
+      }
+
       if (emailCount && emailCount > 0) {
+        console.log("Email já registrado:", data.email);
         toast({
           variant: "destructive",
-          title: "Erro no cadastro",
-          description: "Este email já está registrado. Por favor, use outro email.",
+          title: "Email já cadastrado",
+          description: "Este email já está sendo usado por outra academia. Por favor, utilize outro email.",
         });
         return;
       }
 
       // 2. Verificar se o CNPJ já existe
+      console.log("Verificando existência do CNPJ:", data.cnpj);
       const { count: cnpjCount, error: cnpjError } = await supabase
         .from("academias")
         .select("id", { count: 'exact', head: true })
         .eq("cnpj", data.cnpj.replace(/\D/g, ""));
 
-      if (cnpjError) throw cnpjError;
+      if (cnpjError) {
+        console.error("Erro ao verificar CNPJ:", cnpjError);
+        throw cnpjError;
+      }
+
       if (cnpjCount && cnpjCount > 0) {
+        console.log("CNPJ já registrado:", data.cnpj);
         toast({
           variant: "destructive",
-          title: "Erro no cadastro",
-          description: "Este CNPJ já está cadastrado no sistema.",
+          title: "CNPJ já cadastrado",
+          description: "Este CNPJ já está registrado no sistema. Cada academia deve ter um CNPJ único.",
         });
         return;
       }
 
-      // 3. Se passou por todas as verificações, criar o usuário e a academia
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.full_name,
-          },
-        },
-      });
+      // 3. Se passou por todas as verificações, registrar a academia
+      console.log("Iniciando registro da academia...");
+      const academia = await registerGym(data);
 
-      if (signUpError) {
-        throw signUpError;
-      }
-
-      const userId = authData?.user?.id;
-      if (!userId) {
-        throw new Error("Erro ao processar usuário");
-      }
-
-      // 4. Registrar a academia
-      const academia = await registerGym(data, userId);
-
+      console.log("Academia registrada com sucesso:", academia);
       toast({
-        title: "Academia cadastrada com sucesso!",
-        description: "Seus dados foram salvos e você será redirecionado para o painel.",
+        title: "Cadastro realizado com sucesso!",
+        description: "Sua academia foi cadastrada e você será redirecionado para o painel.",
       });
 
       navigate(`/academia/${academia.id}`);
     } catch (error: any) {
-      console.error("Error during gym registration:", error);
+      console.error("Erro detalhado durante o cadastro:", error);
       
-      // Se houver erro após a criação do usuário, tentar limpar
-      if (error.userId) {
-        await supabase.auth.admin.deleteUser(error.userId);
-      }
-
       toast({
         variant: "destructive",
-        title: "Erro ao cadastrar academia",
-        description: error.message || "Ocorreu um erro ao salvar os dados. Tente novamente.",
+        title: "Erro no cadastro",
+        description: error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.",
       });
     } finally {
       setIsSubmitting(false);
