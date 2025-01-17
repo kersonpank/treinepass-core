@@ -14,51 +14,15 @@ interface GymData {
   password: string;
 }
 
-export async function registerGym(data: GymData, userId?: string) {
+export async function registerGym(data: GymData, userId: string) {
   console.log("Starting gym registration process...");
 
-  // 1. Verificar se o CNPJ ou email já existem
-  const { data: existingGym } = await supabase
-    .from("academias")
-    .select("*")
-    .or(`email.eq.${data.email},cnpj.eq.${data.cnpj.replace(/\D/g, "")}`)
-    .maybeSingle();
-
-  if (existingGym) {
-    if (existingGym.email === data.email) {
-      throw new Error("Email já cadastrado");
-    }
-    if (existingGym.cnpj === data.cnpj.replace(/\D/g, "")) {
-      throw new Error("CNPJ já cadastrado");
-    }
-  }
-
-  let gymUserId = userId;
-
   try {
-    // 2. Se não houver userId, criar novo usuário
-    if (!gymUserId) {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.full_name,
-          },
-        },
-      });
-
-      if (authError) throw authError;
-      if (!authData.user?.id) throw new Error("Erro ao criar usuário");
-
-      gymUserId = authData.user.id;
-    }
-
-    // 3. Criar academia
+    // 1. Criar a academia
     const { data: academia, error: academiaError } = await supabase
       .from("academias")
       .insert({
-        user_id: gymUserId,
+        user_id: userId,
         nome: data.nome,
         cnpj: data.cnpj.replace(/\D/g, ""),
         telefone: data.telefone,
@@ -71,9 +35,11 @@ export async function registerGym(data: GymData, userId?: string) {
       .select()
       .single();
 
-    if (academiaError) throw academiaError;
+    if (academiaError) {
+      throw { ...academiaError, userId }; // Incluir userId para limpeza em caso de erro
+    }
 
-    // 4. Upload de fotos e documentos
+    // 2. Upload de fotos e documentos
     if (data.fotos) {
       for (let i = 0; i < data.fotos.length; i++) {
         const file = data.fotos[i];
@@ -84,7 +50,9 @@ export async function registerGym(data: GymData, userId?: string) {
           .from('academias')
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw { ...uploadError, userId, academiaId: academia.id };
+        }
       }
     }
 
@@ -98,16 +66,15 @@ export async function registerGym(data: GymData, userId?: string) {
           .from('academias')
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw { ...uploadError, userId, academiaId: academia.id };
+        }
       }
     }
 
     return academia;
   } catch (error) {
-    // Em caso de erro, remover o usuário se ele foi criado neste processo
-    if (!userId && gymUserId) {
-      await supabase.auth.admin.deleteUser(gymUserId);
-    }
-    throw error;
+    // Em caso de erro, propagar o erro com informações para limpeza
+    throw { ...error, userId };
   }
 }
