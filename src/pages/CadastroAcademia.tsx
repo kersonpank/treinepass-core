@@ -24,29 +24,30 @@ export default function CadastroAcademia() {
     try {
       setIsSubmitting(true);
 
-      // 1. Primeiro, verificar se o email já existe na autenticação
-      const { data: emailCheck } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: "dummy-password", // Senha temporária apenas para verificação
-      });
+      // 1. Verificar se o email já existe
+      const { count: emailCount, error: emailError } = await supabase
+        .from("academias")
+        .select("id", { count: 'exact', head: true })
+        .eq("email", data.email);
 
-      if (emailCheck.user) {
+      if (emailError) throw emailError;
+      if (emailCount && emailCount > 0) {
         toast({
           variant: "destructive",
           title: "Erro no cadastro",
-          description: "Este email já está registrado. Por favor, faça login ou use outro email.",
+          description: "Este email já está registrado. Por favor, use outro email.",
         });
         return;
       }
 
       // 2. Verificar se o CNPJ já existe
-      const { data: cnpjCheck } = await supabase
+      const { count: cnpjCount, error: cnpjError } = await supabase
         .from("academias")
-        .select("id")
-        .eq("cnpj", data.cnpj.replace(/\D/g, ""))
-        .maybeSingle();
+        .select("id", { count: 'exact', head: true })
+        .eq("cnpj", data.cnpj.replace(/\D/g, ""));
 
-      if (cnpjCheck) {
+      if (cnpjError) throw cnpjError;
+      if (cnpjCount && cnpjCount > 0) {
         toast({
           variant: "destructive",
           title: "Erro no cadastro",
@@ -55,7 +56,7 @@ export default function CadastroAcademia() {
         return;
       }
 
-      // 3. Se passou por todas as verificações, criar o usuário
+      // 3. Se passou por todas as verificações, criar o usuário e a academia
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,

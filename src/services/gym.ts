@@ -36,7 +36,7 @@ export async function registerGym(data: GymData, userId: string) {
       .single();
 
     if (academiaError) {
-      throw { ...academiaError, userId }; // Incluir userId para limpeza em caso de erro
+      throw { ...academiaError, userId };
     }
 
     // 2. Upload de fotos e documentos
