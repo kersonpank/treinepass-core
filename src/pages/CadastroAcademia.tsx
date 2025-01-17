@@ -25,39 +25,26 @@ export default function CadastroAcademia() {
     try {
       setIsSubmitting(true);
       
-      // Check if email already exists
-      const { data: existingUser } = await supabase
-        .from("academias")
-        .select("id")
-        .eq("email", data.email)
-        .maybeSingle();
+      // Check if email already exists in auth
+      const { data: existingAuth } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
 
-      if (existingUser) {
+      if (existingAuth.user) {
+        // If user exists in auth, use their ID
+        const academia = await registerGym(data, existingAuth.user.id);
+        
         toast({
-          variant: "destructive",
-          title: "Erro no cadastro",
-          description: "Este email já está cadastrado no sistema.",
+          title: "Academia cadastrada com sucesso!",
+          description: "Seus dados foram salvos e você será redirecionado para o painel.",
         });
+
+        navigate(`/academia/${academia.id}`);
         return;
       }
 
-      // Check if CNPJ already exists
-      const { data: existingCNPJ } = await supabase
-        .from("academias")
-        .select("id")
-        .eq("cnpj", data.cnpj.replace(/\D/g, ""))
-        .maybeSingle();
-
-      if (existingCNPJ) {
-        toast({
-          variant: "destructive",
-          title: "Erro no cadastro",
-          description: "Este CNPJ já está cadastrado no sistema.",
-        });
-        return;
-      }
-
-      // Primeiro tenta criar um novo usuário
+      // If user doesn't exist, proceed with new registration
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -86,7 +73,7 @@ export default function CadastroAcademia() {
         throw new Error("Erro ao processar usuário");
       }
 
-      // Registra a academia
+      // Register the gym
       const academia = await registerGym(data, userId);
 
       toast({
@@ -94,7 +81,6 @@ export default function CadastroAcademia() {
         description: "Seus dados foram salvos e você será redirecionado para o painel.",
       });
 
-      // Redireciona para o painel da academia
       navigate(`/academia/${academia.id}`);
     } catch (error: any) {
       console.error("Error during gym registration:", error);

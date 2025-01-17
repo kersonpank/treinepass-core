@@ -84,7 +84,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
 
       if (versionError) throw versionError;
 
-      // Update the current plan
+      // Update the current plan with all required fields
       const { error: updateError } = await supabase
         .from("benefit_plans")
         .update({
@@ -94,19 +94,27 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
           plan_type: data.plan_type,
           period_type: data.period_type,
           status: data.status,
-          rules: data.rules,
+          rules: data.rules || {},
         })
         .eq("id", planId);
 
       if (updateError) throw updateError;
 
-      // Record the change in history
+      // Record the change in history with all required fields
       const { error: historyError } = await supabase
         .from("plan_change_history")
         .insert({
           plan_id: planId,
           version_id: newVersion.id,
-          changes: data,
+          changes: {
+            name: data.name,
+            description: data.description,
+            monthly_cost: data.monthly_cost,
+            plan_type: data.plan_type,
+            period_type: data.period_type,
+            status: data.status,
+            rules: data.rules,
+          },
         });
 
       if (historyError) throw historyError;
