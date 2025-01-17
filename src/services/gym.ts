@@ -14,11 +14,53 @@ interface GymData {
   password: string;
 }
 
+async function checkDuplicates(email: string, cnpj: string) {
+  console.log("Verificando duplicatas...");
+  
+  // Verificar email
+  const { count: emailCount, error: emailError } = await supabase
+    .from("academias")
+    .select("*", { count: 'exact', head: true })
+    .eq("email", email);
+
+  if (emailError) {
+    console.error("Erro ao verificar email:", emailError);
+    throw new Error("Erro ao verificar email no sistema");
+  }
+
+  if (emailCount && emailCount > 0) {
+    console.log("Email duplicado encontrado:", email);
+    throw new Error("Este email já está cadastrado no sistema");
+  }
+
+  // Verificar CNPJ
+  const { count: cnpjCount, error: cnpjError } = await supabase
+    .from("academias")
+    .select("*", { count: 'exact', head: true })
+    .eq("cnpj", cnpj.replace(/\D/g, ""));
+
+  if (cnpjError) {
+    console.error("Erro ao verificar CNPJ:", cnpjError);
+    throw new Error("Erro ao verificar CNPJ no sistema");
+  }
+
+  if (cnpjCount && cnpjCount > 0) {
+    console.log("CNPJ duplicado encontrado:", cnpj);
+    throw new Error("Este CNPJ já está cadastrado no sistema");
+  }
+
+  console.log("Nenhuma duplicata encontrada");
+  return true;
+}
+
 export async function registerGym(data: GymData) {
   console.log("Iniciando processo de registro da academia...");
 
   try {
-    // 1. Criar o usuário na autenticação
+    // 1. Primeiro, verificar duplicatas
+    await checkDuplicates(data.email, data.cnpj);
+    
+    // 2. Se passou pela verificação, criar o usuário
     console.log("Criando usuário na autenticação...");
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: data.email,
@@ -32,7 +74,7 @@ export async function registerGym(data: GymData) {
 
     if (signUpError) {
       console.error("Erro ao criar usuário:", signUpError);
-      throw signUpError;
+      throw new Error("Erro ao criar usuário: " + signUpError.message);
     }
 
     if (!authData.user?.id) {
@@ -43,7 +85,7 @@ export async function registerGym(data: GymData) {
     console.log("Usuário criado com sucesso. ID:", authData.user.id);
 
     try {
-      // 2. Criar a academia
+      // 3. Criar a academia
       console.log("Criando registro da academia...");
       const { data: academia, error: academiaError } = await supabase
         .from("academias")
@@ -65,10 +107,10 @@ export async function registerGym(data: GymData) {
         console.error("Erro ao criar academia:", academiaError);
         // Se houver erro ao criar academia, remover o usuário criado
         await supabase.auth.admin.deleteUser(authData.user.id);
-        throw academiaError;
+        throw new Error("Erro ao criar academia: " + academiaError.message);
       }
 
-      // 3. Upload de arquivos
+      // 4. Upload de arquivos
       if (data.fotos || data.documentos) {
         console.log("Iniciando upload de arquivos...");
         await uploadFiles(data, academia.id);
@@ -76,7 +118,7 @@ export async function registerGym(data: GymData) {
 
       console.log("Registro da academia concluído com sucesso!");
       return academia;
-    } catch (error) {
+    } catch (error: any) {
       // Em caso de erro após criar o usuário, tentar limpar
       console.error("Erro durante o processo de registro:", error);
       if (authData.user?.id) {
@@ -85,7 +127,7 @@ export async function registerGym(data: GymData) {
       }
       throw error;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro fatal durante o registro:", error);
     throw error;
   }
@@ -105,7 +147,7 @@ async function uploadFiles(data: GymData, academiaId: string) {
 
         if (uploadError) {
           console.error("Erro no upload de foto:", uploadError);
-          throw uploadError;
+          throw new Error("Erro ao fazer upload de foto: " + uploadError.message);
         }
       }
     }
@@ -122,11 +164,11 @@ async function uploadFiles(data: GymData, academiaId: string) {
 
         if (uploadError) {
           console.error("Erro no upload de documento:", uploadError);
-          throw uploadError;
+          throw new Error("Erro ao fazer upload de documento: " + uploadError.message);
         }
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro durante upload de arquivos:", error);
     throw error;
   }

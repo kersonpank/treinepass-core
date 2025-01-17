@@ -25,52 +25,6 @@ export default function CadastroAcademia() {
     try {
       setIsSubmitting(true);
 
-      // 1. Verificar se o email já existe em qualquer academia
-      console.log("Verificando existência do email:", data.email);
-      const { count: emailCount, error: emailError } = await supabase
-        .from("academias")
-        .select("id", { count: 'exact', head: true })
-        .eq("email", data.email);
-
-      if (emailError) {
-        console.error("Erro ao verificar email:", emailError);
-        throw emailError;
-      }
-
-      if (emailCount && emailCount > 0) {
-        console.log("Email já registrado:", data.email);
-        toast({
-          variant: "destructive",
-          title: "Email já cadastrado",
-          description: "Este email já está sendo usado por outra academia. Por favor, utilize outro email.",
-        });
-        return;
-      }
-
-      // 2. Verificar se o CNPJ já existe
-      console.log("Verificando existência do CNPJ:", data.cnpj);
-      const { count: cnpjCount, error: cnpjError } = await supabase
-        .from("academias")
-        .select("id", { count: 'exact', head: true })
-        .eq("cnpj", data.cnpj.replace(/\D/g, ""));
-
-      if (cnpjError) {
-        console.error("Erro ao verificar CNPJ:", cnpjError);
-        throw cnpjError;
-      }
-
-      if (cnpjCount && cnpjCount > 0) {
-        console.log("CNPJ já registrado:", data.cnpj);
-        toast({
-          variant: "destructive",
-          title: "CNPJ já cadastrado",
-          description: "Este CNPJ já está registrado no sistema. Cada academia deve ter um CNPJ único.",
-        });
-        return;
-      }
-
-      // 3. Se passou por todas as verificações, registrar a academia
-      console.log("Iniciando registro da academia...");
       const academia = await registerGym(data);
 
       console.log("Academia registrada com sucesso:", academia);
@@ -83,10 +37,13 @@ export default function CadastroAcademia() {
     } catch (error: any) {
       console.error("Erro detalhado durante o cadastro:", error);
       
+      // Mensagens de erro mais específicas baseadas no erro retornado
+      const errorMessage = error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.";
+      
       toast({
         variant: "destructive",
         title: "Erro no cadastro",
-        description: error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.",
+        description: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
