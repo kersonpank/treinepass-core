@@ -39,10 +39,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         .select("type")
         .eq("user_id", user.id)
         .eq("type", "admin")
-        .single();
+        .maybeSingle();
 
       setIsAdmin(!!adminRole);
     } catch (error) {
+      console.error("Error checking admin status:", error);
       setIsAdmin(false);
     } finally {
       setLoading(false);

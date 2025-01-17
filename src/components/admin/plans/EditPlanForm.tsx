@@ -161,7 +161,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
           </TabsContent>
 
           <TabsContent value="preview">
-            <PlanPreview plan={form.watch()} />
+            <PlanPreview plan={form.getValues()} />
           </TabsContent>
 
           <div className="flex justify-end">
