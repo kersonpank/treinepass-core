@@ -564,26 +564,29 @@ export type Database = {
       }
       user_profiles: {
         Row: {
-          birth_date: string
+          birth_date: string | null
           cpf: string
           created_at: string
-          full_name: string
+          email: string | null
+          full_name: string | null
           id: string
           updated_at: string
         }
         Insert: {
-          birth_date: string
+          birth_date?: string | null
           cpf: string
           created_at?: string
-          full_name: string
+          email?: string | null
+          full_name?: string | null
           id: string
           updated_at?: string
         }
         Update: {
-          birth_date?: string
+          birth_date?: string | null
           cpf?: string
           created_at?: string
-          full_name?: string
+          email?: string | null
+          full_name?: string | null
           id?: string
           updated_at?: string
         }
