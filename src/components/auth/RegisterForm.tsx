@@ -5,11 +5,9 @@ import { Label } from "@/components/ui/label";
 import { cpf } from "cpf-cnpj-validator";
 
 interface UserFormData {
-  full_name: string;
   email: string;
   password: string;
   cpf: string;
-  birth_date: string;
 }
 
 interface RegisterFormProps {
@@ -33,33 +31,8 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       .replace(/(-\d{2})\d+?$/, "$1");
   };
 
-  const formatDate = (value: string) => {
-    return value
-      .replace(/\D/g, "")
-      .replace(/(\d{2})(\d)/, "$1/$2")
-      .replace(/(\d{2})(\d)/, "$1/$2")
-      .replace(/(\d{4})\d+?$/, "$1");
-  };
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div>
-        <Label htmlFor="full_name">Nome Completo</Label>
-        <Input
-          id="full_name"
-          {...register("full_name", {
-            required: "Nome é obrigatório",
-            minLength: {
-              value: 3,
-              message: "Nome deve ter no mínimo 3 caracteres",
-            },
-          })}
-        />
-        {errors.full_name && (
-          <p className="text-sm text-red-500 mt-1">{errors.full_name.message}</p>
-        )}
-      </div>
-
       <div>
         <Label htmlFor="email">E-mail</Label>
         <Input
@@ -111,37 +84,6 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
         />
         {errors.cpf && (
           <p className="text-sm text-red-500 mt-1">{errors.cpf.message}</p>
-        )}
-      </div>
-
-      <div>
-        <Label htmlFor="birth_date">Data de Nascimento</Label>
-        <Input
-          id="birth_date"
-          placeholder="DD/MM/AAAA"
-          {...register("birth_date", {
-            required: "Data de nascimento é obrigatória",
-            validate: (value) => {
-              const [day, month, year] = value.split("/");
-              const birthDate = new Date(Number(year), Number(month) - 1, Number(day));
-              const today = new Date();
-              let age = today.getFullYear() - birthDate.getFullYear();
-              const monthDiff = today.getMonth() - birthDate.getMonth();
-              
-              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-              }
-              
-              return age >= 18 || "Você deve ter pelo menos 18 anos";
-            },
-          })}
-          onChange={(e) => {
-            e.target.value = formatDate(e.target.value);
-          }}
-          maxLength={10}
-        />
-        {errors.birth_date && (
-          <p className="text-sm text-red-500 mt-1">{errors.birth_date.message}</p>
         )}
       </div>
 

@@ -1,26 +1,58 @@
 import { supabase } from "@/integrations/supabase/client";
 
 interface RegisterData {
-  full_name: string;
   email: string;
   password: string;
   cpf: string;
-  birth_date: string;
+}
+
+export async function checkExistingUser(email: string, cpf: string) {
+  console.log("Checking if user exists...", { email, cpf });
+
+  // Check if email exists in auth.users
+  const { data: emailExists, error: emailError } = await supabase
+    .from("user_profiles")
+    .select("email")
+    .eq("email", email)
+    .single();
+
+  if (emailError && emailError.code !== "PGRST116") {
+    console.error("Error checking email:", emailError);
+    throw emailError;
+  }
+
+  if (emailExists) {
+    throw new Error("Email já cadastrado");
+  }
+
+  // Check if CPF exists
+  const { data: cpfExists, error: cpfError } = await supabase
+    .from("user_profiles")
+    .select("cpf")
+    .eq("cpf", cpf.replace(/\D/g, ""))
+    .single();
+
+  if (cpfError && cpfError.code !== "PGRST116") {
+    console.error("Error checking CPF:", cpfError);
+    throw cpfError;
+  }
+
+  if (cpfExists) {
+    throw new Error("CPF já cadastrado");
+  }
 }
 
 export async function registerUser(data: RegisterData) {
   console.log("Starting user registration process...", { email: data.email });
 
-  // 1. Register user in Auth
-  console.log("Step 1: Creating auth user...");
+  // First check if user exists
+  await checkExistingUser(data.email, data.cpf);
+
+  // If we get here, user doesn't exist, proceed with registration
+  console.log("User doesn't exist, creating auth user...");
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
-    options: {
-      data: {
-        full_name: data.full_name,
-      },
-    },
   });
 
   if (authError) {
@@ -35,34 +67,31 @@ export async function registerUser(data: RegisterData) {
 
   console.log("Auth user created successfully", { userId: authData.user.id });
 
-  // Convert date from DD/MM/YYYY to YYYY-MM-DD
-  const [day, month, year] = data.birth_date.split('/');
-  const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-
-  // 2. Create user profile with the same ID as auth user
-  console.log("Step 2: Creating user profile...", {
+  // Create user profile with minimal data
+  console.log("Creating user profile...", {
     userId: authData.user.id,
-    fullName: data.full_name,
+    email: data.email,
   });
 
   const { error: profileError } = await supabase
     .from("user_profiles")
     .insert({
       id: authData.user.id,
-      full_name: data.full_name,
+      email: data.email,
       cpf: data.cpf.replace(/\D/g, ""),
-      birth_date: formattedDate,
     });
 
   if (profileError) {
     console.error("Profile Error:", profileError);
+    // If profile creation fails, we should delete the auth user
+    await supabase.auth.admin.deleteUser(authData.user.id);
     throw profileError;
   }
 
   console.log("User profile created successfully");
 
-  // 3. Create user type entry
-  console.log("Step 3: Creating user type entry...");
+  // Create user type entry
+  console.log("Creating user type entry...");
   const { error: typeError } = await supabase
     .from("user_types")
     .insert({
@@ -73,6 +102,8 @@ export async function registerUser(data: RegisterData) {
 
   if (typeError) {
     console.error("User Type Error:", typeError);
+    // If user type creation fails, we should delete everything
+    await supabase.auth.admin.deleteUser(authData.user.id);
     throw typeError;
   }
 
