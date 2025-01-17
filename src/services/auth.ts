@@ -45,70 +45,72 @@ export async function checkExistingUser(email: string, cpf: string) {
 export async function registerUser(data: RegisterData) {
   console.log("Starting user registration process...", { email: data.email });
 
-  // First check if user exists
-  await checkExistingUser(data.email, data.cpf);
+  try {
+    // First check if user exists - this will throw an error if email or CPF exists
+    await checkExistingUser(data.email, data.cpf);
 
-  // If we get here, user doesn't exist, proceed with registration
-  console.log("User doesn't exist, creating auth user...");
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email: data.email,
-    password: data.password,
-  });
-
-  if (authError) {
-    console.error("Auth Error:", authError);
-    throw authError;
-  }
-
-  if (!authData.user?.id) {
-    console.error("No user ID returned from auth signup");
-    throw new Error("Erro ao criar usuário");
-  }
-
-  console.log("Auth user created successfully", { userId: authData.user.id });
-
-  // Create user profile with minimal data
-  console.log("Creating user profile...", {
-    userId: authData.user.id,
-    email: data.email,
-  });
-
-  const { error: profileError } = await supabase
-    .from("user_profiles")
-    .insert({
-      id: authData.user.id,
+    // If we get here, user doesn't exist, proceed with registration
+    console.log("User doesn't exist, creating auth user...");
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
-      cpf: data.cpf.replace(/\D/g, ""),
+      password: data.password,
     });
 
-  if (profileError) {
-    console.error("Profile Error:", profileError);
-    // If profile creation fails, we should delete the auth user
-    await supabase.auth.admin.deleteUser(authData.user.id);
-    throw profileError;
+    if (authError) {
+      console.error("Auth Error:", authError);
+      throw authError;
+    }
+
+    if (!authData.user?.id) {
+      console.error("No user ID returned from auth signup");
+      throw new Error("Erro ao criar usuário");
+    }
+
+    console.log("Auth user created successfully", { userId: authData.user.id });
+
+    // Create user profile
+    console.log("Creating user profile...");
+    const { error: profileError } = await supabase
+      .from("user_profiles")
+      .insert({
+        id: authData.user.id,
+        email: data.email,
+        cpf: data.cpf.replace(/\D/g, ""),
+      });
+
+    if (profileError) {
+      console.error("Profile Error:", profileError);
+      // If profile creation fails, we should delete the auth user
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      throw profileError;
+    }
+
+    console.log("User profile created successfully");
+
+    // Create user type entry
+    console.log("Creating user type entry...");
+    const { error: typeError } = await supabase
+      .from("user_types")
+      .insert({
+        user_id: authData.user.id,
+        type: "individual",
+        profile_id: authData.user.id,
+      });
+
+    if (typeError) {
+      console.error("User Type Error:", typeError);
+      // If user type creation fails, we should delete everything
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      throw typeError;
+    }
+
+    console.log("User type entry created successfully");
+    console.log("Registration process completed successfully!");
+
+    return authData.user;
+  } catch (error) {
+    // If any error occurs, ensure we clean up any partial data
+    console.error("Registration failed:", error);
+    throw error;
   }
-
-  console.log("User profile created successfully");
-
-  // Create user type entry
-  console.log("Creating user type entry...");
-  const { error: typeError } = await supabase
-    .from("user_types")
-    .insert({
-      user_id: authData.user.id,
-      type: "individual",
-      profile_id: authData.user.id,
-    });
-
-  if (typeError) {
-    console.error("User Type Error:", typeError);
-    // If user type creation fails, we should delete everything
-    await supabase.auth.admin.deleteUser(authData.user.id);
-    throw typeError;
-  }
-
-  console.log("User type entry created successfully");
-  console.log("Registration process completed successfully!");
-
-  return authData.user;
 }
