@@ -621,7 +621,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_user_by_cpf: {
+        Args: {
+          p_cpf: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
