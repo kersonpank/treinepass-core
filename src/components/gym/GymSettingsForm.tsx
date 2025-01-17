@@ -15,7 +15,14 @@ interface GymSettingsFormProps {
   onSuccess: () => void;
 }
 
-type GymFormData = Pick<Academia, "nome" | "cnpj" | "telefone" | "email" | "endereco" | "horario_funcionamento">;
+type GymFormData = {
+  nome: string;
+  cnpj: string;
+  telefone: string;
+  email: string;
+  endereco: string;
+  horario_funcionamento: string;
+};
 
 export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
   const { toast } = useToast();
@@ -30,7 +37,7 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
       telefone: academia.telefone,
       email: academia.email,
       endereco: academia.endereco,
-      horario_funcionamento: academia.horario_funcionamento,
+      horario_funcionamento: JSON.stringify(academia.horario_funcionamento),
     },
   });
 
@@ -38,7 +45,10 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
     try {
       const { error } = await supabase
         .from("academias")
-        .update(data)
+        .update({
+          ...data,
+          horario_funcionamento: JSON.parse(data.horario_funcionamento),
+        })
         .eq("id", academia.id);
 
       if (error) throw error;

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { GymRegistrationForm } from "@/components/gym/GymRegistrationForm";
 import { registerGym } from "@/services/gym";
+import { AuthError } from "@supabase/supabase-js";
 
 export default function CadastroAcademia() {
   const navigate = useNavigate();
@@ -24,9 +25,40 @@ export default function CadastroAcademia() {
     try {
       setIsSubmitting(true);
       
+      // Check if email already exists
+      const { data: existingUser } = await supabase
+        .from("academias")
+        .select("id")
+        .eq("email", data.email)
+        .maybeSingle();
+
+      if (existingUser) {
+        toast({
+          variant: "destructive",
+          title: "Erro no cadastro",
+          description: "Este email já está cadastrado no sistema.",
+        });
+        return;
+      }
+
+      // Check if CNPJ already exists
+      const { data: existingCNPJ } = await supabase
+        .from("academias")
+        .select("id")
+        .eq("cnpj", data.cnpj.replace(/\D/g, ""))
+        .maybeSingle();
+
+      if (existingCNPJ) {
+        toast({
+          variant: "destructive",
+          title: "Erro no cadastro",
+          description: "Este CNPJ já está cadastrado no sistema.",
+        });
+        return;
+      }
+
       // Primeiro tenta criar um novo usuário
-      let authData = null;
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -36,44 +68,22 @@ export default function CadastroAcademia() {
         },
       });
 
-      // Se o usuário já existe, tenta fazer login
-      if (signUpError?.message.includes("User already registered")) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: data.email,
-          password: data.password,
-        });
-
-        if (signInError) throw signInError;
-        authData = signInData;
-      } else if (signUpError) {
-        throw signUpError;
-      } else {
-        authData = signUpData;
+      if (signUpError) {
+        if (signUpError instanceof AuthError && signUpError.message.includes("User already registered")) {
+          toast({
+            variant: "destructive",
+            title: "Erro no cadastro",
+            description: "Este email já está registrado. Por favor, faça login ou use outro email.",
+          });
+        } else {
+          throw signUpError;
+        }
+        return;
       }
 
       const userId = authData?.user?.id;
       if (!userId) {
         throw new Error("Erro ao processar usuário");
-      }
-
-      // Criar perfil do usuário se necessário
-      const { data: existingProfile } = await supabase
-        .from("user_profiles")
-        .select()
-        .eq("id", userId)
-        .single();
-
-      if (!existingProfile) {
-        const { error: profileError } = await supabase
-          .from("user_profiles")
-          .insert({
-            id: userId,
-            full_name: data.full_name,
-            cpf: "", // Como é academia, CPF não é obrigatório
-            birth_date: new Date().toISOString(), // Data atual como placeholder
-          });
-
-        if (profileError) throw profileError;
       }
 
       // Registra a academia
