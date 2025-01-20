@@ -23,6 +23,20 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // First, check if user is admin
+  const { data: isAdmin } = useQuery({
+    queryKey: ["isAdmin"],
+    queryFn: async () => {
+      const { data: adminRole } = await supabase
+        .from("user_types")
+        .select("type")
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+        .eq("type", "admin")
+        .maybeSingle();
+      return !!adminRole;
+    },
+  });
+
   const { data: plan, isLoading } = useQuery({
     queryKey: ["plan", planId],
     queryFn: async () => {
@@ -44,23 +58,22 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
       name: "",
       description: "",
       monthly_cost: "",
-      plan_type: "corporate",
-      period_type: "monthly",
-      status: "active",
+      plan_type: "corporate" as const,
+      period_type: "monthly" as const,
+      status: "active" as const,
       rules: {},
     },
   });
 
   useEffect(() => {
     if (plan) {
-      // Ensure all required fields are set with non-null values
       form.reset({
-        name: plan.name || "",
+        name: plan.name,
         description: plan.description || "",
-        monthly_cost: String(plan.monthly_cost || 0),
-        plan_type: plan.plan_type || "corporate",
-        period_type: plan.period_type || "monthly",
-        status: plan.status || "active",
+        monthly_cost: String(plan.monthly_cost),
+        plan_type: plan.plan_type as "corporate" | "individual",
+        period_type: plan.period_type as "monthly" | "quarterly" | "semiannual" | "annual",
+        status: plan.status as "active" | "inactive",
         rules: plan.rules || {},
       });
     }
@@ -85,18 +98,25 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
 
       if (versionError) throw versionError;
 
-      // Update the current plan with all required fields
+      // Update the current plan
+      const updateData = {
+        name: data.name,
+        description: data.description,
+        monthly_cost: Number(data.monthly_cost),
+        plan_type: data.plan_type,
+        period_type: data.period_type,
+        status: data.status,
+        rules: data.rules,
+      };
+
+      // If not admin, we need the business_id
+      if (!isAdmin && plan) {
+        updateData.business_id = plan.business_id;
+      }
+
       const { error: updateError } = await supabase
         .from("benefit_plans")
-        .update({
-          name: data.name,
-          description: data.description,
-          monthly_cost: Number(data.monthly_cost),
-          plan_type: data.plan_type,
-          period_type: data.period_type,
-          status: data.status,
-          rules: data.rules,
-        })
+        .update(updateData)
         .eq("id", planId);
 
       if (updateError) throw updateError;
