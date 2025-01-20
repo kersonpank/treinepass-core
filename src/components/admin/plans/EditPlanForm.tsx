@@ -53,14 +53,15 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
 
   useEffect(() => {
     if (plan) {
+      // Ensure all required fields are set with non-null values
       form.reset({
-        name: plan.name,
+        name: plan.name || "",
         description: plan.description || "",
-        monthly_cost: String(plan.monthly_cost),
-        plan_type: plan.plan_type as "corporate" | "individual",
-        period_type: plan.period_type as "monthly" | "quarterly" | "semiannual" | "annual",
-        status: plan.status as "active" | "inactive",
-        rules: plan.rules as Record<string, any>,
+        monthly_cost: String(plan.monthly_cost || 0),
+        plan_type: plan.plan_type || "corporate",
+        period_type: plan.period_type || "monthly",
+        status: plan.status || "active",
+        rules: plan.rules || {},
       });
     }
   }, [plan, form]);
@@ -94,13 +95,13 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
           plan_type: data.plan_type,
           period_type: data.period_type,
           status: data.status,
-          rules: data.rules || {},
+          rules: data.rules,
         })
         .eq("id", planId);
 
       if (updateError) throw updateError;
 
-      // Record the change in history with all required fields
+      // Record the change in history
       const { error: historyError } = await supabase
         .from("plan_change_history")
         .insert({
