@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanRulesConfig } from "./PlanRulesConfig";
 import { PlanPreview } from "./PlanPreview";
 import { PlanDetailsForm } from "./forms/PlanDetailsForm";
-import { planFormSchema, type PlanFormValues } from "./types/plan";
+import { planFormSchema, type PlanFormValues, type UpdatePlanData } from "./types/plan";
 
 interface EditPlanFormProps {
   planId: string;
@@ -99,7 +99,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
       if (versionError) throw versionError;
 
       // Update the current plan
-      const updateData = {
+      const updateData: UpdatePlanData = {
         name: data.name,
         description: data.description,
         monthly_cost: Number(data.monthly_cost),

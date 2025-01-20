@@ -13,3 +13,14 @@ export const planFormSchema = z.object({
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;
+
+export type UpdatePlanData = {
+  name: string;
+  description?: string;
+  monthly_cost: number;
+  plan_type: "corporate" | "individual";
+  period_type: "monthly" | "quarterly" | "semiannual" | "annual";
+  status: "active" | "inactive";
+  rules: Record<string, any>;
+  business_id?: string;
+};
