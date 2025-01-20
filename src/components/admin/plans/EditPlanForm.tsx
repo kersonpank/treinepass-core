@@ -23,7 +23,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // First, check if user is admin
+  // Check if user is admin
   const { data: isAdmin } = useQuery({
     queryKey: ["isAdmin"],
     queryFn: async () => {
@@ -58,9 +58,9 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
       name: "",
       description: "",
       monthly_cost: "",
-      plan_type: "corporate" as const,
-      period_type: "monthly" as const,
-      status: "active" as const,
+      plan_type: "corporate",
+      period_type: "monthly",
+      status: "active",
       rules: {},
     },
   });
@@ -109,7 +109,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         rules: data.rules,
       };
 
-      // If not admin, we need the business_id
+      // If not admin and plan exists, we need the business_id
       if (!isAdmin && plan) {
         updateData.business_id = plan.business_id;
       }
@@ -127,15 +127,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         .insert({
           plan_id: planId,
           version_id: newVersion.id,
-          changes: {
-            name: data.name,
-            description: data.description,
-            monthly_cost: data.monthly_cost,
-            plan_type: data.plan_type,
-            period_type: data.period_type,
-            status: data.status,
-            rules: data.rules,
-          },
+          changes: updateData,
         });
 
       if (historyError) throw historyError;
