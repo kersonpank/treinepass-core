@@ -26,6 +26,7 @@ export function BenefitPlans() {
         .from("benefit_plans")
         .select("*")
         .eq("business_id", businessProfile.id)
+        .eq("plan_type", "corporate")  // Only show corporate plans
         .order("name");
 
       if (error) throw error;

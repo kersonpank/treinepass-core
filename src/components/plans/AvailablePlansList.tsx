@@ -16,6 +16,7 @@ export function AvailablePlansList() {
         .from("benefit_plans")
         .select("*")
         .eq("status", "active")
+        .eq("plan_type", "individual")  // Only show individual plans
         .order("monthly_cost");
 
       if (error) throw error;
@@ -25,14 +26,17 @@ export function AvailablePlansList() {
 
   const handleSubscribe = async (planId: string) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
       const startDate = new Date();
-      // Set end date to 30 days from start
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 30);
 
       const { error } = await supabase
         .from("user_plan_subscriptions")
         .insert({
+          user_id: user.id,
           plan_id: planId,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
