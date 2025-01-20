@@ -7,10 +7,11 @@ import { Feed } from "@/components/mobile/Feed";
 import { GymSearch } from "@/components/mobile/GymSearch";
 import { ClassSchedule } from "@/components/mobile/ClassSchedule";
 import { DigitalCard } from "@/components/mobile/DigitalCard";
+import { PlansTab } from "@/components/mobile/PlansTab";
 import { GymManagement } from "@/components/dashboard/GymManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AppMobile() {
   const navigate = useNavigate();
@@ -81,10 +82,11 @@ export default function AppMobile() {
       </div>
 
       <Tabs defaultValue="feed" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="feed">Feed</TabsTrigger>
           <TabsTrigger value="search">Buscar</TabsTrigger>
           <TabsTrigger value="schedule">Agenda</TabsTrigger>
+          <TabsTrigger value="plans">Planos</TabsTrigger>
           <TabsTrigger value="card">Cartão</TabsTrigger>
         </TabsList>
 
@@ -98,6 +100,10 @@ export default function AppMobile() {
 
         <TabsContent value="schedule">
           <ClassSchedule />
+        </TabsContent>
+
+        <TabsContent value="plans">
+          <PlansTab />
         </TabsContent>
 
         <TabsContent value="card">
