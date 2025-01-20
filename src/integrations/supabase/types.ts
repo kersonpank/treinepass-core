@@ -68,7 +68,7 @@ export type Database = {
       }
       benefit_plans: {
         Row: {
-          business_id: string
+          business_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -81,7 +81,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          business_id: string
+          business_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -94,7 +94,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          business_id?: string
+          business_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
