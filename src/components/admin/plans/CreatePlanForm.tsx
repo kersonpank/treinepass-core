@@ -66,14 +66,29 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
   const onSubmit = async (data: PlanFormValues) => {
     setIsSubmitting(true);
     try {
-      const { data: businessProfile, error: businessError } = await supabase
-        .from("business_profiles")
-        .select("id")
+      // Primeiro verifica se o usuário é admin
+      const { data: userTypes, error: userTypesError } = await supabase
+        .from("user_types")
+        .select("type")
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+        .eq("type", "admin")
         .maybeSingle();
 
-      if (businessError) throw businessError;
-      if (!businessProfile) {
-        throw new Error("Perfil da empresa não encontrado");
+      if (userTypesError) throw userTypesError;
+
+      // Se não for admin, tenta buscar o perfil da empresa
+      let businessId = null;
+      if (!userTypes) {
+        const { data: businessProfile, error: businessError } = await supabase
+          .from("business_profiles")
+          .select("id")
+          .maybeSingle();
+
+        if (businessError) throw businessError;
+        if (!businessProfile) {
+          throw new Error("Perfil da empresa não encontrado");
+        }
+        businessId = businessProfile.id;
       }
 
       const { error } = await supabase.from("benefit_plans").insert({
@@ -83,7 +98,7 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
         plan_type: data.plan_type,
         period_type: data.period_type,
         status: data.status,
-        business_id: businessProfile.id,
+        business_id: businessId,
         rules: {},
       });
 
