@@ -562,6 +562,47 @@ export type Database = {
           },
         ]
       }
+      user_plan_subscriptions: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          id: string
+          plan_id: string
+          start_date: string
+          status: Database["public"]["Enums"]["plan_subscription_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          plan_id: string
+          start_date: string
+          status?: Database["public"]["Enums"]["plan_subscription_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          plan_id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["plan_subscription_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_plan_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           birth_date: string | null
@@ -621,6 +662,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_and_expire_plans: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       check_user_by_cpf: {
         Args: {
           p_cpf: string
@@ -630,6 +675,7 @@ export type Database = {
     }
     Enums: {
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
+      plan_subscription_status: "active" | "pending" | "expired" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never

@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanRulesConfig } from "./PlanRulesConfig";
 import { PlanPreview } from "./PlanPreview";
 import { PlanDetailsForm } from "./forms/PlanDetailsForm";
-import { planFormSchema, type PlanFormValues, type UpdatePlanData } from "./types/plan";
+import { planFormSchema, type PlanFormValues } from "./types/plan";
 
 interface EditPlanFormProps {
   planId: string;
@@ -74,7 +74,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         plan_type: plan.plan_type as "corporate" | "individual",
         period_type: plan.period_type as "monthly" | "quarterly" | "semiannual" | "annual",
         status: plan.status as "active" | "inactive",
-        rules: plan.rules || {},
+        rules: plan.rules as Record<string, any>,
       });
     }
   }, [plan, form]);
@@ -99,7 +99,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
       if (versionError) throw versionError;
 
       // Update the current plan
-      const updateData: UpdatePlanData = {
+      const updateData = {
         name: data.name,
         description: data.description,
         monthly_cost: Number(data.monthly_cost),
@@ -107,12 +107,8 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         period_type: data.period_type,
         status: data.status,
         rules: data.rules,
+        ...((!isAdmin && plan) ? { business_id: plan.business_id } : {}),
       };
-
-      // If not admin and plan exists, we need the business_id
-      if (!isAdmin && plan) {
-        updateData.business_id = plan.business_id;
-      }
 
       const { error: updateError } = await supabase
         .from("benefit_plans")
