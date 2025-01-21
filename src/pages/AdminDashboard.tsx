@@ -6,6 +6,7 @@ import { AlertCircle, Building2, Users, Activity, Settings } from "lucide-react"
 import { RevenueOverview } from "@/components/admin/financial/RevenueOverview";
 import { PaymentsList } from "@/components/admin/financial/PaymentsList";
 import { PlansManagement } from "@/components/admin/plans/PlansManagement";
+import { ModalitiesManagement } from "@/components/admin/modalities/ModalitiesManagement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,10 +98,11 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="plans">Planos</TabsTrigger>
+          <TabsTrigger value="modalities">Modalidades</TabsTrigger>
           <TabsTrigger value="reports">Relatórios</TabsTrigger>
         </TabsList>
 
@@ -121,6 +123,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="plans">
           <PlansManagement />
+        </TabsContent>
+
+        <TabsContent value="modalities">
+          <ModalitiesManagement />
         </TabsContent>
 
         <TabsContent value="reports">
