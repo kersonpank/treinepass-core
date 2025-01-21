@@ -14,9 +14,9 @@ export function AvailablePlansList() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("benefit_plans")
-        .select("*")
+        .select("*, business_profiles(company_name)")
         .eq("status", "active")
-        .eq("plan_type", "individual")  // Only show individual plans
+        .or("plan_type.eq.individual,plan_type.eq.corporate_subsidized")
         .order("monthly_cost");
 
       if (error) throw error;
@@ -75,10 +75,15 @@ export function AvailablePlansList() {
             <CardTitle className="flex items-center justify-between">
               <span>{plan.name}</span>
               <span className="text-2xl font-bold">
-                {formatCurrency(plan.monthly_cost)}
+                {formatCurrency(plan.plan_type === 'corporate_subsidized' ? plan.final_user_cost : plan.monthly_cost)}
                 <span className="text-sm font-normal text-muted-foreground">/mês</span>
               </span>
             </CardTitle>
+            {plan.plan_type === 'corporate_subsidized' && (
+              <div className="text-sm text-muted-foreground">
+                Plano subsidiado por {plan.business_profiles?.company_name}
+              </div>
+            )}
           </CardHeader>
           <CardContent className="flex-1 space-y-4">
             <p className="text-sm text-muted-foreground">{plan.description}</p>

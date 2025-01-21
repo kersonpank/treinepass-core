@@ -6,9 +6,11 @@ export const planFormSchema = z.object({
   monthly_cost: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Custo mensal deve ser um número maior que 0",
   }),
-  plan_type: z.enum(["corporate", "individual"]),
+  plan_type: z.enum(["corporate", "individual", "corporate_subsidized"]),
   period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
   status: z.enum(["active", "inactive"]),
+  subsidy_amount: z.string().optional(),
+  final_user_cost: z.string().optional(),
   rules: z.record(z.any()).default({}),
 });
 
@@ -18,9 +20,11 @@ export type UpdatePlanData = {
   name: string;
   description?: string;
   monthly_cost: number;
-  plan_type: "corporate" | "individual";
+  plan_type: "corporate" | "individual" | "corporate_subsidized";
   period_type: "monthly" | "quarterly" | "semiannual" | "annual";
   status: "active" | "inactive";
   rules: Record<string, any>;
   business_id?: string;
+  subsidy_amount?: number;
+  final_user_cost?: number;
 };

@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 export function BenefitPlans() {
   const { data: plans } = useQuery({
@@ -26,7 +27,7 @@ export function BenefitPlans() {
         .from("benefit_plans")
         .select("*")
         .eq("business_id", businessProfile.id)
-        .eq("plan_type", "corporate")  // Only show corporate plans
+        .or("plan_type.eq.corporate,plan_type.eq.corporate_subsidized")
         .order("name");
 
       if (error) throw error;
@@ -51,6 +52,8 @@ export function BenefitPlans() {
               <TableHead>Nome</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead>Custo Mensal</TableHead>
+              <TableHead>Subsídio</TableHead>
+              <TableHead>Custo Final</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Ações</TableHead>
             </TableRow>
@@ -60,7 +63,17 @@ export function BenefitPlans() {
               <TableRow key={plan.id}>
                 <TableCell>{plan.name}</TableCell>
                 <TableCell>{plan.description || "-"}</TableCell>
-                <TableCell>R$ {plan.monthly_cost}</TableCell>
+                <TableCell>{formatCurrency(plan.monthly_cost)}</TableCell>
+                <TableCell>
+                  {plan.plan_type === 'corporate_subsidized' 
+                    ? formatCurrency(plan.subsidy_amount || 0)
+                    : "-"}
+                </TableCell>
+                <TableCell>
+                  {plan.plan_type === 'corporate_subsidized'
+                    ? formatCurrency(plan.final_user_cost || 0)
+                    : "-"}
+                </TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                     plan.status === "active" 

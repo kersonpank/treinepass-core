@@ -71,6 +71,7 @@ export type Database = {
           business_id: string | null
           created_at: string
           description: string | null
+          final_user_cost: number | null
           id: string
           monthly_cost: number
           name: string
@@ -78,12 +79,14 @@ export type Database = {
           plan_type: string
           rules: Json
           status: string
+          subsidy_amount: number | null
           updated_at: string
         }
         Insert: {
           business_id?: string | null
           created_at?: string
           description?: string | null
+          final_user_cost?: number | null
           id?: string
           monthly_cost: number
           name: string
@@ -91,12 +94,14 @@ export type Database = {
           plan_type?: string
           rules?: Json
           status?: string
+          subsidy_amount?: number | null
           updated_at?: string
         }
         Update: {
           business_id?: string | null
           created_at?: string
           description?: string | null
+          final_user_cost?: number | null
           id?: string
           monthly_cost?: number
           name?: string
@@ -104,6 +109,7 @@ export type Database = {
           plan_type?: string
           rules?: Json
           status?: string
+          subsidy_amount?: number | null
           updated_at?: string
         }
         Relationships: [
