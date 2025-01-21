@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       academias: {
         Row: {
+          amenities: string[] | null
           cnpj: string
           created_at: string
           documentos: string[] | null
@@ -29,6 +30,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          amenities?: string[] | null
           cnpj: string
           created_at?: string
           documentos?: string[] | null
@@ -47,6 +49,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          amenities?: string[] | null
           cnpj?: string
           created_at?: string
           documentos?: string[] | null
@@ -63,6 +66,33 @@ export type Database = {
           telefone?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      amenities: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -345,18 +375,21 @@ export type Database = {
       }
       modalidades: {
         Row: {
+          active: boolean | null
           created_at: string
           descricao: string | null
           id: string
           nome: string
         }
         Insert: {
+          active?: boolean | null
           created_at?: string
           descricao?: string | null
           id?: string
           nome: string
         }
         Update: {
+          active?: boolean | null
           created_at?: string
           descricao?: string | null
           id?: string
