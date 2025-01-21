@@ -9,14 +9,9 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Image, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlanRule {
   id: string;
@@ -29,9 +24,12 @@ interface PlanRule {
 interface PlanRulesConfigProps {
   value: Record<string, any>;
   onChange: (rules: Record<string, any>) => void;
+  planId?: string;
 }
 
-export function PlanRulesConfig({ value, onChange }: PlanRulesConfigProps) {
+export function PlanRulesConfig({ value, onChange, planId }: PlanRulesConfigProps) {
+  const { toast } = useToast();
+
   const { data: rules } = useQuery({
     queryKey: ["plan-rules"],
     queryFn: async () => {
@@ -50,6 +48,41 @@ export function PlanRulesConfig({ value, onChange }: PlanRulesConfigProps) {
       ...value,
       [ruleId]: ruleValue,
     });
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file || !planId) return;
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${planId}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('plan-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('plan-images')
+        .getPublicUrl(filePath);
+
+      handleRuleChange('image', publicUrl);
+
+      toast({
+        title: "Imagem atualizada com sucesso",
+        description: "A imagem do plano foi atualizada.",
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao fazer upload da imagem",
+        description: "Não foi possível fazer upload da imagem. Tente novamente.",
+      });
+    }
   };
 
   const renderRuleInput = (rule: PlanRule) => {
@@ -105,6 +138,45 @@ export function PlanRulesConfig({ value, onChange }: PlanRulesConfigProps) {
 
   return (
     <div className="space-y-4">
+      {planId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Imagem do Plano</CardTitle>
+            <CardDescription>
+              Faça upload de uma imagem para representar o plano
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              {value.image && (
+                <div className="relative w-24 h-24">
+                  <img
+                    src={value.image}
+                    alt="Imagem do plano"
+                    className="w-full h-full object-cover rounded-md"
+                  />
+                </div>
+              )}
+              <Button
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => document.getElementById('plan-image')?.click()}
+              >
+                <Upload className="w-4 h-4" />
+                Upload
+              </Button>
+              <input
+                id="plan-image"
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {rules?.map((rule) => (
         <Card key={rule.id}>
           <CardHeader>
