@@ -12,11 +12,29 @@ import {
 import { PlansList } from "./PlansList";
 import { CreatePlanForm } from "./CreatePlanForm";
 import { EditPlanForm } from "./EditPlanForm";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export function PlansManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+
+  const { data: selectedPlan } = useQuery({
+    queryKey: ["plan", selectedPlanId],
+    queryFn: async () => {
+      if (!selectedPlanId) return null;
+      const { data, error } = await supabase
+        .from("benefit_plans")
+        .select("*")
+        .eq("id", selectedPlanId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedPlanId,
+  });
 
   const handleEditPlan = (planId: string) => {
     setSelectedPlanId(planId);
@@ -59,9 +77,9 @@ export function PlansManagement() {
                 Atualize as informações do plano selecionado.
               </DialogDescription>
             </DialogHeader>
-            {selectedPlanId && (
+            {selectedPlan && (
               <EditPlanForm 
-                planId={selectedPlanId} 
+                plan={selectedPlan} 
                 onSuccess={() => setIsEditDialogOpen(false)} 
               />
             )}

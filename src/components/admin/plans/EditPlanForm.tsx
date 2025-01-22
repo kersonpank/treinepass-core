@@ -1,12 +1,25 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { updatePlan } from "@/services/plans";
 
+interface Plan {
+  id: string;
+  name: string;
+  description?: string;
+  monthly_cost: string;
+  plan_type: "corporate" | "individual" | "corporate_subsidized";
+  period_type: "monthly" | "quarterly" | "semiannual" | "annual";
+  status: "active" | "inactive";
+  rules: Record<string, any>;
+  subsidy_amount?: number;
+  final_user_cost?: number;
+}
+
 interface EditPlanFormProps {
-  plan: any;
+  plan: Plan;
   onSuccess: () => void;
 }
 
@@ -25,25 +38,22 @@ export function EditPlanForm({ plan, onSuccess }: EditPlanFormProps) {
     setIsSubmitting(true);
 
     try {
-      const formData = {
-        name: planData.name || '',  // Ensure required fields are not undefined
+      await updatePlan(plan.id, {
+        name: planData.name,
         description: planData.description,
-        monthly_cost: planData.monthly_cost || '0',
-        plan_type: planData.plan_type || 'corporate',
-        period_type: planData.period_type || 'monthly',
-        status: planData.status || 'active',
-        rules: planData.rules || {},
-        subsidy_amount: planData.subsidy_amount,
-        final_user_cost: planData.final_user_cost
-      };
+        monthly_cost: planData.monthly_cost,
+        plan_type: planData.plan_type,
+        period_type: planData.period_type,
+        status: planData.status,
+        rules: planData.rules,
+        subsidy_amount: Number(planData.subsidy_amount),
+        final_user_cost: Number(planData.final_user_cost)
+      });
 
-      if (plan) {
-        await updatePlan(plan.id, formData);
-        toast({
-          title: "Plano atualizado",
-          description: "O plano foi atualizado com sucesso.",
-        });
-      }
+      toast({
+        title: "Plano atualizado",
+        description: "O plano foi atualizado com sucesso.",
+      });
 
       onSuccess();
     } catch (error: any) {
@@ -55,7 +65,7 @@ export function EditPlanForm({ plan, onSuccess }: EditPlanFormProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
