@@ -1,9 +1,6 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -11,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanRulesConfig } from "./PlanRulesConfig";
 import { PlanPreview } from "./PlanPreview";
 import { PlanDetailsForm } from "./forms/PlanDetailsForm";
-import { planFormSchema, type PlanFormValues } from "./types/plan";
+import { type PlanFormValues } from "./types/plan";
+import { usePlanForm } from "./hooks/usePlanForm";
 
 interface EditPlanFormProps {
   planId: string;
@@ -19,10 +17,6 @@ interface EditPlanFormProps {
 }
 
 export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
   const { data: isAdmin } = useQuery({
     queryKey: ["isAdmin"],
     queryFn: async () => {
@@ -51,18 +45,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
     },
   });
 
-  const form = useForm<PlanFormValues>({
-    resolver: zodResolver(planFormSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      monthly_cost: "",
-      plan_type: "corporate",
-      period_type: "monthly",
-      status: "active",
-      rules: {},
-    },
-  });
+  const { form, isSubmitting, onSubmit } = usePlanForm(planId, onSuccess);
 
   useEffect(() => {
     if (plan) {
@@ -80,74 +63,6 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
       form.reset(formData);
     }
   }, [plan, form]);
-
-  const onSubmit = async (data: PlanFormValues) => {
-    setIsSubmitting(true);
-    try {
-      const { data: newVersion, error: versionError } = await supabase
-        .from("plan_versions")
-        .insert({
-          plan_id: planId,
-          name: data.name,
-          description: data.description,
-          monthly_cost: Number(data.monthly_cost),
-          rules: data.rules,
-          version: 1,
-        })
-        .select()
-        .single();
-
-      if (versionError) throw versionError;
-
-      const updateData = {
-        name: data.name,
-        description: data.description,
-        monthly_cost: Number(data.monthly_cost),
-        plan_type: data.plan_type,
-        period_type: data.period_type,
-        status: data.status,
-        rules: data.rules,
-        subsidy_amount: data.subsidy_amount ? Number(data.subsidy_amount) : null,
-        final_user_cost: data.final_user_cost ? Number(data.final_user_cost) : null,
-        ...((!isAdmin && plan) ? { business_id: plan.business_id } : {}),
-      };
-
-      const { error: updateError } = await supabase
-        .from("benefit_plans")
-        .update(updateData)
-        .eq("id", planId);
-
-      if (updateError) throw updateError;
-
-      const { error: historyError } = await supabase
-        .from("plan_change_history")
-        .insert({
-          plan_id: planId,
-          version_id: newVersion.id,
-          changes: updateData,
-        });
-
-      if (historyError) throw historyError;
-
-      toast({
-        title: "Plano atualizado com sucesso!",
-        description: "As alterações foram salvas e versionadas.",
-      });
-
-      queryClient.invalidateQueries({ queryKey: ["plans"] });
-      queryClient.invalidateQueries({ queryKey: ["plan", planId] });
-      onSuccess?.();
-    } catch (error) {
-      console.error("Error updating plan:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao atualizar plano",
-        description: "Não foi possível atualizar o plano. Tente novamente.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   if (isLoading) {
     return (
