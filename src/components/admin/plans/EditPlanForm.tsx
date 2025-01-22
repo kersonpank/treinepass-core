@@ -1,111 +1,151 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Form } from "@/components/ui/form";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlanRulesConfig } from "./PlanRulesConfig";
-import { PlanPreview } from "./PlanPreview";
-import { PlanDetailsForm } from "./forms/PlanDetailsForm";
-import { type PlanFormValues } from "./types/plan";
-import { usePlanForm } from "./hooks/usePlanForm";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { updatePlan } from "@/services/plans";
 
 interface EditPlanFormProps {
-  planId: string;
-  onSuccess?: () => void;
+  plan: any;
+  onSuccess: () => void;
 }
 
-export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
-  const { data: isAdmin } = useQuery({
-    queryKey: ["isAdmin"],
-    queryFn: async () => {
-      const { data: adminRole } = await supabase
-        .from("user_types")
-        .select("type")
-        .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
-        .eq("type", "admin")
-        .maybeSingle();
-      return !!adminRole;
-    },
-  });
+export function EditPlanForm({ plan, onSuccess }: EditPlanFormProps) {
+  const [planData, setPlanData] = useState(plan);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
 
-  const { data: plan, isLoading } = useQuery({
-    queryKey: ["plan", planId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("benefit_plans")
-        .select("*")
-        .eq("id", planId)
-        .maybeSingle();
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPlanData((prev) => ({ ...prev, [name]: value }));
+  };
 
-      if (error) throw error;
-      if (!data) throw new Error("Plano não encontrado");
-      return data;
-    },
-  });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
 
-  const { form, isSubmitting, onSubmit } = usePlanForm(planId, onSuccess);
-
-  useEffect(() => {
-    if (plan) {
-      const formData: PlanFormValues = {
-        name: plan.name,
-        description: plan.description || "",
-        monthly_cost: String(plan.monthly_cost),
-        plan_type: plan.plan_type as "corporate" | "individual" | "corporate_subsidized",
-        period_type: plan.period_type as "monthly" | "quarterly" | "semiannual" | "annual",
-        status: plan.status as "active" | "inactive",
-        rules: plan.rules as Record<string, any>,
-        subsidy_amount: plan.subsidy_amount ? String(plan.subsidy_amount) : undefined,
-        final_user_cost: plan.final_user_cost ? String(plan.final_user_cost) : undefined,
+    try {
+      const formData = {
+        name: planData.name || '',  // Ensure required fields are not undefined
+        description: planData.description,
+        monthly_cost: planData.monthly_cost || '0',
+        plan_type: planData.plan_type || 'corporate',
+        period_type: planData.period_type || 'monthly',
+        status: planData.status || 'active',
+        rules: planData.rules || {},
+        subsidy_amount: planData.subsidy_amount,
+        final_user_cost: planData.final_user_cost
       };
-      form.reset(formData);
-    }
-  }, [plan, form]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-6">
-        <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    );
+      if (plan) {
+        await updatePlan(plan.id, formData);
+        toast({
+          title: "Plano atualizado",
+          description: "O plano foi atualizado com sucesso.",
+        });
+      }
+
+      onSuccess();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao salvar o plano",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <Tabs defaultValue="details">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="details">Detalhes</TabsTrigger>
-        <TabsTrigger value="rules">Regras</TabsTrigger>
-        <TabsTrigger value="preview">Preview</TabsTrigger>
-      </TabsList>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Nome do Plano</Label>
+        <Input
+          id="name"
+          name="name"
+          value={planData.name}
+          onChange={handleChange}
+          required
+        />
+      </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <TabsContent value="details">
-            <PlanDetailsForm form={form} />
-          </TabsContent>
+      <div>
+        <Label htmlFor="description">Descrição</Label>
+        <Input
+          id="description"
+          name="description"
+          value={planData.description}
+          onChange={handleChange}
+        />
+      </div>
 
-          <TabsContent value="rules">
-            <PlanRulesConfig
-              value={form.watch("rules")}
-              onChange={(rules) => form.setValue("rules", rules)}
-              planId={planId}
-            />
-          </TabsContent>
+      <div>
+        <Label htmlFor="monthly_cost">Custo Mensal</Label>
+        <Input
+          id="monthly_cost"
+          name="monthly_cost"
+          type="number"
+          value={planData.monthly_cost}
+          onChange={handleChange}
+        />
+      </div>
 
-          <TabsContent value="preview">
-            <PlanPreview plan={form.getValues()} />
-          </TabsContent>
+      <div>
+        <Label htmlFor="plan_type">Tipo de Plano</Label>
+        <Input
+          id="plan_type"
+          name="plan_type"
+          value={planData.plan_type}
+          onChange={handleChange}
+        />
+      </div>
 
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Salvar Alterações
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </Tabs>
+      <div>
+        <Label htmlFor="period_type">Tipo de Período</Label>
+        <Input
+          id="period_type"
+          name="period_type"
+          value={planData.period_type}
+          onChange={handleChange}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="status">Status</Label>
+        <Input
+          id="status"
+          name="status"
+          value={planData.status}
+          onChange={handleChange}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="subsidy_amount">Valor do Subsídio</Label>
+        <Input
+          id="subsidy_amount"
+          name="subsidy_amount"
+          type="number"
+          value={planData.subsidy_amount}
+          onChange={handleChange}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="final_user_cost">Custo Final para o Usuário</Label>
+        <Input
+          id="final_user_cost"
+          name="final_user_cost"
+          type="number"
+          value={planData.final_user_cost}
+          onChange={handleChange}
+        />
+      </div>
+
+      <Button type="submit" disabled={isSubmitting}>
+        {isSubmitting ? "Salvando..." : "Salvar"}
+      </Button>
+    </form>
   );
 }
