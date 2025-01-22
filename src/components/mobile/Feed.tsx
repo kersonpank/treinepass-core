@@ -12,7 +12,10 @@ export function Feed() {
     queryFn: async () => {
       const { data: academias, error } = await supabase
         .from("academias")
-        .select("*")
+        .select(`
+          *,
+          modalidades:modalidades(nome)
+        `)
         .order("created_at", { ascending: false })
         .limit(20);
 
@@ -20,6 +23,35 @@ export function Feed() {
       return academias;
     },
   });
+
+  const getHorarioFormatado = (horario: any) => {
+    try {
+      const horarioObj = typeof horario === 'string' ? JSON.parse(horario) : horario;
+      if (!horarioObj) return "Horário não disponível";
+      
+      const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long' }).split('-')[0];
+      const diasSemana = {
+        'domingo': 'domingo',
+        'segunda': 'segunda',
+        'terça': 'terca',
+        'quarta': 'quarta',
+        'quinta': 'quinta',
+        'sexta': 'sexta',
+        'sábado': 'sabado'
+      };
+      
+      const diaHoje = diasSemana[hoje as keyof typeof diasSemana];
+      if (!horarioObj[diaHoje]) return "Fechado hoje";
+      
+      return `Hoje: ${horarioObj[diaHoje].abertura} - ${horarioObj[diaHoje].fechamento}`;
+    } catch {
+      return "Horário não disponível";
+    }
+  };
+
+  const getPlaceholderImage = () => {
+    return "/lovable-uploads/ecfecf49-b6a8-4983-8a2a-bf8f276576e8.png";
+  };
 
   if (isLoading) {
     return (
@@ -42,21 +74,11 @@ export function Feed() {
     );
   }
 
-  const getHorarioFormatado = (horario: any) => {
-    try {
-      const horarioObj = typeof horario === 'string' ? JSON.parse(horario) : horario;
-      if (!horarioObj?.segunda) return "Horário não disponível";
-      return `${horarioObj.segunda.abertura} - ${horarioObj.segunda.fechamento}`;
-    } catch {
-      return "Horário não disponível";
-    }
-  };
-
   return (
     <ScrollArea className="h-[calc(100vh-8rem)]">
       <div className="p-4 space-y-4">
         {feed?.map((academia) => (
-          <Card key={academia.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+          <Card key={academia.id} className="overflow-hidden hover:shadow-lg transition-shadow animate-fade-in">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
@@ -66,25 +88,33 @@ export function Feed() {
                     {academia.endereco}
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" className="shrink-0">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="shrink-0 hover:bg-primary hover:text-white transition-colors"
+                >
                   Check-in
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {academia.fotos && academia.fotos.length > 0 ? (
-                <div className="relative h-48 mb-4">
+              <div className="relative h-48 mb-4 rounded-md overflow-hidden">
+                {academia.fotos && academia.fotos.length > 0 ? (
                   <img
                     src={academia.fotos[0]}
                     alt={academia.nome}
-                    className="w-full h-full object-cover rounded-md"
+                    className="w-full h-full object-cover transition-transform hover:scale-105"
                   />
-                </div>
-              ) : (
-                <div className="h-48 mb-4 bg-muted rounded-md flex items-center justify-center">
-                  <DumbbellIcon className="h-12 w-12 text-muted-foreground" />
-                </div>
-              )}
+                ) : (
+                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                    <img
+                      src={getPlaceholderImage()}
+                      alt="Placeholder"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+              </div>
               
               <div className="space-y-3">
                 <div className="flex items-center text-sm text-muted-foreground">
@@ -93,12 +123,12 @@ export function Feed() {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  {academia.modalidades?.map((modalidade, index) => (
+                  {academia.modalidades?.map((modalidade: any, index: number) => (
                     <span
                       key={index}
                       className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
                     >
-                      {modalidade}
+                      {modalidade.nome || modalidade}
                     </span>
                   ))}
                 </div>
