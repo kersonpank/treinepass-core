@@ -29,25 +29,35 @@ export const LoginForm = () => {
 
   useEffect(() => {
     const checkCurrentUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
         // Fetch user profile
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('full_name')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
+
+        if (profileError) throw profileError;
 
         // Fetch user types
-        const { data: types } = await supabase
+        const { data: types, error: typesError } = await supabase
           .from('user_types')
           .select('type')
           .eq('user_id', session.user.id);
 
-        setCurrentUser({
-          full_name: profile?.full_name || 'Usuário',
-          type: types?.map(t => t.type).join(', ')
-        });
+        if (typesError) throw typesError;
+
+        if (profile) {
+          setCurrentUser({
+            full_name: profile.full_name || 'Usuário',
+            type: types?.map(t => t.type).join(', ')
+          });
+        }
+      } catch (error) {
+        console.error("Error checking current user:", error);
       }
     };
 
@@ -55,106 +65,73 @@ export const LoginForm = () => {
   }, []);
 
   const handleRedirectLoggedUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Usuário não está logado",
+        });
+        return;
+      }
 
-    const { data: userTypes } = await supabase
-      .from('user_types')
-      .select('type')
-      .eq('user_id', session.user.id);
+      const { data: userTypes, error: typesError } = await supabase
+        .from('user_types')
+        .select('type')
+        .eq('user_id', session.user.id);
 
-    if (!userTypes || userTypes.length === 0) {
+      if (typesError) throw typesError;
+
+      if (!userTypes || userTypes.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Nenhum perfil encontrado para este usuário",
+        });
+        return;
+      }
+
+      // Se houver apenas um perfil, redireciona diretamente
+      if (userTypes.length === 1) {
+        switch (userTypes[0].type) {
+          case 'individual':
+            navigate('/app');
+            break;
+          case 'business':
+            navigate('/dashboard-empresa');
+            break;
+          case 'gym':
+            const { data: gymRole } = await supabase
+              .from('user_gym_roles')
+              .select('gym_id')
+              .eq('user_id', session.user.id)
+              .eq('active', true)
+              .maybeSingle();
+            
+            if (gymRole) {
+              navigate(`/academia/${gymRole.gym_id}`);
+            } else {
+              navigate('/');
+            }
+            break;
+          case 'admin':
+            navigate('/admin/dashboard');
+            break;
+          default:
+            navigate('/');
+        }
+      } else {
+        // Se houver múltiplos perfis, redireciona para a tela de seleção
+        navigate('/selecionar-perfil');
+      }
+    } catch (error: any) {
+      console.error("Error redirecting logged user:", error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Nenhum perfil encontrado para este usuário",
+        description: "Erro ao redirecionar usuário",
       });
-      return;
-    }
-
-    // Se houver apenas um perfil, redireciona diretamente
-    if (userTypes.length === 1) {
-      switch (userTypes[0].type) {
-        case 'individual':
-          navigate('/app');
-          break;
-        case 'business':
-          navigate('/dashboard-empresa');
-          break;
-        case 'gym':
-          const { data: gymRole } = await supabase
-            .from('user_gym_roles')
-            .select('gym_id')
-            .eq('user_id', session.user.id)
-            .eq('active', true)
-            .single();
-          
-          if (gymRole) {
-            navigate(`/academia/${gymRole.gym_id}`);
-          } else {
-            navigate('/');
-          }
-          break;
-        case 'admin':
-          navigate('/admin/dashboard');
-          break;
-        default:
-          navigate('/');
-      }
-    } else {
-      // Se houver múltiplos perfis, redireciona para a tela de seleção
-      navigate('/selecionar-perfil');
-    }
-  };
-
-  const handleRedirect = async (userId: string) => {
-    // Buscar os tipos de perfil do usuário
-    const { data: userTypes } = await supabase
-      .from('user_types')
-      .select('type')
-      .eq('user_id', userId);
-
-    if (!userTypes || userTypes.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Nenhum perfil encontrado para este usuário",
-      });
-      return;
-    }
-
-    // Se houver apenas um perfil, redireciona diretamente
-    if (userTypes.length === 1) {
-      switch (userTypes[0].type) {
-        case 'individual':
-          navigate('/app');
-          break;
-        case 'business':
-          navigate('/dashboard-empresa');
-          break;
-        case 'gym':
-          const { data: gymRole } = await supabase
-            .from('user_gym_roles')
-            .select('gym_id')
-            .eq('user_id', userId)
-            .eq('active', true)
-            .single();
-          
-          if (gymRole) {
-            navigate(`/academia/${gymRole.gym_id}`);
-          } else {
-            navigate('/');
-          }
-          break;
-        case 'admin':
-          navigate('/admin/dashboard');
-          break;
-        default:
-          navigate('/');
-      }
-    } else {
-      // Se houver múltiplos perfis, redireciona para a tela de seleção
-      navigate('/selecionar-perfil');
     }
   };
 
@@ -251,7 +228,10 @@ export const LoginForm = () => {
   return (
     <>
       {currentUser && (
-        <Alert className="mb-6 cursor-pointer hover:bg-gray-100 transition-colors" onClick={handleRedirectLoggedUser}>
+        <Alert 
+          className="mb-6 cursor-pointer hover:bg-gray-100 transition-colors" 
+          onClick={handleRedirectLoggedUser}
+        >
           <AlertDescription className="flex items-center justify-between">
             <span>
               Olá {currentUser.full_name}
