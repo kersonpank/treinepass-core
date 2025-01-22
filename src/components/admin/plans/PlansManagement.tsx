@@ -32,11 +32,20 @@ export function PlansManagement() {
 
       if (error) throw error;
       
-      // Convert monthly_cost to string for the form
-      return data ? {
+      if (!data) return null;
+
+      // Ensure plan_type is one of the allowed values
+      const validPlanTypes = ["corporate", "individual", "corporate_subsidized"] as const;
+      const planType = validPlanTypes.includes(data.plan_type as any) 
+        ? data.plan_type as "corporate" | "individual" | "corporate_subsidized"
+        : "corporate";
+
+      // Convert monthly_cost to string and ensure proper typing
+      return {
         ...data,
-        monthly_cost: data.monthly_cost.toString()
-      } : null;
+        monthly_cost: data.monthly_cost.toString(),
+        plan_type: planType,
+      };
     },
     enabled: !!selectedPlanId,
   });
