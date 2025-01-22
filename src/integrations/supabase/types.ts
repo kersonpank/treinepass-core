@@ -754,7 +754,7 @@ export type Database = {
           p_endereco: string
           p_horario_funcionamento: Json
           p_modalidades: string[]
-          p_status: string
+          p_status?: string
         }
         Returns: {
           academia_id: string

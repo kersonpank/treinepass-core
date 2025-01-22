@@ -128,7 +128,7 @@ export async function registerGym(data: GymData) {
       if (academiaError) {
         console.error("Erro ao criar academia:", academiaError);
         // Se houver erro e o usuário foi criado agora, deletar
-        if (!existingUser) {
+        if (!existingUser && userId) {
           await supabase.auth.admin.deleteUser(userId);
         }
         throw new Error("Erro ao criar academia: " + academiaError.message);
@@ -136,7 +136,7 @@ export async function registerGym(data: GymData) {
 
       if (!academia || academia.length === 0) {
         // Se não houver academia criada e o usuário foi criado agora, deletar
-        if (!existingUser) {
+        if (!existingUser && userId) {
           await supabase.auth.admin.deleteUser(userId);
         }
         throw new Error("Erro ao criar registro da academia");
@@ -149,7 +149,7 @@ export async function registerGym(data: GymData) {
         } catch (uploadError) {
           // Se houver erro no upload, deletar academia e usuário (se foi criado agora)
           await supabase.from("academias").delete().eq("id", academia[0].academia_id);
-          if (!existingUser) {
+          if (!existingUser && userId) {
             await supabase.auth.admin.deleteUser(userId);
           }
           throw uploadError;
