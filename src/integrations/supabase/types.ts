@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      academia_modalidades: {
+        Row: {
+          academia_id: string
+          created_at: string
+          id: string
+          modalidade_id: string
+        }
+        Insert: {
+          academia_id: string
+          created_at?: string
+          id?: string
+          modalidade_id: string
+        }
+        Update: {
+          academia_id?: string
+          created_at?: string
+          id?: string
+          modalidade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_modalidades_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academia_modalidades_modalidade_id_fkey"
+            columns: ["modalidade_id"]
+            isOneToOne: false
+            referencedRelation: "modalidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academias: {
         Row: {
           amenities: string[] | null
@@ -22,7 +58,6 @@ export type Database = {
           id: string
           latitude: number | null
           longitude: number | null
-          modalidades: string[]
           nome: string
           status: string | null
           telefone: string
@@ -41,7 +76,6 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
-          modalidades: string[]
           nome: string
           status?: string | null
           telefone: string
@@ -60,7 +94,6 @@ export type Database = {
           id?: string
           latitude?: number | null
           longitude?: number | null
-          modalidades?: string[]
           nome?: string
           status?: string | null
           telefone?: string

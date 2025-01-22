@@ -14,7 +14,11 @@ export function Feed() {
         .from("academias")
         .select(`
           *,
-          modalidades:modalidades(nome)
+          academia_modalidades (
+            modalidade: modalidades (
+              nome
+            )
+          )
         `)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -29,14 +33,14 @@ export function Feed() {
       const horarioObj = typeof horario === 'string' ? JSON.parse(horario) : horario;
       if (!horarioObj) return "Horário não disponível";
       
-      const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long' }).split('-')[0];
+      const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long' }).toLowerCase();
       const diasSemana = {
         'domingo': 'domingo',
-        'segunda': 'segunda',
-        'terça': 'terca',
-        'quarta': 'quarta',
-        'quinta': 'quinta',
-        'sexta': 'sexta',
+        'segunda-feira': 'segunda',
+        'terça-feira': 'terca',
+        'quarta-feira': 'quarta',
+        'quinta-feira': 'quinta',
+        'sexta-feira': 'sexta',
         'sábado': 'sabado'
       };
       
@@ -123,12 +127,12 @@ export function Feed() {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  {academia.modalidades?.map((modalidade: any, index: number) => (
+                  {academia.academia_modalidades?.map((am: any, index: number) => (
                     <span
                       key={index}
                       className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
                     >
-                      {modalidade.nome || modalidade}
+                      {am.modalidade.nome}
                     </span>
                   ))}
                 </div>
