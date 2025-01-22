@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, MapPin, Clock, Navigation } from "lucide-react";
+import { Json } from "@/integrations/supabase/types";
 
 interface Modalidade {
   nome: string;
@@ -19,7 +20,7 @@ interface Academia {
   id: string;
   nome: string;
   endereco: string;
-  horario_funcionamento: Record<string, { abertura: string; fechamento: string }>;
+  horario_funcionamento: Json;
   fotos?: string[];
   latitude?: number;
   longitude?: number;
@@ -59,8 +60,10 @@ export function GymSearch() {
       const { data, error } = await query;
       if (error) throw error;
 
-      if (userLocation && data) {
-        return (data as AcademiaWithDistance[])
+      const academias = data as unknown as Academia[];
+
+      if (userLocation && academias) {
+        return academias
           .map(academia => ({
             ...academia,
             distance: academia.latitude && academia.longitude
@@ -75,7 +78,7 @@ export function GymSearch() {
           .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
       }
 
-      return data as AcademiaWithDistance[];
+      return academias;
     },
   });
 
@@ -109,7 +112,7 @@ export function GymSearch() {
 
   const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
-  const getHorarioFormatado = (horario: any) => {
+  const getHorarioFormatado = (horario: Json) => {
     try {
       const horarioObj = typeof horario === 'string' ? JSON.parse(horario) : horario;
       if (!horarioObj) return "Horário não disponível";
