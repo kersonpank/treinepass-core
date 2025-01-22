@@ -135,63 +135,28 @@ export const LoginForm = () => {
     }
   };
 
-  const detectCredentialType = (credential: string): 'email' | 'cpf' | 'cnpj' => {
-    // Remove caracteres especiais para verificação
-    const cleanCredential = credential.replace(/[^\w\s]/gi, '');
-    
-    // Verifica se é um email
-    if (credential.includes('@')) {
-      return 'email';
-    }
-    
-    // Verifica se é um CNPJ (14 dígitos)
-    if (cleanCredential.length === 14) {
-      return 'cnpj';
-    }
-    
-    // Verifica se é um CPF (11 dígitos)
-    if (cleanCredential.length === 11) {
-      return 'cpf';
-    }
-    
-    return 'email'; // fallback para email
-  };
-
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true);
-      const credentialType = detectCredentialType(data.credential);
       
-      // Buscar o email associado ao CNPJ se necessário
-      let email = data.credential;
-      
-      if (credentialType === 'cnpj') {
-        const { data: business } = await supabase
-          .from('business_profiles')
-          .select('user_id, email')
-          .eq('cnpj', data.credential.replace(/\D/g, ''))
-          .single();
-          
-        if (!business) throw new Error('CNPJ não encontrado');
-        email = business.email;
-      }
-
       const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: data.credential,
         password: data.password,
       });
 
       if (error) throw error;
 
       if (authData.user) {
-        await handleRedirect(authData.user.id);
+        await handleRedirectLoggedUser();
       }
 
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erro ao fazer login",
-        description: error.message,
+        description: error.message === "Invalid login credentials"
+          ? "Credenciais inválidas"
+          : error.message,
       });
     } finally {
       setIsLoading(false);
@@ -251,70 +216,70 @@ export const LoginForm = () => {
         onSubmit={handleSubmit(onSubmit)}
         className="space-y-4"
       >
-      <div className="space-y-2">
-        <Label htmlFor="credential">Email ou CNPJ</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <Input
-            id="credential"
-            className="pl-10"
-            placeholder="Digite seu email ou CNPJ"
-            {...register("credential", {
-              required: "Credencial é obrigatória",
-            })}
-          />
+        <div className="space-y-2">
+          <Label htmlFor="credential">Email</Label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <Input
+              id="credential"
+              className="pl-10"
+              placeholder="Digite seu email"
+              {...register("credential", {
+                required: "Email é obrigatório",
+              })}
+            />
+          </div>
+          {errors.credential && (
+            <p className="text-sm text-red-500 mt-1">{errors.credential.message}</p>
+          )}
         </div>
-        {errors.credential && (
-          <p className="text-sm text-red-500 mt-1">{errors.credential.message}</p>
-        )}
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="password">Senha</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <Input
-            id="password"
-            type="password"
-            className="pl-10"
-            placeholder="••••••••"
-            {...register("password", {
-              required: "Senha é obrigatória",
-              minLength: {
-                value: 6,
-                message: "A senha deve ter pelo menos 6 caracteres",
-              },
-            })}
-          />
+        <div className="space-y-2">
+          <Label htmlFor="password">Senha</Label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <Input
+              id="password"
+              type="password"
+              className="pl-10"
+              placeholder="••••••••"
+              {...register("password", {
+                required: "Senha é obrigatória",
+                minLength: {
+                  value: 6,
+                  message: "A senha deve ter pelo menos 6 caracteres",
+                },
+              })}
+            />
+          </div>
+          {errors.password && (
+            <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
+          )}
         </div>
-        {errors.password && (
-          <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
-        )}
-      </div>
 
-      <Button
-        type="button"
-        variant="link"
-        className="px-0 font-normal"
-        onClick={handlePasswordReset}
-      >
-        Esqueceu sua senha?
-      </Button>
+        <Button
+          type="button"
+          variant="link"
+          className="px-0 font-normal"
+          onClick={handlePasswordReset}
+        >
+          Esqueceu sua senha?
+        </Button>
 
-      <Button
-        type="submit"
-        className="w-full bg-[#0125F0]"
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Entrando...
-          </>
-        ) : (
-          "Entrar"
-        )}
-      </Button>
+        <Button
+          type="submit"
+          className="w-full bg-[#0125F0]"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Entrando...
+            </>
+          ) : (
+            "Entrar"
+          )}
+        </Button>
       </motion.form>
 
       <div className="mt-4">
