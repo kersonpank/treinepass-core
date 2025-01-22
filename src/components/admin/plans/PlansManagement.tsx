@@ -31,7 +31,12 @@ export function PlansManagement() {
         .single();
 
       if (error) throw error;
-      return data;
+      
+      // Convert monthly_cost to string for the form
+      return data ? {
+        ...data,
+        monthly_cost: data.monthly_cost.toString()
+      } : null;
     },
     enabled: !!selectedPlanId,
   });
