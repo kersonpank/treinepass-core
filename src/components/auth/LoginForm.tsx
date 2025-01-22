@@ -31,13 +31,14 @@ export const LoginForm = () => {
     const checkCurrentUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        // Fetch user profile and types
+        // Fetch user profile
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('full_name')
           .eq('id', session.user.id)
           .single();
 
+        // Fetch user types
         const { data: types } = await supabase
           .from('user_types')
           .select('type')
@@ -81,7 +82,72 @@ export const LoginForm = () => {
           navigate('/dashboard-empresa');
           break;
         case 'gym':
-          navigate('/dashboard-academia');
+          const { data: gymRole } = await supabase
+            .from('user_gym_roles')
+            .select('gym_id')
+            .eq('user_id', session.user.id)
+            .eq('active', true)
+            .single();
+          
+          if (gymRole) {
+            navigate(`/academia/${gymRole.gym_id}`);
+          } else {
+            navigate('/');
+          }
+          break;
+        case 'admin':
+          navigate('/admin/dashboard');
+          break;
+        default:
+          navigate('/');
+      }
+    } else {
+      // Se houver múltiplos perfis, redireciona para a tela de seleção
+      navigate('/selecionar-perfil');
+    }
+  };
+
+  const handleRedirect = async (userId: string) => {
+    // Buscar os tipos de perfil do usuário
+    const { data: userTypes } = await supabase
+      .from('user_types')
+      .select('type')
+      .eq('user_id', userId);
+
+    if (!userTypes || userTypes.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Nenhum perfil encontrado para este usuário",
+      });
+      return;
+    }
+
+    // Se houver apenas um perfil, redireciona diretamente
+    if (userTypes.length === 1) {
+      switch (userTypes[0].type) {
+        case 'individual':
+          navigate('/app');
+          break;
+        case 'business':
+          navigate('/dashboard-empresa');
+          break;
+        case 'gym':
+          const { data: gymRole } = await supabase
+            .from('user_gym_roles')
+            .select('gym_id')
+            .eq('user_id', userId)
+            .eq('active', true)
+            .single();
+          
+          if (gymRole) {
+            navigate(`/academia/${gymRole.gym_id}`);
+          } else {
+            navigate('/');
+          }
+          break;
+        case 'admin':
+          navigate('/admin/dashboard');
           break;
         default:
           navigate('/');
@@ -112,43 +178,6 @@ export const LoginForm = () => {
     }
     
     return 'email'; // fallback para email
-  };
-
-  const handleRedirect = async (userId: string) => {
-    // Buscar os tipos de perfil do usuário
-    const { data: userTypes } = await supabase
-      .from('user_types')
-      .select('type')
-      .eq('user_id', userId);
-
-    if (!userTypes || userTypes.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Nenhum perfil encontrado para este usuário",
-      });
-      return;
-    }
-
-    // Se houver apenas um perfil, redireciona diretamente
-    if (userTypes.length === 1) {
-      switch (userTypes[0].type) {
-        case 'individual':
-          navigate('/app');
-          break;
-        case 'business':
-          navigate('/dashboard-empresa');
-          break;
-        case 'gym':
-          navigate('/dashboard-academia');
-          break;
-        default:
-          navigate('/');
-      }
-    } else {
-      // Se houver múltiplos perfis, redireciona para a tela de seleção
-      navigate('/selecionar-perfil');
-    }
   };
 
   const onSubmit = async (data: LoginFormData) => {
