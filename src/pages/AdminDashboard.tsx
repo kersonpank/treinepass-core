@@ -98,7 +98,7 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[500px]">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="plans">Planos</TabsTrigger>

@@ -23,7 +23,6 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Check if user is admin
   const { data: isAdmin } = useQuery({
     queryKey: ["isAdmin"],
     queryFn: async () => {
@@ -71,10 +70,12 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         name: plan.name,
         description: plan.description || "",
         monthly_cost: String(plan.monthly_cost),
-        plan_type: plan.plan_type as "corporate" | "individual",
+        plan_type: plan.plan_type as "corporate" | "individual" | "corporate_subsidized",
         period_type: plan.period_type as "monthly" | "quarterly" | "semiannual" | "annual",
         status: plan.status as "active" | "inactive",
         rules: plan.rules as Record<string, any>,
+        subsidy_amount: plan.subsidy_amount ? String(plan.subsidy_amount) : undefined,
+        final_user_cost: plan.final_user_cost ? String(plan.final_user_cost) : undefined,
       });
     }
   }, [plan, form]);
@@ -107,6 +108,8 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         period_type: data.period_type,
         status: data.status,
         rules: data.rules,
+        subsidy_amount: data.subsidy_amount ? Number(data.subsidy_amount) : null,
+        final_user_cost: data.final_user_cost ? Number(data.final_user_cost) : null,
         ...((!isAdmin && plan) ? { business_id: plan.business_id } : {}),
       };
 

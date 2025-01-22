@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cnpj } from "cpf-cnpj-validator";
 import { Tables } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 type Academia = Tables<"academias">;
 
@@ -22,6 +24,7 @@ type GymFormData = {
   email: string;
   endereco: string;
   horario_funcionamento: string;
+  modalidades: string[];
 };
 
 export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
@@ -38,6 +41,21 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
       email: academia.email,
       endereco: academia.endereco,
       horario_funcionamento: JSON.stringify(academia.horario_funcionamento),
+      modalidades: academia.modalidades || [],
+    },
+  });
+
+  const { data: modalidades } = useQuery({
+    queryKey: ["modalidades"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("modalidades")
+        .select("*")
+        .eq("active", true)
+        .order("nome");
+      
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -133,6 +151,25 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
         {errors.endereco && (
           <p className="text-sm text-red-500">{errors.endereco.message}</p>
         )}
+      </div>
+
+      <div className="space-y-4">
+        <Label>Modalidades</Label>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {modalidades?.map((modalidade) => (
+            <div key={modalidade.id} className="flex items-center space-x-2">
+              <Checkbox
+                id={modalidade.id}
+                {...register("modalidades")}
+                value={modalidade.id}
+                defaultChecked={academia.modalidades?.includes(modalidade.id)}
+              />
+              <Label htmlFor={modalidade.id} className="text-sm">
+                {modalidade.nome}
+              </Label>
+            </div>
+          ))}
+        </div>
       </div>
 
       <Button
