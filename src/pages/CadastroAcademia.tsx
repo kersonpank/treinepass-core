@@ -33,7 +33,7 @@ export default function CadastroAcademia() {
         description: "Sua academia foi cadastrada e você será redirecionado para o painel.",
       });
 
-      navigate(`/academia/${academia.id}`);
+      navigate(`/academia/${academia.academia_id}`);
     } catch (error: any) {
       console.error("Erro detalhado durante o cadastro:", error);
       
