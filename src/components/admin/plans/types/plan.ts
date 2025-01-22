@@ -1,30 +1,18 @@
-import { z } from "zod";
+export type PlanType = "individual" | "corporate" | "corporate_subsidized";
+export type PeriodType = "monthly" | "quarterly" | "semiannual" | "annual";
 
-export const planFormSchema = z.object({
-  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  description: z.string().optional(),
-  monthly_cost: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Custo mensal deve ser um número maior que 0",
-  }),
-  plan_type: z.enum(["corporate", "individual", "corporate_subsidized"]),
-  period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
-  status: z.enum(["active", "inactive"]),
-  subsidy_amount: z.string().optional(),
-  final_user_cost: z.string().optional(),
-  rules: z.record(z.any()).default({}),
-});
-
-export type PlanFormValues = z.infer<typeof planFormSchema>;
-
-export type UpdatePlanData = {
+export interface Plan {
+  id: string;
+  business_id: string | null;
   name: string;
-  description?: string;
-  monthly_cost: number;
-  plan_type: "corporate" | "individual" | "corporate_subsidized";
-  period_type: "monthly" | "quarterly" | "semiannual" | "annual";
-  status: "active" | "inactive";
-  rules: Record<string, any>;
-  business_id?: string;
-  subsidy_amount?: number;
-  final_user_cost?: number;
-};
+  description: string | null;
+  monthly_cost: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  plan_type: PlanType;
+  period_type: PeriodType;
+  rules: any;
+  subsidy_amount: number | null;
+  final_user_cost: number | null;
+}
