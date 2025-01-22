@@ -60,8 +60,7 @@ export async function registerGym(data: GymData) {
     // 1. Primeiro, verificar duplicatas
     await checkDuplicates(data.email, data.cnpj);
     
-    // 2. Se passou pela verificação, criar o usuário
-    console.log("Criando usuário na autenticação...");
+    // 2. Iniciar transação
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -85,50 +84,52 @@ export async function registerGym(data: GymData) {
     console.log("Usuário criado com sucesso. ID:", authData.user.id);
 
     try {
-      // 3. Criar a academia
-      console.log("Criando registro da academia...");
-      const { data: academia, error: academiaError } = await supabase
-        .from("academias")
-        .insert({
-          user_id: authData.user.id,
-          nome: data.nome,
-          cnpj: data.cnpj.replace(/\D/g, ""),
-          telefone: data.telefone,
-          email: data.email,
-          endereco: data.endereco,
-          horario_funcionamento: data.horario_funcionamento,
-          modalidades: data.modalidades,
-          status: "pendente",
-        })
-        .select()
-        .single();
+      // 3. Criar a academia usando transação
+      const { data: academia, error: academiaError } = await supabase.rpc('create_academia', {
+        user_id: authData.user.id,
+        nome: data.nome,
+        cnpj_input: data.cnpj.replace(/\D/g, ""),
+        telefone: data.telefone,
+        email_input: data.email,
+        endereco: data.endereco,
+        horario_funcionamento: data.horario_funcionamento,
+        modalidades: data.modalidades,
+        status: "pendente"
+      });
 
       if (academiaError) {
-        console.error("Erro ao criar academia:", academiaError);
-        // Se houver erro ao criar academia, remover o usuário criado
+        // Se houver erro na criação da academia, deletar o usuário criado
         await supabase.auth.admin.deleteUser(authData.user.id);
+        console.error("Erro ao criar academia:", academiaError);
         throw new Error("Erro ao criar academia: " + academiaError.message);
+      }
+
+      if (!academia) {
+        // Se não houver academia criada, deletar o usuário
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        throw new Error("Erro ao criar registro da academia");
       }
 
       // 4. Upload de arquivos
       if (data.fotos || data.documentos) {
-        console.log("Iniciando upload de arquivos...");
-        await uploadFiles(data, academia.id);
+        try {
+          await uploadFiles(data, academia.id);
+        } catch (uploadError) {
+          // Se houver erro no upload, deletar academia e usuário
+          await supabase.from("academias").delete().eq("id", academia.id);
+          await supabase.auth.admin.deleteUser(authData.user.id);
+          throw uploadError;
+        }
       }
 
-      console.log("Registro da academia concluído com sucesso!");
       return academia;
-    } catch (error: any) {
-      // Em caso de erro após criar o usuário, tentar limpar
-      console.error("Erro durante o processo de registro:", error);
-      if (authData.user?.id) {
-        console.log("Removendo usuário devido a erro:", authData.user.id);
-        await supabase.auth.admin.deleteUser(authData.user.id);
-      }
+    } catch (error) {
+      // Em caso de qualquer erro, garantir que o usuário seja deletado
+      await supabase.auth.admin.deleteUser(authData.user.id);
       throw error;
     }
-  } catch (error: any) {
-    console.error("Erro fatal durante o registro:", error);
+  } catch (error) {
+    console.error("Erro durante o registro:", error);
     throw error;
   }
 }
