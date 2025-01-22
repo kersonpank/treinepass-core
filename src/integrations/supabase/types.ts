@@ -744,6 +744,32 @@ export type Database = {
         }
         Returns: string
       }
+      create_academia: {
+        Args: {
+          p_user_id: string
+          p_nome: string
+          p_cnpj: string
+          p_telefone: string
+          p_email: string
+          p_endereco: string
+          p_horario_funcionamento: Json
+          p_modalidades: string[]
+          p_status: string
+        }
+        Returns: {
+          academia_id: string
+          academia_nome: string
+          academia_cnpj: string
+          academia_email: string
+          academia_telefone: string
+          academia_endereco: string
+          academia_horario_funcionamento: Json
+          academia_modalidades: string[]
+          academia_status: string
+          academia_created_at: string
+          academia_user_id: string
+        }[]
+      }
     }
     Enums: {
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"

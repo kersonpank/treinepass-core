@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -6,19 +6,52 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, Lock, Loader2 } from "lucide-react";
+import { Mail, Lock, Loader2, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface LoginFormData {
   credential: string;
   password: string;
 }
 
+interface UserProfile {
+  full_name: string;
+  type?: string;
+}
+
 export const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkCurrentUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // Fetch user profile and types
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('full_name')
+          .eq('id', session.user.id)
+          .single();
+
+        const { data: types } = await supabase
+          .from('user_types')
+          .select('type')
+          .eq('user_id', session.user.id);
+
+        setCurrentUser({
+          full_name: profile?.full_name || 'Usuário',
+          type: types?.map(t => t.type).join(', ')
+        });
+      }
+    };
+
+    checkCurrentUser();
+  }, []);
 
   const detectCredentialType = (credential: string): 'email' | 'cpf' | 'cnpj' => {
     // Remove caracteres especiais para verificação
@@ -148,13 +181,23 @@ export const LoginForm = () => {
   };
 
   return (
-    <motion.form
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      onSubmit={handleSubmit(onSubmit)}
-      className="space-y-4"
-    >
+    <>
+      {currentUser && (
+        <Alert className="mb-6">
+          <AlertDescription>
+            Olá {currentUser.full_name}
+            {currentUser.type && ` (${currentUser.type})`}! Você já está logado.
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      <motion.form
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        onSubmit={handleSubmit(onSubmit)}
+        className="space-y-4"
+      >
       <div className="space-y-2">
         <Label htmlFor="credential">Email ou CNPJ</Label>
         <div className="relative">
@@ -219,6 +262,18 @@ export const LoginForm = () => {
           "Entrar"
         )}
       </Button>
-    </motion.form>
+      </motion.form>
+
+      <div className="mt-4">
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => navigate('/')}
+        >
+          <Home className="mr-2 h-4 w-4" />
+          Voltar para página inicial
+        </Button>
+      </div>
+    </>
   );
 };
