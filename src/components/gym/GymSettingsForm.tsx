@@ -24,7 +24,7 @@ type GymFormData = {
   email: string;
   endereco: string;
   horario_funcionamento: string;
-  modalidades: string[];
+  modalidade_ids: string[];
 };
 
 export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
@@ -41,7 +41,7 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
       email: academia.email,
       endereco: academia.endereco,
       horario_funcionamento: JSON.stringify(academia.horario_funcionamento),
-      modalidades: academia.modalidades || [],
+      modalidade_ids: [],
     },
   });
 
@@ -59,9 +59,23 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
     },
   });
 
+  const { data: academiaModalidades } = useQuery({
+    queryKey: ["academia_modalidades", academia.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("academia_modalidades")
+        .select("modalidade_id")
+        .eq("academia_id", academia.id);
+      
+      if (error) throw error;
+      return data.map(am => am.modalidade_id);
+    },
+  });
+
   const onSubmit = async (data: GymFormData) => {
     try {
-      const { error } = await supabase
+      // Atualizar informações da academia
+      const { error: academiaError } = await supabase
         .from("academias")
         .update({
           ...data,
@@ -69,7 +83,29 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
         })
         .eq("id", academia.id);
 
-      if (error) throw error;
+      if (academiaError) throw academiaError;
+
+      // Remover modalidades existentes
+      const { error: deleteError } = await supabase
+        .from("academia_modalidades")
+        .delete()
+        .eq("academia_id", academia.id);
+
+      if (deleteError) throw deleteError;
+
+      // Inserir novas modalidades
+      if (data.modalidade_ids.length > 0) {
+        const { error: insertError } = await supabase
+          .from("academia_modalidades")
+          .insert(
+            data.modalidade_ids.map(modalidade_id => ({
+              academia_id: academia.id,
+              modalidade_id
+            }))
+          );
+
+        if (insertError) throw insertError;
+      }
 
       toast({
         title: "Sucesso",
@@ -160,9 +196,9 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
             <div key={modalidade.id} className="flex items-center space-x-2">
               <Checkbox
                 id={modalidade.id}
-                {...register("modalidades")}
+                {...register("modalidade_ids")}
                 value={modalidade.id}
-                defaultChecked={academia.modalidades?.includes(modalidade.id)}
+                defaultChecked={academiaModalidades?.includes(modalidade.id)}
               />
               <Label htmlFor={modalidade.id} className="text-sm">
                 {modalidade.nome}

@@ -6,17 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, MapPin, Clock, DumbbellIcon, Navigation } from "lucide-react";
+import { Tables } from "@/integrations/supabase/types";
 
-interface Academia {
-  id: string;
-  nome: string;
-  endereco: string;
-  modalidades: string[];
-  latitude: number | null;
-  longitude: number | null;
+type Academia = Tables<"academias">;
+
+interface AcademiaWithDistance extends Academia {
   distance?: number;
-  horario_funcionamento: any;
-  fotos?: string[];
 }
 
 export function GymSearch() {
@@ -26,7 +21,16 @@ export function GymSearch() {
   const { data: academias, isLoading } = useQuery({
     queryKey: ["academias", search, userLocation],
     queryFn: async () => {
-      let query = supabase.from("academias").select("*");
+      let query = supabase
+        .from("academias")
+        .select(`
+          *,
+          academia_modalidades (
+            modalidade: modalidades (
+              nome
+            )
+          )
+        `);
 
       if (search) {
         query = query.ilike("nome", `%${search}%`);
@@ -40,7 +44,7 @@ export function GymSearch() {
       if (error) throw error;
 
       if (userLocation && data) {
-        return (data as Academia[])
+        return (data as AcademiaWithDistance[])
           .map(academia => ({
             ...academia,
             distance: academia.latitude && academia.longitude
@@ -55,7 +59,7 @@ export function GymSearch() {
           .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
       }
 
-      return data as Academia[];
+      return data as AcademiaWithDistance[];
     },
   });
 
@@ -170,12 +174,12 @@ export function GymSearch() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    {academia.modalidades?.map((modalidade, index) => (
+                    {academia.academia_modalidades?.map((am: any, index: number) => (
                       <span
                         key={index}
                         className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
                       >
-                        {modalidade}
+                        {am.modalidade.nome}
                       </span>
                     ))}
                   </div>
