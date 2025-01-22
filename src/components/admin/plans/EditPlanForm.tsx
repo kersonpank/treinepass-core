@@ -66,7 +66,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
 
   useEffect(() => {
     if (plan) {
-      form.reset({
+      const formData: PlanFormValues = {
         name: plan.name,
         description: plan.description || "",
         monthly_cost: String(plan.monthly_cost),
@@ -76,14 +76,14 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         rules: plan.rules as Record<string, any>,
         subsidy_amount: plan.subsidy_amount ? String(plan.subsidy_amount) : undefined,
         final_user_cost: plan.final_user_cost ? String(plan.final_user_cost) : undefined,
-      });
+      };
+      form.reset(formData);
     }
   }, [plan, form]);
 
   const onSubmit = async (data: PlanFormValues) => {
     setIsSubmitting(true);
     try {
-      // Create a new version of the plan
       const { data: newVersion, error: versionError } = await supabase
         .from("plan_versions")
         .insert({
@@ -92,14 +92,13 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
           description: data.description,
           monthly_cost: Number(data.monthly_cost),
           rules: data.rules,
-          version: 1, // TODO: Increment version number
+          version: 1,
         })
         .select()
         .single();
 
       if (versionError) throw versionError;
 
-      // Update the current plan
       const updateData = {
         name: data.name,
         description: data.description,
@@ -120,7 +119,6 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
 
       if (updateError) throw updateError;
 
-      // Record the change in history
       const { error: historyError } = await supabase
         .from("plan_change_history")
         .insert({
