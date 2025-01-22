@@ -56,7 +56,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
         plan_type: plan.plan_type as "corporate" | "individual" | "corporate_subsidized",
         period_type: plan.period_type as "monthly" | "quarterly" | "semiannual" | "annual",
         status: plan.status as "active" | "inactive",
-        rules: plan.rules as Record<string, any>,
+        rules: plan.rules || {},
         subsidy_amount: plan.subsidy_amount ? String(plan.subsidy_amount) : undefined,
         final_user_cost: plan.final_user_cost ? String(plan.final_user_cost) : undefined,
       };
@@ -94,7 +94,7 @@ export function EditPlanForm({ planId, onSuccess }: EditPlanFormProps) {
           </TabsContent>
 
           <TabsContent value="preview">
-            <PlanPreview plan={form.getValues() as PlanFormValues} />
+            <PlanPreview plan={form.getValues()} />
           </TabsContent>
 
           <div className="flex justify-end">

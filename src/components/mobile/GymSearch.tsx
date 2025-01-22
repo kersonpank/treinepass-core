@@ -5,10 +5,26 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, MapPin, Clock, DumbbellIcon, Navigation } from "lucide-react";
-import { Tables } from "@/integrations/supabase/types";
+import { Search, MapPin, Clock, Navigation } from "lucide-react";
 
-type Academia = Tables<"academias">;
+interface Modalidade {
+  nome: string;
+}
+
+interface AcademiaModalidade {
+  modalidade: Modalidade;
+}
+
+interface Academia {
+  id: string;
+  nome: string;
+  endereco: string;
+  horario_funcionamento: Record<string, { abertura: string; fechamento: string }>;
+  fotos?: string[];
+  latitude?: number;
+  longitude?: number;
+  academia_modalidades?: AcademiaModalidade[];
+}
 
 interface AcademiaWithDistance extends Academia {
   distance?: number;
@@ -26,7 +42,7 @@ export function GymSearch() {
         .select(`
           *,
           academia_modalidades (
-            modalidade: modalidades (
+            modalidade:modalidades (
               nome
             )
           )
@@ -96,8 +112,23 @@ export function GymSearch() {
   const getHorarioFormatado = (horario: any) => {
     try {
       const horarioObj = typeof horario === 'string' ? JSON.parse(horario) : horario;
-      if (!horarioObj?.segunda) return "Horário não disponível";
-      return `${horarioObj.segunda.abertura} - ${horarioObj.segunda.fechamento}`;
+      if (!horarioObj) return "Horário não disponível";
+      
+      const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long' }).toLowerCase();
+      const diasSemana = {
+        'domingo': 'domingo',
+        'segunda-feira': 'segunda',
+        'terça-feira': 'terca',
+        'quarta-feira': 'quarta',
+        'quinta-feira': 'quinta',
+        'sexta-feira': 'sexta',
+        'sábado': 'sabado'
+      };
+      
+      const diaHoje = diasSemana[hoje as keyof typeof diasSemana];
+      if (!horarioObj[diaHoje]) return "Fechado hoje";
+      
+      return `${horarioObj[diaHoje].abertura} - ${horarioObj[diaHoje].fechamento}`;
     } catch {
       return "Horário não disponível";
     }
@@ -146,35 +177,14 @@ export function GymSearch() {
                 </div>
               </CardHeader>
               <CardContent>
-                {academia.fotos && academia.fotos.length > 0 ? (
-                  <div className="relative h-48 mb-4">
-                    <img
-                      src={academia.fotos[0]}
-                      alt={academia.nome}
-                      className="w-full h-full object-cover rounded-md"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-48 mb-4 bg-muted rounded-md flex items-center justify-center">
-                    <DumbbellIcon className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                )}
-
                 <div className="space-y-3">
-                  {academia.distance !== undefined && (
-                    <div className="flex items-center text-sm font-medium text-primary">
-                      <Navigation className="h-4 w-4 mr-2" />
-                      {academia.distance.toFixed(1)} km de distância
-                    </div>
-                  )}
-
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Clock className="h-4 w-4 mr-2" />
                     <span>{getHorarioFormatado(academia.horario_funcionamento)}</span>
                   </div>
-
+                  
                   <div className="flex flex-wrap gap-2">
-                    {academia.academia_modalidades?.map((am: any, index: number) => (
+                    {academia.academia_modalidades?.map((am, index) => (
                       <span
                         key={index}
                         className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
