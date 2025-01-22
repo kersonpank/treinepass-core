@@ -53,6 +53,45 @@ export const LoginForm = () => {
     checkCurrentUser();
   }, []);
 
+  const handleRedirectLoggedUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    const { data: userTypes } = await supabase
+      .from('user_types')
+      .select('type')
+      .eq('user_id', session.user.id);
+
+    if (!userTypes || userTypes.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Nenhum perfil encontrado para este usuário",
+      });
+      return;
+    }
+
+    // Se houver apenas um perfil, redireciona diretamente
+    if (userTypes.length === 1) {
+      switch (userTypes[0].type) {
+        case 'individual':
+          navigate('/app');
+          break;
+        case 'business':
+          navigate('/dashboard-empresa');
+          break;
+        case 'gym':
+          navigate('/dashboard-academia');
+          break;
+        default:
+          navigate('/');
+      }
+    } else {
+      // Se houver múltiplos perfis, redireciona para a tela de seleção
+      navigate('/selecionar-perfil');
+    }
+  };
+
   const detectCredentialType = (credential: string): 'email' | 'cpf' | 'cnpj' => {
     // Remove caracteres especiais para verificação
     const cleanCredential = credential.replace(/[^\w\s]/gi, '');
@@ -183,10 +222,15 @@ export const LoginForm = () => {
   return (
     <>
       {currentUser && (
-        <Alert className="mb-6">
-          <AlertDescription>
-            Olá {currentUser.full_name}
-            {currentUser.type && ` (${currentUser.type})`}! Você já está logado.
+        <Alert className="mb-6 cursor-pointer hover:bg-gray-100 transition-colors" onClick={handleRedirectLoggedUser}>
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              Olá {currentUser.full_name}
+              {currentUser.type && ` (${currentUser.type})`}! Você já está logado.
+            </span>
+            <span className="text-sm text-muted-foreground">
+              Clique para acessar →
+            </span>
           </AlertDescription>
         </Alert>
       )}
