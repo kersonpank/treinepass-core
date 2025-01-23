@@ -37,14 +37,19 @@ async function checkDuplicates(email: string, cnpj: string) {
   return true;
 }
 
-async function getExistingUser(email: string) {
-  const { data: { user }, error } = await supabase.auth.signInWithPassword({
-    email: email,
-    password: "dummy-password" // This will fail if user doesn't exist
-  });
+async function checkExistingUser(email: string) {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id, email')
+    .eq('email', email)
+    .maybeSingle();
 
-  // If we get an error about invalid credentials, the user exists
-  if (error && error.message.includes("Invalid login credentials")) {
+  if (error) {
+    console.error("Erro ao verificar usuário existente:", error);
+    throw new Error("Erro ao verificar usuário no sistema");
+  }
+
+  if (data) {
     throw new Error("Este email já está cadastrado. Por favor, faça login.");
   }
 
@@ -55,19 +60,13 @@ export async function registerGym(data: GymData) {
   console.log("Iniciando processo de registro da academia...");
 
   try {
-    // 1. Primeiro, verificar duplicatas de CNPJ
-    await checkDuplicates(data.email, data.cnpj);
-    
-    // 2. Verificar se o usuário já existe
-    try {
-      await getExistingUser(data.email);
-    } catch (error) {
-      if (error.message.includes("já está cadastrado")) {
-        throw error;
-      }
-    }
+    // 1. Primeiro, verificar duplicatas de CNPJ e usuário existente
+    await Promise.all([
+      checkDuplicates(data.email, data.cnpj),
+      checkExistingUser(data.email)
+    ]);
 
-    // 3. Criar novo usuário
+    // 2. Criar novo usuário
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -92,7 +91,7 @@ export async function registerGym(data: GymData) {
     console.log("ID do usuário:", userId);
 
     try {
-      // 4. Criar a academia usando a função do banco de dados
+      // 3. Criar a academia usando a função do banco de dados
       const { data: academia, error: academiaError } = await supabase.rpc('create_academia', {
         p_user_id: userId,
         p_nome: data.nome,
@@ -114,7 +113,7 @@ export async function registerGym(data: GymData) {
         throw new Error("Erro ao criar registro da academia");
       }
 
-      // 5. Upload de arquivos
+      // 4. Upload de arquivos
       if (data.fotos || data.documentos) {
         await uploadFiles(data, academia[0].academia_id);
       }
