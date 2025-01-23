@@ -17,18 +17,23 @@ interface GymData {
 async function checkExistingUser(email: string) {
   console.log("Verificando usuário existente:", email);
   
-  const { data: existingAuth } = await supabase.auth.admin.getUserByEmail(email);
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id')
+    .eq('email', email)
+    .single();
   
-  if (existingAuth) {
-    console.log("Usuário existente encontrado:", existingAuth);
-    return existingAuth.user;
+  if (error) {
+    console.error("Erro ao verificar usuário existente:", error);
+    return null;
   }
 
-  return null;
+  console.log("Resultado da verificação de usuário:", data);
+  return data;
 }
 
 async function createNewUser(email: string, password: string, full_name: string) {
-  console.log("Criando novo usuário:", email);
+  console.log("Iniciando criação de novo usuário:", { email, full_name });
   
   const { data: authData, error: signUpError } = await supabase.auth.signUp({
     email,
@@ -42,7 +47,7 @@ async function createNewUser(email: string, password: string, full_name: string)
 
   if (signUpError) {
     console.error("Erro ao criar usuário:", signUpError);
-    throw new Error("Erro ao criar usuário: " + signUpError.message);
+    throw new Error(`Erro ao criar usuário: ${signUpError.message}`);
   }
 
   if (!authData.user?.id) {
@@ -50,6 +55,7 @@ async function createNewUser(email: string, password: string, full_name: string)
     throw new Error("Erro ao processar cadastro do usuário");
   }
 
+  console.log("Usuário criado com sucesso:", authData.user.id);
   return authData.user;
 }
 
@@ -64,6 +70,7 @@ export async function registerGym(data: GymData) {
     if (existingUser) {
       console.log("Usuário já existe, usando ID existente:", existingUser.id);
       userId = existingUser.id;
+      throw new Error("Email já cadastrado. Por favor, faça login ou use outro email.");
     } else {
       // 2. Se não existir, criar novo usuário
       const newUser = await createNewUser(data.email, data.password, data.full_name);
@@ -85,6 +92,11 @@ export async function registerGym(data: GymData) {
 
     if (academiaError) {
       console.error("Erro ao criar academia:", academiaError);
+      if (academiaError.message.includes("Email já cadastrado")) {
+        throw new Error("Este email já está cadastrado para outra academia");
+      } else if (academiaError.message.includes("CNPJ já cadastrado")) {
+        throw new Error("Este CNPJ já está cadastrado no sistema");
+      }
       throw academiaError;
     }
 
@@ -92,13 +104,15 @@ export async function registerGym(data: GymData) {
       throw new Error("Erro ao criar registro da academia");
     }
 
+    console.log("Academia registrada com sucesso:", academia[0]);
+
     // 4. Upload de arquivos
     if (data.fotos || data.documentos) {
       await uploadFiles(data, academia[0].academia_id);
     }
 
     return academia[0];
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro durante o registro:", error);
     throw error;
   }
