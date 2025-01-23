@@ -17,22 +17,6 @@ interface GymData {
 async function checkDuplicates(email: string, cnpj: string) {
   console.log("Verificando duplicatas...");
   
-  // Verificar email
-  const { count: emailCount, error: emailError } = await supabase
-    .from("academias")
-    .select("*", { count: 'exact', head: true })
-    .eq("email", email);
-
-  if (emailError) {
-    console.error("Erro ao verificar email:", emailError);
-    throw new Error("Erro ao verificar email no sistema");
-  }
-
-  if (emailCount && emailCount > 0) {
-    console.log("Email duplicado encontrado:", email);
-    throw new Error("Este email já está cadastrado no sistema");
-  }
-
   // Verificar CNPJ
   const { count: cnpjCount, error: cnpjError } = await supabase
     .from("academias")
@@ -53,15 +37,15 @@ async function checkDuplicates(email: string, cnpj: string) {
   return true;
 }
 
-async function checkExistingUser(email: string) {
-  const { data: existingProfile } = await supabase
-    .from('user_profiles')
-    .select('id, email')
-    .eq('email', email)
-    .maybeSingle();
+async function getExistingUser(email: string) {
+  const { data: { user }, error } = await supabase.auth.signInWithPassword({
+    email: email,
+    password: "dummy-password" // This will fail if user doesn't exist
+  });
 
-  if (existingProfile) {
-    return existingProfile.id;
+  // If we get an error about invalid credentials, the user exists
+  if (error && error.message.includes("Invalid login credentials")) {
+    throw new Error("Este email já está cadastrado. Por favor, faça login.");
   }
 
   return null;
@@ -71,38 +55,40 @@ export async function registerGym(data: GymData) {
   console.log("Iniciando processo de registro da academia...");
 
   try {
-    // 1. Primeiro, verificar duplicatas
+    // 1. Primeiro, verificar duplicatas de CNPJ
     await checkDuplicates(data.email, data.cnpj);
     
     // 2. Verificar se o usuário já existe
-    const existingUserId = await checkExistingUser(data.email);
-    let userId = existingUserId;
-
-    if (!userId) {
-      // 3. Se não existir, criar novo usuário
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.full_name,
-          },
-        },
-      });
-
-      if (signUpError) {
-        console.error("Erro ao criar usuário:", signUpError);
-        throw new Error("Erro ao criar usuário: " + signUpError.message);
+    try {
+      await getExistingUser(data.email);
+    } catch (error) {
+      if (error.message.includes("já está cadastrado")) {
+        throw error;
       }
-
-      if (!authData.user?.id) {
-        console.error("ID do usuário não retornado após criação");
-        throw new Error("Erro ao processar cadastro do usuário");
-      }
-
-      userId = authData.user.id;
     }
 
+    // 3. Criar novo usuário
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          full_name: data.full_name,
+        },
+      },
+    });
+
+    if (signUpError) {
+      console.error("Erro ao criar usuário:", signUpError);
+      throw new Error("Erro ao criar usuário: " + signUpError.message);
+    }
+
+    if (!authData.user?.id) {
+      console.error("ID do usuário não retornado após criação");
+      throw new Error("Erro ao processar cadastro do usuário");
+    }
+
+    const userId = authData.user.id;
     console.log("ID do usuário:", userId);
 
     try {
