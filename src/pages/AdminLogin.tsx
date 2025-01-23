@@ -23,28 +23,50 @@ export default function AdminLogin() {
     setError("");
 
     try {
+      console.log("Tentando login com:", email);
+      
       const { data: { user }, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (loginError) throw loginError;
+      if (loginError) {
+        console.error("Erro no login:", loginError);
+        throw loginError;
+      }
+
+      if (!user?.id) {
+        console.error("Nenhum usuário retornado após login");
+        throw new Error("Erro ao fazer login");
+      }
+
+      console.log("Login bem sucedido, verificando role de admin");
 
       // Check if user has admin role
       const { data: adminRole, error: roleError } = await supabase
         .from("user_types")
         .select("type")
-        .eq("user_id", user?.id)
+        .eq("user_id", user.id)
         .eq("type", "admin")
-        .single();
+        .maybeSingle();
 
-      if (roleError || !adminRole) {
+      console.log("Resultado da verificação de admin:", { adminRole, roleError });
+
+      if (roleError) {
+        console.error("Erro ao verificar role:", roleError);
+        throw roleError;
+      }
+
+      if (!adminRole) {
+        console.log("Usuário não é admin");
         await supabase.auth.signOut();
         throw new Error("Acesso não autorizado. Este usuário não é um administrador.");
       }
 
+      console.log("Usuário confirmado como admin, redirecionando...");
       navigate("/admin/dashboard");
     } catch (error: any) {
+      console.error("Erro completo:", error);
       setError(error.message);
       toast({
         variant: "destructive",
