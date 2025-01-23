@@ -44,6 +44,7 @@ export type Database = {
           created_at: string | null
           email: string
           endereco: string | null
+          fotos: Json | null
           horario_funcionamento: Json | null
           id: string
           modalidades: string[] | null
@@ -58,6 +59,7 @@ export type Database = {
           created_at?: string | null
           email: string
           endereco?: string | null
+          fotos?: Json | null
           horario_funcionamento?: Json | null
           id?: string
           modalidades?: string[] | null
@@ -72,6 +74,7 @@ export type Database = {
           created_at?: string | null
           email?: string
           endereco?: string | null
+          fotos?: Json | null
           horario_funcionamento?: Json | null
           id?: string
           modalidades?: string[] | null
@@ -675,19 +678,19 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
-          type: string
+          type: Database["public"]["Enums"]["user_role_type"]
           user_id: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
-          type: string
+          type: Database["public"]["Enums"]["user_role_type"]
           user_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
-          type?: string
+          type?: Database["public"]["Enums"]["user_role_type"]
           user_id?: string | null
         }
         Relationships: []
@@ -736,6 +739,13 @@ export type Database = {
     Enums: {
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
       plan_subscription_status: "active" | "pending" | "expired" | "cancelled"
+      user_role_type:
+        | "individual"
+        | "business"
+        | "gym"
+        | "admin"
+        | "gym_owner"
+        | "app_user"
     }
     CompositeTypes: {
       [_ in never]: never
