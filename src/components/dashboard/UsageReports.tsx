@@ -38,7 +38,7 @@ export function UsageReports() {
             department,
             cost_center
           ),
-          academias (
+          academia:academia_id (
             nome
           )
         `)
@@ -73,7 +73,7 @@ export function UsageReports() {
                 <TableCell>{entry.employees?.full_name}</TableCell>
                 <TableCell>{entry.employees?.department || "-"}</TableCell>
                 <TableCell>{entry.employees?.cost_center || "-"}</TableCell>
-                <TableCell>{entry.academias?.nome}</TableCell>
+                <TableCell>{entry.academia?.nome}</TableCell>
                 <TableCell>
                   {new Date(entry.check_in).toLocaleString()}
                 </TableCell>

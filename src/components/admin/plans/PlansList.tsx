@@ -22,7 +22,6 @@ import {
 import { Plan } from "./types/plan";
 
 interface PlansListProps {
-  plans: Plan[];
   onEditPlan: (planId: string) => void;
 }
 
@@ -50,6 +49,7 @@ export function PlansList({ onEditPlan }: PlansListProps) {
         status: plan.status as Plan["status"],
         plan_type: plan.plan_type as Plan["plan_type"],
         period_type: plan.period_type as Plan["period_type"],
+        rules: plan.rules as Record<string, any>,
       }));
     },
   });

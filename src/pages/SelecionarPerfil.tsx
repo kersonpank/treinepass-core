@@ -20,7 +20,7 @@ export default function SelecionarPerfil() {
 
       const { data, error } = await supabase
         .from("user_types")
-        .select("type, profile_id")
+        .select("type")
         .eq("user_id", session.session.user.id);
 
       if (error) throw error;
@@ -29,17 +29,6 @@ export default function SelecionarPerfil() {
   });
 
   const handleProfileSelect = async (type: string) => {
-    const profileId = userTypes?.find(ut => ut.type === type)?.profile_id;
-    
-    if (!profileId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Perfil não encontrado",
-      });
-      return;
-    }
-
     switch (type) {
       case "individual":
         navigate("/app");
@@ -48,7 +37,7 @@ export default function SelecionarPerfil() {
         navigate("/dashboard-empresa");
         break;
       case "gym":
-        navigate(`/academia/${profileId}`);
+        navigate("/academia");
         break;
       default:
         navigate("/");

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { Json } from "@/integrations/supabase/types";
 
 export type PlanType = "corporate" | "individual" | "corporate_subsidized";
 export type PeriodType = "monthly" | "quarterly" | "semiannual" | "annual";
@@ -10,14 +10,14 @@ export interface Plan {
   name: string;
   description: string | null;
   monthly_cost: string;
-  status: PlanStatus;
-  created_at: string;
-  updated_at: string;
   plan_type: PlanType;
   period_type: PeriodType;
+  status: PlanStatus;
   rules: Record<string, any>;
   subsidy_amount?: number;
   final_user_cost?: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export const planFormSchema = z.object({
