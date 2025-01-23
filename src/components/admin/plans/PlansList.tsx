@@ -24,7 +24,7 @@ interface Plan {
   id: string;
   name: string;
   description: string | null;
-  monthly_cost: number;
+  monthly_cost: string;
   plan_type: string;
   period_type: string;
   status: string;
@@ -32,6 +32,7 @@ interface Plan {
 }
 
 interface PlansListProps {
+  plans: Plan[];
   onEditPlan: (planId: string) => void;
 }
 
