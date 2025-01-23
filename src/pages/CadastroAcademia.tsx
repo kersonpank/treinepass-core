@@ -37,7 +37,6 @@ export default function CadastroAcademia() {
     } catch (error: any) {
       console.error("Erro detalhado durante o cadastro:", error);
       
-      // Mensagens de erro mais específicas baseadas no erro retornado
       const errorMessage = error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.";
       
       toast({

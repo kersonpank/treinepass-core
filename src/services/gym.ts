@@ -12,16 +12,11 @@ interface GymRegistrationData {
 
 export async function registerGym(data: GymRegistrationData) {
   try {
-    const { data: session } = await supabase.auth.getSession();
-    if (!session.session?.user) {
-      throw new Error("Usuário não autenticado");
-    }
-
-    const userId = session.session.user.id;
-
+    console.log("Starting gym registration process...");
+    
     const { data: result, error } = await supabase
       .rpc("create_academia_v2", {
-        p_user_id: userId,
+        p_user_id: null, // Now we don't require user authentication
         p_nome: data.nome,
         p_cnpj: data.cnpj,
         p_telefone: data.telefone,
