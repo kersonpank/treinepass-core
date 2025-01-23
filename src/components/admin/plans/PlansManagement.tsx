@@ -21,10 +21,10 @@ export function PlansManagement() {
 
       if (error) throw error;
 
-      // Convert monthly_cost to string to match Plan type
-      return data.map((plan): Plan => ({
+      return (data || []).map((plan): Plan => ({
         ...plan,
         monthly_cost: plan.monthly_cost.toString(),
+        status: plan.status as Plan["status"],
         plan_type: plan.plan_type as Plan["plan_type"],
         period_type: plan.period_type as Plan["period_type"],
       }));

@@ -19,17 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-interface Plan {
-  id: string;
-  name: string;
-  description: string | null;
-  monthly_cost: string;
-  plan_type: string;
-  period_type: string;
-  status: string;
-  rules: Record<string, any>;
-}
+import { Plan } from "./types/plan";
 
 interface PlansListProps {
   plans: Plan[];
@@ -53,7 +43,14 @@ export function PlansList({ onEditPlan }: PlansListProps) {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Plan[];
+
+      return (data || []).map((plan): Plan => ({
+        ...plan,
+        monthly_cost: plan.monthly_cost.toString(),
+        status: plan.status as Plan["status"],
+        plan_type: plan.plan_type as Plan["plan_type"],
+        period_type: plan.period_type as Plan["period_type"],
+      }));
     },
   });
 
@@ -104,7 +101,7 @@ export function PlansList({ onEditPlan }: PlansListProps) {
                       {periodTypeLabels[plan.period_type]}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatCurrency(plan.monthly_cost)}</TableCell>
+                  <TableCell>{formatCurrency(Number(plan.monthly_cost))}</TableCell>
                   <TableCell>
                     <Badge
                       variant={plan.status === "active" ? "default" : "destructive"}
