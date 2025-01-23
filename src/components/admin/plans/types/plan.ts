@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Json } from "@/integrations/supabase/types";
 
 export type PlanType = "corporate" | "individual" | "corporate_subsidized";

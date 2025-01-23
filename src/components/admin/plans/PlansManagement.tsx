@@ -1,39 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { PlansList } from "./PlansList";
 import { CreatePlanForm } from "./CreatePlanForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Plan } from "./types/plan";
 
 export function PlansManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-
-  const { data: plans, isLoading } = useQuery({
-    queryKey: ["plans"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("benefit_plans")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      return (data || []).map((plan): Plan => ({
-        ...plan,
-        monthly_cost: plan.monthly_cost.toString(),
-        status: plan.status as Plan["status"],
-        plan_type: plan.plan_type as Plan["plan_type"],
-        period_type: plan.period_type as Plan["period_type"],
-      }));
-    },
-  });
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <div className="space-y-4">
@@ -51,7 +24,7 @@ export function PlansManagement() {
         </DialogContent>
       </Dialog>
 
-      {plans && <PlansList plans={plans} onEditPlan={() => {}} />}
+      <PlansList onEditPlan={() => {}} />
     </div>
   );
 }
