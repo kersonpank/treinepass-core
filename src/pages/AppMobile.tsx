@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { LogOut, Building2 } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Feed } from "@/components/mobile/Feed";
 import { GymSearch } from "@/components/mobile/GymSearch";
 import { ClassSchedule } from "@/components/mobile/ClassSchedule";
@@ -17,34 +17,6 @@ export default function AppMobile() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const { data: isGymOwner } = useQuery({
-    queryKey: ["isGymOwner"],
-    queryFn: async () => {
-      const { data: roles } = await supabase
-        .from("user_gym_roles")
-        .select("role")
-        .eq("role", "gym_owner")
-        .eq("active", true);
-      
-      return roles && roles.length > 0;
-    },
-  });
-
-  const { data: userGym } = useQuery({
-    queryKey: ["userGym"],
-    queryFn: async () => {
-      const { data: roles } = await supabase
-        .from("user_gym_roles")
-        .select("gym_id")
-        .eq("role", "gym_owner")
-        .eq("active", true)
-        .single();
-      
-      return roles;
-    },
-    enabled: isGymOwner,
-  });
-
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -58,29 +30,15 @@ export default function AppMobile() {
     navigate("/");
   };
 
-  const goToGymPanel = () => {
-    if (userGym?.gym_id) {
-      navigate(`/academia/${userGym.gym_id}`);
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col">
       <header className="fixed top-0 left-0 right-0 bg-white z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-primary-600">TreinePass</h1>
-          <div className="flex gap-2">
-            {isGymOwner && (
-              <Button variant="outline" size="sm" onClick={goToGymPanel}>
-                <Building2 className="mr-2 h-4 w-4" />
-                Painel
-              </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Sair
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
         </div>
       </header>
 
@@ -115,7 +73,7 @@ export default function AppMobile() {
           </TabsContent>
         </Tabs>
 
-        {isGymOwner && <GymManagement />}
+        {/* Removed GymManagement component since it's no longer needed */}
       </main>
     </div>
   );

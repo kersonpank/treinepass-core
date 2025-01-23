@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { LogOut, Smartphone } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,35 +46,6 @@ export default function AcademiaPanel() {
     enabled: !!id,
   });
 
-  const { data: staffMembers, isLoading: loadingStaff } = useQuery({
-    queryKey: ["academia-staff", id],
-    queryFn: async () => {
-      if (!id) throw new Error("ID da academia não fornecido");
-
-      const { data, error } = await supabase
-        .from("user_gym_roles")
-        .select(`
-          id,
-          role,
-          active,
-          user_id,
-          user_profiles!user_id(
-            full_name,
-            email
-          )
-        `)
-        .eq("gym_id", id);
-
-      if (error) throw error;
-
-      return data.map((member: any) => ({
-        ...member,
-        user_profiles: member.user_profiles?.[0] || null,
-      }));
-    },
-    enabled: !!id,
-  });
-
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -88,7 +59,7 @@ export default function AcademiaPanel() {
     navigate("/");
   };
 
-  if (loadingAcademia || loadingStaff) {
+  if (loadingAcademia) {
     return <div>Carregando...</div>;
   }
 
@@ -103,16 +74,10 @@ export default function AcademiaPanel() {
           <h1 className="text-3xl font-bold">{academia.nome}</h1>
           <p className="text-gray-500">{academia.endereco}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate("/app")}>
-            <Smartphone className="mr-2 h-4 w-4" />
-            App
-          </Button>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sair
-          </Button>
-        </div>
+        <Button variant="outline" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sair
+        </Button>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
@@ -127,7 +92,7 @@ export default function AcademiaPanel() {
         </TabsContent>
 
         <TabsContent value="access">
-          <StaffPanel staffMembers={staffMembers} />
+          <StaffPanel staffMembers={[]} />
         </TabsContent>
 
         <TabsContent value="settings">
