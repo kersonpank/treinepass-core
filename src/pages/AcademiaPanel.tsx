@@ -20,9 +20,7 @@ interface StaffMember {
   role: "gym_owner" | "gym_admin" | "gym_staff";
   active: boolean;
   user_id: string;
-  user: {
-    user_profiles: UserProfile[];
-  } | null;
+  user_profiles: UserProfile | null;
 }
 
 export default function AcademiaPanel() {
@@ -60,17 +58,19 @@ export default function AcademiaPanel() {
           role,
           active,
           user_id,
-          user:user_id (
-            user_profiles (
-              full_name,
-              email
-            )
+          user_profiles!user_id(
+            full_name,
+            email
           )
         `)
         .eq("gym_id", id);
 
       if (error) throw error;
-      return data as unknown as StaffMember[];
+
+      return data.map((member: any) => ({
+        ...member,
+        user_profiles: member.user_profiles?.[0] || null,
+      }));
     },
     enabled: !!id,
   });
