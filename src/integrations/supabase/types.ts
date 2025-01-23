@@ -773,6 +773,31 @@ export type Database = {
           academia_user_id: string
         }[]
       }
+      create_academia_v2: {
+        Args: {
+          p_user_id: string
+          p_nome: string
+          p_cnpj: string
+          p_telefone: string
+          p_email: string
+          p_endereco: string
+          p_horario_funcionamento: Json
+          p_modalidades: string[]
+          p_status?: string
+        }
+        Returns: {
+          academia_id: string
+          user_type: string
+          success: boolean
+          message: string
+        }[]
+      }
+      is_gym_owner: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
