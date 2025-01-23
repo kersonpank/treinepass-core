@@ -30,13 +30,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "academia_modalidades_academia_id_fkey"
-            columns: ["academia_id"]
-            isOneToOne: false
-            referencedRelation: "academias"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "academia_modalidades_modalidade_id_fkey"
             columns: ["modalidade_id"]
             isOneToOne: false
@@ -47,61 +40,46 @@ export type Database = {
       }
       academias: {
         Row: {
-          amenities: string[] | null
           cnpj: string
-          created_at: string
-          documentos: string[] | null
+          created_at: string | null
           email: string
-          endereco: string
-          fotos: string[] | null
-          horario_funcionamento: Json
+          endereco: string | null
+          horario_funcionamento: Json | null
           id: string
-          latitude: number | null
-          longitude: number | null
           modalidades: string[] | null
           nome: string
           status: string | null
-          telefone: string
-          updated_at: string
-          user_id: string
+          telefone: string | null
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
-          amenities?: string[] | null
           cnpj: string
-          created_at?: string
-          documentos?: string[] | null
+          created_at?: string | null
           email: string
-          endereco: string
-          fotos?: string[] | null
-          horario_funcionamento: Json
+          endereco?: string | null
+          horario_funcionamento?: Json | null
           id?: string
-          latitude?: number | null
-          longitude?: number | null
           modalidades?: string[] | null
           nome: string
           status?: string | null
-          telefone: string
-          updated_at?: string
-          user_id: string
+          telefone?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
-          amenities?: string[] | null
           cnpj?: string
-          created_at?: string
-          documentos?: string[] | null
+          created_at?: string | null
           email?: string
-          endereco?: string
-          fotos?: string[] | null
-          horario_funcionamento?: Json
+          endereco?: string | null
+          horario_funcionamento?: Json | null
           id?: string
-          latitude?: number | null
-          longitude?: number | null
           modalidades?: string[] | null
           nome?: string
           status?: string | null
-          telefone?: string
-          updated_at?: string
-          user_id?: string
+          telefone?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -214,13 +192,6 @@ export type Database = {
           id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "benefit_usage_academia_id_fkey"
-            columns: ["academia_id"]
-            isOneToOne: false
-            referencedRelation: "academias"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "benefit_usage_employee_id_fkey"
             columns: ["employee_id"]
@@ -627,15 +598,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_gym_roles_gym_id_fkey"
-            columns: ["gym_id"]
-            isOneToOne: false
-            referencedRelation: "academias"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_plan_subscriptions: {
         Row: {
@@ -710,25 +673,22 @@ export type Database = {
       }
       user_types: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
-          profile_id: string
           type: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          profile_id: string
           type: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          profile_id?: string
           type?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -747,7 +707,7 @@ export type Database = {
         }
         Returns: string
       }
-      create_academia: {
+      create_academia_v2: {
         Args: {
           p_user_id: string
           p_nome: string
@@ -761,17 +721,16 @@ export type Database = {
         }
         Returns: {
           academia_id: string
-          academia_nome: string
-          academia_cnpj: string
-          academia_email: string
-          academia_telefone: string
-          academia_endereco: string
-          academia_horario_funcionamento: Json
-          academia_modalidades: string[]
-          academia_status: string
-          academia_created_at: string
-          academia_user_id: string
+          user_type: string
+          success: boolean
+          message: string
         }[]
+      }
+      is_gym_owner: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
