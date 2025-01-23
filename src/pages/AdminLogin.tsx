@@ -23,50 +23,44 @@ export default function AdminLogin() {
     setError("");
 
     try {
-      console.log("Tentando login com:", email);
+      console.log("Iniciando processo de login admin...");
       
-      const { data: { user }, error: loginError } = await supabase.auth.signInWithPassword({
+      // 1. Primeiro fazer login
+      const { data: authData, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (loginError) {
-        console.error("Erro no login:", loginError);
-        throw loginError;
-      }
+      if (loginError) throw loginError;
+      if (!authData.user) throw new Error("Nenhum usuário retornado após login");
 
-      if (!user?.id) {
-        console.error("Nenhum usuário retornado após login");
-        throw new Error("Erro ao fazer login");
-      }
+      console.log("Login bem sucedido, verificando permissões de admin...");
 
-      console.log("Login bem sucedido, verificando role de admin");
-
-      // Check if user has admin role
-      const { data: adminRole, error: roleError } = await supabase
+      // 2. Verificar se o usuário é admin usando uma query direta
+      const { data: adminCheck, error: adminError } = await supabase
         .from("user_types")
-        .select("type")
-        .eq("user_id", user.id)
+        .select("id")
+        .eq("user_id", authData.user.id)
         .eq("type", "admin")
-        .maybeSingle();
+        .single();
 
-      console.log("Resultado da verificação de admin:", { adminRole, roleError });
+      console.log("Resultado da verificação admin:", { adminCheck, adminError });
 
-      if (roleError) {
-        console.error("Erro ao verificar role:", roleError);
-        throw roleError;
+      if (adminError) {
+        if (adminError.code === "PGRST116") {
+          throw new Error("Usuário não tem permissão de administrador");
+        }
+        throw adminError;
       }
 
-      if (!adminRole) {
-        console.log("Usuário não é admin");
-        await supabase.auth.signOut();
-        throw new Error("Acesso não autorizado. Este usuário não é um administrador.");
+      if (!adminCheck) {
+        throw new Error("Acesso não autorizado");
       }
 
-      console.log("Usuário confirmado como admin, redirecionando...");
+      console.log("Verificação de admin bem sucedida, redirecionando...");
       navigate("/admin/dashboard");
     } catch (error: any) {
-      console.error("Erro completo:", error);
+      console.error("Erro detalhado:", error);
       setError(error.message);
       toast({
         variant: "destructive",
