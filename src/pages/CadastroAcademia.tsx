@@ -33,18 +33,12 @@ export default function CadastroAcademia() {
         description: "Sua academia foi cadastrada e você será redirecionado para o painel.",
       });
 
-      // Redirecionar para a página de seleção de perfil após o cadastro
-      navigate("/selecionar-perfil");
+      navigate(`/academia/${academia.academia_id}`);
     } catch (error: any) {
       console.error("Erro detalhado durante o cadastro:", error);
       
-      let errorMessage = "Ocorreu um erro inesperado. Por favor, tente novamente.";
-      
-      if (error.message.includes("Email já cadastrado")) {
-        errorMessage = "Este email já está cadastrado. Por favor, faça login ou use outro email.";
-      } else if (error.message.includes("CNPJ já cadastrado")) {
-        errorMessage = "Este CNPJ já está cadastrado no sistema.";
-      }
+      // Mensagens de erro mais específicas baseadas no erro retornado
+      const errorMessage = error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.";
       
       toast({
         variant: "destructive",
