@@ -2,12 +2,19 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { CheckCircle2, XCircle } from "lucide-react";
 
 export function ValidateCheckIn() {
   const [code, setCode] = useState("");
   const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<{
+    success: boolean;
+    message: string;
+    userName?: string;
+  } | null>(null);
   const { toast } = useToast();
 
   const validateCheckIn = async () => {
@@ -41,11 +48,22 @@ export function ValidateCheckIn() {
 
         if (checkInError) throw checkInError;
 
+        setValidationResult({
+          success: true,
+          message: "Check-in confirmado com sucesso!",
+          userName: data[0].user_name
+        });
+
         toast({
           title: "Check-in confirmado",
           description: `Check-in confirmado para ${data[0].user_name}`,
         });
       } else {
+        setValidationResult({
+          success: false,
+          message: data[0].message
+        });
+
         toast({
           variant: "destructive",
           title: "Código inválido",
@@ -66,27 +84,44 @@ export function ValidateCheckIn() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Validar Check-in</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <Input
-            placeholder="Digite o código de check-in"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            maxLength={6}
-            className="flex-1"
-          />
-          <Button 
-            onClick={validateCheckIn} 
-            disabled={isValidating || !code}
-          >
-            Validar
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Digite o código de check-in"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              maxLength={6}
+              className="flex-1"
+            />
+            <Button 
+              onClick={validateCheckIn} 
+              disabled={isValidating || !code}
+            >
+              Validar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {validationResult && (
+        <Alert variant={validationResult.success ? "default" : "destructive"}>
+          {validationResult.success ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <XCircle className="h-4 w-4" />
+          )}
+          <AlertTitle>
+            {validationResult.success ? "Check-in confirmado" : "Check-in inválido"}
+          </AlertTitle>
+          <AlertDescription>
+            {validationResult.success && validationResult.userName
+              ? `${validationResult.message} - ${validationResult.userName}`
+              : validationResult.message}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 }

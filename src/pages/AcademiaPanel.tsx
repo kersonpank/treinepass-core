@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { GymSettingsForm } from "@/components/gym/GymSettingsForm";
 import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
 import { StaffPanel } from "@/components/gym/panels/StaffPanel";
+import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
 
 interface UserProfile {
   full_name: string | null;
@@ -83,12 +84,17 @@ export default function AcademiaPanel() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="check-in">Check-in</TabsTrigger>
           <TabsTrigger value="access">Gestão de Acessos</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
           <OverviewPanel academia={academia} />
+        </TabsContent>
+
+        <TabsContent value="check-in">
+          <CheckInManager />
         </TabsContent>
 
         <TabsContent value="access">

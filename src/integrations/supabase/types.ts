@@ -777,6 +777,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_user_check_in: {
+        Args: {
+          p_user_id: string
+          p_academia_id: string
+        }
+        Returns: {
+          can_check_in: boolean
+          message: string
+        }[]
+      }
       check_and_expire_plans: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -830,6 +840,7 @@ export type Database = {
         Returns: {
           is_valid: boolean
           message: string
+          id: string
           user_id: string
           user_name: string
         }[]
