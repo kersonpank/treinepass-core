@@ -42,14 +42,42 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       .replace(/(\d{4})\d+?$/, "$1");
   };
 
+  const validateBirthDate = (value: string) => {
+    if (!value) return "Data de nascimento é obrigatória";
+    
+    const [day, month, year] = value.split("/");
+    if (!day || !month || !year) return "Data inválida";
+    
+    const birthDate = new Date(Number(year), Number(month) - 1, Number(day));
+    if (isNaN(birthDate.getTime())) return "Data inválida";
+    
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age >= 18 || "Você deve ter pelo menos 18 anos";
+  };
+
   const handleFormSubmit = async (data: UserFormData) => {
     try {
       await onSubmit(data);
     } catch (error: any) {
-      if (error?.message?.includes("User already registered")) {
+      console.error("Registration error:", error);
+      
+      if (error?.message?.includes("User already registered") || 
+          error?.message?.includes("user_already_exists")) {
         setError("email", {
           type: "manual",
           message: "Este e-mail já está cadastrado",
+        });
+      } else if (error?.message?.includes("CPF já cadastrado")) {
+        setError("cpf", {
+          type: "manual",
+          message: "Este CPF já está cadastrado",
         });
       } else {
         throw error;
@@ -137,19 +165,7 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
           placeholder="DD/MM/AAAA"
           {...register("birth_date", {
             required: "Data de nascimento é obrigatória",
-            validate: (value) => {
-              const [day, month, year] = value.split("/");
-              const birthDate = new Date(Number(year), Number(month) - 1, Number(day));
-              const today = new Date();
-              let age = today.getFullYear() - birthDate.getFullYear();
-              const monthDiff = today.getMonth() - birthDate.getMonth();
-              
-              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-              }
-              
-              return age >= 18 || "Você deve ter pelo menos 18 anos";
-            },
+            validate: validateBirthDate,
           })}
           onChange={(e) => {
             e.target.value = formatDate(e.target.value);
