@@ -51,6 +51,9 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       return "Data de nascimento é obrigatória";
     }
     
+    // Remove any leading/trailing whitespace
+    value = value.trim();
+    
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
       console.log("Birth date format is invalid");
       return "Data inválida";
@@ -60,7 +63,7 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
     const birthDate = new Date(year, month - 1, day);
     const today = new Date();
     
-    console.log("Parsed date:", { day, month, year, birthDate });
+    console.log("Parsed date:", { day, month, year, birthDate, value });
     
     // Check if date is valid
     if (
@@ -69,7 +72,13 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       day > 31 || month > 12 ||
       day <= 0 || month <= 0 || year <= 0
     ) {
-      console.log("Date is invalid:", { isNaN: isNaN(birthDate.getTime()), isFuture: birthDate > today });
+      console.log("Date is invalid:", { 
+        isNaN: isNaN(birthDate.getTime()), 
+        isFuture: birthDate > today,
+        invalidDay: day > 31 || day <= 0,
+        invalidMonth: month > 12 || month <= 0,
+        invalidYear: year <= 0
+      });
       return "Data inválida";
     }
     
