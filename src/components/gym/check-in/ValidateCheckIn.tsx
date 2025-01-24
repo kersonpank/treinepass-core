@@ -34,7 +34,7 @@ export function ValidateCheckIn() {
         const { data: checkInResult, error: checkInError } = await supabase.rpc(
           'register_check_in',
           {
-            p_check_in_code_id: data[0].id, // Agora usando o ID retornado da validação
+            p_check_in_code_id: data[0].check_in_code_id,
             p_validation_method: 'manual_code'
           }
         );
