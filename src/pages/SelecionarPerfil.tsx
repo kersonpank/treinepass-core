@@ -24,7 +24,9 @@ export default function SelecionarPerfil() {
         .eq("user_id", session.session.user.id);
 
       if (error) throw error;
-      return data;
+
+      // Filtra apenas os tipos permitidos no login normal
+      return data?.filter(ut => ['individual', 'business', 'gym'].includes(ut.type)) || [];
     },
   });
 
@@ -37,7 +39,21 @@ export default function SelecionarPerfil() {
         navigate("/dashboard-empresa");
         break;
       case "gym":
-        navigate("/academia");
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        const { data: gymRole } = await supabase
+          .from("user_gym_roles")
+          .select("gym_id")
+          .eq("user_id", session.user.id)
+          .eq("active", true)
+          .maybeSingle();
+
+        if (gymRole) {
+          navigate(`/academia/${gymRole.gym_id}`);
+        } else {
+          navigate("/");
+        }
         break;
       default:
         navigate("/");

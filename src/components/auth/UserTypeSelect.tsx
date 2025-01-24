@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { User, Building2, Dumbbell, Shield } from "lucide-react";
+import { User, Building2, Dumbbell } from "lucide-react";
 
 interface UserType {
   id: string;
@@ -27,12 +27,6 @@ const userTypes: UserType[] = [
     title: "Academia",
     description: "Gerencie sua academia",
     icon: <Dumbbell className="w-6 h-6" />,
-  },
-  {
-    id: "admin",
-    title: "Administrador",
-    description: "Acesse o painel administrativo",
-    icon: <Shield className="w-6 h-6" />,
   },
 ];
 

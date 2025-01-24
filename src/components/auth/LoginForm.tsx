@@ -92,15 +92,30 @@ export const LoginForm = () => {
         return;
       }
 
-      // Se houver múltiplos perfis, redireciona para a tela de seleção
-      if (userTypes.length > 1) {
+      // Filtra tipos de acesso permitidos no login normal
+      const allowedTypes = userTypes.filter(ut => 
+        ['individual', 'business', 'gym'].includes(ut.type)
+      );
+
+      // Se não houver tipos permitidos, mostra erro
+      if (allowedTypes.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Acesso Negado",
+          description: "Use o painel administrativo para acessar sua conta",
+        });
+        return;
+      }
+
+      // Se houver múltiplos perfis permitidos, redireciona para a tela de seleção
+      if (allowedTypes.length > 1) {
         console.log("Multiple profiles found, redirecting to profile selection");
         navigate('/selecionar-perfil');
         return;
       }
 
       // Se houver apenas um perfil, redireciona diretamente
-      switch (userTypes[0].type) {
+      switch (allowedTypes[0].type) {
         case 'individual':
           navigate('/app');
           break;
@@ -120,9 +135,6 @@ export const LoginForm = () => {
           } else {
             navigate('/');
           }
-          break;
-        case 'admin':
-          navigate('/admin/dashboard');
           break;
         default:
           navigate('/');
