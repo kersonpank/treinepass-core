@@ -1,94 +1,57 @@
-import React from "react";
+import React, { forwardRef } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 
-export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
-export interface SidebarHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
-export interface SidebarContentProps extends React.HTMLAttributes<HTMLDivElement> {}
-export interface SidebarMenuProps extends React.HTMLAttributes<HTMLDivElement> {}
-export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElement> {}
-export interface SidebarMenuButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  asChild?: boolean;
+interface SidebarItemProps extends React.HTMLAttributes<HTMLAnchorElement | HTMLButtonElement> {
+  href?: string;
+  icon?: React.ReactNode;
+  text: string;
+  isCollapsed?: boolean;
+  isActive?: boolean;
+  onClick?: () => void;
 }
 
-export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <motion.div
-        ref={ref}
-        className={cn("w-64 bg-background border-r", className)}
-        {...(props as any)} // Type assertion to handle motion props
-      />
+const SidebarItem = forwardRef<HTMLAnchorElement | HTMLButtonElement, SidebarItemProps>(
+  ({ href, icon, text, isCollapsed, isActive, className, onClick, ...props }, ref) => {
+    const content = (
+      <>
+        {icon && <span className="w-6 h-6">{icon}</span>}
+        {!isCollapsed && <span>{text}</span>}
+      </>
     );
-  }
-);
-Sidebar.displayName = "Sidebar";
 
-export const SidebarHeader = React.forwardRef<HTMLDivElement, SidebarHeaderProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={cn("border-b", className)}
-        {...props}
-      />
+    const classes = cn(
+      "flex items-center gap-4 px-3 py-2 rounded-lg hover:bg-accent transition-colors",
+      isActive && "bg-accent",
+      className
     );
-  }
-);
-SidebarHeader.displayName = "SidebarHeader";
 
-export const SidebarContent = React.forwardRef<HTMLDivElement, SidebarContentProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={cn("flex flex-col", className)}
-        {...props}
-      />
-    );
-  }
-);
-SidebarContent.displayName = "SidebarContent";
+    if (href) {
+      return (
+        <Link
+          to={href}
+          className={classes}
+          ref={ref as React.Ref<HTMLAnchorElement>}
+          {...props}
+        >
+          {content}
+        </Link>
+      );
+    }
 
-export const SidebarMenu = React.forwardRef<HTMLDivElement, SidebarMenuProps>(
-  ({ className, ...props }, ref) => {
     return (
-      <div
-        ref={ref}
-        className={cn("space-y-1 p-2", className)}
+      <button
+        className={classes}
+        onClick={onClick}
+        ref={ref as React.Ref<HTMLButtonElement>}
         {...props}
-      />
+      >
+        {content}
+      </button>
     );
   }
 );
-SidebarMenu.displayName = "SidebarMenu";
 
-export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={cn("", className)}
-        {...props}
-      />
-    );
-  }
-);
-SidebarMenuItem.displayName = "SidebarMenuItem";
+SidebarItem.displayName = "SidebarItem";
 
-export const SidebarMenuButton = React.forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
-  ({ className, asChild, ...props }, ref) => {
-    const Comp = asChild ? "a" : "button";
-    return (
-      <Comp
-        ref={ref}
-        className={cn(
-          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
-          className
-        )}
-        {...props}
-      />
-    );
-  }
-);
-SidebarMenuButton.displayName = "SidebarMenuButton";
+export { SidebarItem };
