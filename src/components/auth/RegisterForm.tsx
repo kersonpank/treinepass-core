@@ -23,6 +23,7 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
     handleSubmit,
     setError,
     formState: { errors },
+    watch,
   } = useForm<UserFormData>();
 
   const formatCPF = (value: string) => {
@@ -45,13 +46,22 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
   const validateBirthDate = (value: string) => {
     if (!value) return "Data de nascimento é obrigatória";
     
-    const [day, month, year] = value.split("/");
+    const [day, month, year] = value.split("/").map(Number);
     if (!day || !month || !year) return "Data inválida";
     
-    const birthDate = new Date(Number(year), Number(month) - 1, Number(day));
-    if (isNaN(birthDate.getTime())) return "Data inválida";
-    
+    const birthDate = new Date(year, month - 1, day);
     const today = new Date();
+    
+    // Check if date is valid
+    if (
+      isNaN(birthDate.getTime()) || 
+      birthDate > today ||
+      day > 31 || month > 12
+    ) {
+      return "Data inválida";
+    }
+    
+    // Calculate age
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
     
@@ -63,6 +73,8 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
   };
 
   const handleFormSubmit = async (data: UserFormData) => {
+    console.log("Form data before submission:", data);
+    
     try {
       await onSubmit(data);
     } catch (error: any) {
