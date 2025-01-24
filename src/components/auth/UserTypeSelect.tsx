@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { User, Building2, Dumbbell } from "lucide-react";
+import { User, Building2, Dumbbell, Shield } from "lucide-react";
 
 interface UserType {
   id: string;
@@ -25,8 +25,14 @@ const userTypes: UserType[] = [
   {
     id: "gym",
     title: "Academia",
-    description: "Seja parceiro e alcance mais clientes",
+    description: "Gerencie sua academia",
     icon: <Dumbbell className="w-6 h-6" />,
+  },
+  {
+    id: "admin",
+    title: "Administrador",
+    description: "Acesse o painel administrativo",
+    icon: <Shield className="w-6 h-6" />,
   },
 ];
 
@@ -39,6 +45,14 @@ export const UserTypeSelect = ({ onSelect, availableTypes }: UserTypeSelectProps
   const filteredTypes = availableTypes 
     ? userTypes.filter(type => availableTypes.includes(type.id))
     : userTypes;
+
+  if (!filteredTypes.length) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-gray-600">Nenhum perfil disponível.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-4">
