@@ -2,15 +2,9 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cpf } from "cpf-cnpj-validator";
-
-interface UserFormData {
-  full_name: string;
-  email: string;
-  password: string;
-  cpf: string;
-  birth_date: string;
-}
+import { CPFInput } from "./form/CPFInput";
+import { DateInput } from "./form/DateInput";
+import { UserFormData } from "./types/auth";
 
 interface RegisterFormProps {
   onSubmit: (data: UserFormData) => Promise<void>;
@@ -23,97 +17,15 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
     handleSubmit,
     setError,
     formState: { errors },
-    watch,
   } = useForm<UserFormData>();
 
-  const formatCPF = (value: string) => {
-    return value
-      .replace(/\D/g, "")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d{1,2})/, "$1-$2")
-      .replace(/(-\d{2})\d+?$/, "$1");
-  };
-
-  const formatDate = (value: string) => {
-    return value
-      .replace(/\D/g, "")
-      .replace(/(\d{2})(\d)/, "$1/$2")
-      .replace(/(\d{2})(\d)/, "$1/$2")
-      .replace(/(\d{4})\d+?$/, "$1");
-  };
-
-  const validateBirthDate = (value: string) => {
-    console.log("Validating birth date:", value);
-    
-    if (!value || value.trim() === "") {
-      console.log("Birth date is empty");
-      return "Data de nascimento é obrigatória";
-    }
-    
-    // Remove any leading/trailing whitespace
-    value = value.trim();
-    
-    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-      console.log("Birth date format is invalid");
-      return "Data inválida";
-    }
-    
-    const [day, month, year] = value.split("/").map(Number);
-    const birthDate = new Date(year, month - 1, day);
-    const today = new Date();
-    
-    console.log("Parsed date:", { day, month, year, birthDate, value });
-    
-    // Check if date is valid
-    if (
-      isNaN(birthDate.getTime()) || 
-      birthDate > today ||
-      day > 31 || month > 12 ||
-      day <= 0 || month <= 0 || year <= 0
-    ) {
-      console.log("Date is invalid:", { 
-        isNaN: isNaN(birthDate.getTime()), 
-        isFuture: birthDate > today,
-        invalidDay: day > 31 || day <= 0,
-        invalidMonth: month > 12 || month <= 0,
-        invalidYear: year <= 0
-      });
-      return "Data inválida";
-    }
-    
-    // Calculate age
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    console.log("Calculated age:", age);
-    
-    if (age < 16) {
-      return "Você deve ter pelo menos 16 anos";
-    }
-    
-    return true;
-  };
-
   const handleFormSubmit = async (data: UserFormData) => {
-    console.log("Form data before submission:", data);
-    
     try {
       await onSubmit(data);
     } catch (error: any) {
       console.error("Registration error:", error);
       
-      if (error?.message?.includes("User already registered") || 
-          error?.message?.includes("user_already_exists")) {
-        setError("email", {
-          type: "manual",
-          message: "Este e-mail já está cadastrado",
-        });
-      } else if (error?.message?.includes("CPF já cadastrado")) {
+      if (error?.message?.includes("CPF já cadastrado")) {
         setError("cpf", {
           type: "manual",
           message: "Este CPF já está cadastrado",
@@ -179,42 +91,8 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
         )}
       </div>
 
-      <div>
-        <Label htmlFor="cpf">CPF</Label>
-        <Input
-          id="cpf"
-          {...register("cpf", {
-            required: "CPF é obrigatório",
-            validate: (value) => cpf.isValid(value) || "CPF inválido",
-          })}
-          onChange={(e) => {
-            e.target.value = formatCPF(e.target.value);
-          }}
-          maxLength={14}
-        />
-        {errors.cpf && (
-          <p className="text-sm text-red-500 mt-1">{errors.cpf.message}</p>
-        )}
-      </div>
-
-      <div>
-        <Label htmlFor="birth_date">Data de Nascimento</Label>
-        <Input
-          id="birth_date"
-          placeholder="DD/MM/AAAA"
-          {...register("birth_date", {
-            required: "Data de nascimento é obrigatória",
-            validate: validateBirthDate,
-          })}
-          onChange={(e) => {
-            e.target.value = formatDate(e.target.value);
-          }}
-          maxLength={10}
-        />
-        {errors.birth_date && (
-          <p className="text-sm text-red-500 mt-1">{errors.birth_date.message}</p>
-        )}
-      </div>
+      <CPFInput register={register} errors={errors} />
+      <DateInput register={register} errors={errors} />
 
       <Button
         type="submit"

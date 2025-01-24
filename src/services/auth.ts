@@ -23,27 +23,40 @@ export async function registerUser(data: RegisterData) {
   }
 
   try {
-    // Create new auth user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Check if user exists
+    const { data: existingUser } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
-      options: {
-        data: {
-          full_name: data.full_name,
-        },
-      },
     });
 
-    if (authError) {
-      console.error("Auth Error:", authError);
-      throw authError;
+    let userId;
+
+    if (existingUser.user) {
+      // User exists, use existing ID
+      userId = existingUser.user.id;
+    } else {
+      // Create new auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.full_name,
+          },
+        },
+      });
+
+      if (authError) {
+        console.error("Auth Error:", authError);
+        throw authError;
+      }
+
+      userId = authData.user?.id;
     }
 
-    const userId = authData.user?.id;
-
     if (!userId) {
-      console.error("No user ID returned from auth signup");
-      throw new Error("Erro ao criar usuário");
+      console.error("No user ID returned from auth signup/signin");
+      throw new Error("Erro ao criar/encontrar usuário");
     }
 
     console.log("Auth user created/found successfully", { userId });
@@ -53,7 +66,7 @@ export async function registerUser(data: RegisterData) {
       const [day, month, year] = data.birth_date.split('/');
       const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-      // Create user profile
+      // Create/update user profile
       const { error: profileError } = await supabase
         .from("user_profiles")
         .upsert({
@@ -69,7 +82,7 @@ export async function registerUser(data: RegisterData) {
         throw profileError;
       }
 
-      // Create user type entry for individual
+      // Add individual user type
       const { error: typeError } = await supabase
         .from("user_types")
         .insert({
