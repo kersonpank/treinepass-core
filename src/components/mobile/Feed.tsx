@@ -6,6 +6,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, DumbbellIcon } from "lucide-react";
 
+interface Academia {
+  id: string;
+  nome: string;
+  endereco: string;
+  horario_funcionamento: Record<string, { abertura: string; fechamento: string }> | null;
+  fotos: string[];
+  academia_modalidades?: Array<{
+    modalidade: {
+      nome: string;
+    };
+  }>;
+}
+
 export function Feed() {
   const { data: feed, isLoading } = useQuery({
     queryKey: ["feed"],
@@ -24,7 +37,7 @@ export function Feed() {
         .limit(20);
 
       if (error) throw error;
-      return data;
+      return data as Academia[];
     },
   });
 
@@ -127,7 +140,7 @@ export function Feed() {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  {academia.academia_modalidades?.map((am: any, index: number) => (
+                  {academia.academia_modalidades?.map((am, index) => (
                     <span
                       key={index}
                       className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"

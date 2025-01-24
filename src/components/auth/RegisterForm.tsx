@@ -21,6 +21,7 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<UserFormData>();
 
@@ -41,8 +42,23 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       .replace(/(\d{4})\d+?$/, "$1");
   };
 
+  const handleFormSubmit = async (data: UserFormData) => {
+    try {
+      await onSubmit(data);
+    } catch (error: any) {
+      if (error?.message?.includes("User already registered")) {
+        setError("email", {
+          type: "manual",
+          message: "Este e-mail já está cadastrado",
+        });
+      } else {
+        throw error;
+      }
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       <div>
         <Label htmlFor="full_name">Nome Completo</Label>
         <Input
