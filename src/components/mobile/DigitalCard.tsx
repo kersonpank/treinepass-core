@@ -7,11 +7,13 @@ import { QRCodeSVG } from "qrcode.react";
 import { useToast } from "@/hooks/use-toast";
 import { CheckInCode } from "@/types/check-in";
 import { format, differenceInSeconds } from "date-fns";
+import { useParams } from "react-router-dom";
 
 export function DigitalCard() {
   const [activeCode, setActiveCode] = useState<CheckInCode | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const { toast } = useToast();
+  const { academiaId } = useParams(); // Get academia ID from URL params
 
   const { data: userProfile } = useQuery({
     queryKey: ["userProfile"],
@@ -49,9 +51,24 @@ export function DigitalCard() {
     enabled: !!userProfile?.id,
   });
 
+  // Verify if academia exists before generating code
+  const verifyAcademia = async (id: string) => {
+    const { data, error } = await supabase
+      .from("academias")
+      .select("id")
+      .eq("id", id)
+      .single();
+    
+    if (error) throw new Error("Academia não encontrada");
+    return data;
+  };
+
   // Mutation to generate new check-in code
   const generateCheckInCode = useMutation({
     mutationFn: async (academiaId: string) => {
+      // First verify if academia exists
+      await verifyAcademia(academiaId);
+
       const code = Math.random().toString(36).substring(2, 8).toUpperCase();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
       const generatedAt = new Date().toISOString();
@@ -91,7 +108,7 @@ export function DigitalCard() {
       toast({
         variant: "destructive",
         title: "Erro ao gerar check-in",
-        description: "Por favor, tente novamente.",
+        description: "Academia não encontrada ou indisponível.",
       });
       console.error("Error generating check-in:", error);
     },
@@ -168,14 +185,10 @@ export function DigitalCard() {
                 </div>
               )}
               
-              {(!checkInCode || checkInCode.status !== "active") && (
+              {(!checkInCode || checkInCode.status !== "active") && academiaId && (
                 <div className="text-center">
                   <Button
-                    onClick={() => {
-                      // TODO: Replace with actual academia ID from context or route params
-                      const academiaId = "123e4567-e89b-12d3-a456-426614174000";
-                      generateCheckInCode.mutate(academiaId);
-                    }}
+                    onClick={() => generateCheckInCode.mutate(academiaId)}
                     disabled={generateCheckInCode.isPending}
                   >
                     Gerar Check-in

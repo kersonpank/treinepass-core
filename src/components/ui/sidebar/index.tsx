@@ -1,89 +1,94 @@
+import React from "react";
 import { cn } from "@/lib/utils";
-import { SidebarProvider, useSidebar } from "./SidebarContext";
-import { DesktopSidebar } from "./DesktopSidebar";
-import { MobileSidebar } from "./MobileSidebar";
+import { motion } from "framer-motion";
 
-export interface SidebarProps {
-  children: React.ReactNode;
-  open?: boolean;
-  setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
-  animate?: boolean;
-}
-
-export const Sidebar = ({ children, open, setOpen, animate }: SidebarProps) => {
-  return (
-    <SidebarProvider open={open} setOpen={setOpen} animate={animate}>
-      {children}
-    </SidebarProvider>
-  );
-};
-
-export const SidebarContent = (props: React.ComponentProps<typeof DesktopSidebar>) => {
-  return (
-    <>
-      <DesktopSidebar {...props} />
-      <MobileSidebar {...(props as React.HTMLAttributes<HTMLDivElement>)} />
-    </>
-  );
-};
-
-export const SidebarHeader = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => {
-  const { open } = useSidebar();
-  return (
-    <div
-      className={cn("flex items-center justify-between mb-4", className)}
-      {...props}
-    />
-  );
-};
-
-export const SidebarMenu = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => {
-  return <div className={cn("space-y-2", className)} {...props} />;
-};
-
-export const SidebarMenuItem = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => {
-  return <div className={cn("", className)} {...props} />;
-};
-
+export interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+export interface SidebarHeaderProps extends React.HTMLAttributes<HTMLDivElement> {}
+export interface SidebarContentProps extends React.HTMLAttributes<HTMLDivElement> {}
+export interface SidebarMenuProps extends React.HTMLAttributes<HTMLDivElement> {}
+export interface SidebarMenuItemProps extends React.HTMLAttributes<HTMLDivElement> {}
 export interface SidebarMenuButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   asChild?: boolean;
 }
 
-export const SidebarMenuButton = ({
-  className,
-  asChild,
-  ...props
-}: SidebarMenuButtonProps) => {
-  if (asChild) {
+export const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <motion.div
+        ref={ref}
+        className={cn("w-64 bg-background border-r", className)}
+        {...(props as any)} // Type assertion to handle motion props
+      />
+    );
+  }
+);
+Sidebar.displayName = "Sidebar";
+
+export const SidebarHeader = React.forwardRef<HTMLDivElement, SidebarHeaderProps>(
+  ({ className, ...props }, ref) => {
     return (
       <div
+        ref={ref}
+        className={cn("border-b", className)}
+        {...props}
+      />
+    );
+  }
+);
+SidebarHeader.displayName = "SidebarHeader";
+
+export const SidebarContent = React.forwardRef<HTMLDivElement, SidebarContentProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn("flex flex-col", className)}
+        {...props}
+      />
+    );
+  }
+);
+SidebarContent.displayName = "SidebarContent";
+
+export const SidebarMenu = React.forwardRef<HTMLDivElement, SidebarMenuProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn("space-y-1 p-2", className)}
+        {...props}
+      />
+    );
+  }
+);
+SidebarMenu.displayName = "SidebarMenu";
+
+export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemProps>(
+  ({ className, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn("", className)}
+        {...props}
+      />
+    );
+  }
+);
+SidebarMenuItem.displayName = "SidebarMenuItem";
+
+export const SidebarMenuButton = React.forwardRef<HTMLButtonElement, SidebarMenuButtonProps>(
+  ({ className, asChild, ...props }, ref) => {
+    const Comp = asChild ? "a" : "button";
+    return (
+      <Comp
+        ref={ref}
         className={cn(
-          "flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors",
+          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
           className
         )}
         {...props}
       />
     );
   }
-
-  return (
-    <button
-      className={cn(
-        "flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors",
-        className
-      )}
-      {...props}
-    />
-  );
-};
-
-export { useSidebar };
+);
+SidebarMenuButton.displayName = "SidebarMenuButton";

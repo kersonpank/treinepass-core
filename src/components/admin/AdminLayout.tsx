@@ -7,8 +7,7 @@ import {
   SidebarHeader, 
   SidebarMenu, 
   SidebarMenuItem, 
-  SidebarMenuButton,
-  SidebarProvider 
+  SidebarMenuButton
 } from "@/components/ui/sidebar";
 import { LayoutDashboard, Users, Building2, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
