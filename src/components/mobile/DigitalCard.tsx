@@ -1,18 +1,16 @@
 import { useEffect, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { QRCodeSVG } from "qrcode.react";
-import { useToast } from "@/hooks/use-toast";
-import { CheckInCode } from "@/types/check-in";
-import { format, differenceInSeconds } from "date-fns";
 import { useParams } from "react-router-dom";
+import { CheckInCode } from "@/types/check-in";
+import { QRCodeDisplay } from "./check-in/QRCodeDisplay";
+import { CheckInButton } from "./check-in/CheckInButton";
+import { differenceInSeconds } from "date-fns";
 
 export function DigitalCard() {
   const [activeCode, setActiveCode] = useState<CheckInCode | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
-  const { toast } = useToast();
   const { academiaId } = useParams();
 
   const { data: userProfile } = useQuery({
@@ -32,7 +30,6 @@ export function DigitalCard() {
     },
   });
 
-  // Query to get active check-in code
   const { data: checkInCode, refetch: refetchCheckInCode } = useQuery({
     queryKey: ["activeCheckInCode", userProfile?.id],
     queryFn: async () => {
@@ -51,75 +48,14 @@ export function DigitalCard() {
     enabled: !!userProfile?.id,
   });
 
-  // Verify if academia exists before generating code
-  const verifyAcademia = async (id: string) => {
-    const { data, error } = await supabase
-      .from("academias")
-      .select("id")
-      .eq("id", id)
-      .single();
-    
-    if (error) throw new Error("Academia não encontrada");
-    return data;
-  };
-
-  // Mutation to generate new check-in code
-  const generateCheckInCode = useMutation({
-    mutationFn: async (academiaId: string) => {
-      // First verify if academia exists
-      await verifyAcademia(academiaId);
-
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
-      const generatedAt = new Date().toISOString();
-
-      const qrData = {
-        user_id: userProfile!.id,
-        academia_id: academiaId,
-        generated_at: generatedAt,
-        code,
-      };
-
-      const { data, error } = await supabase
-        .from("check_in_codes")
-        .insert({
-          user_id: userProfile!.id,
-          academia_id: academiaId,
-          code,
-          qr_data: qrData,
-          expires_at: expiresAt.toISOString(),
-          status: 'active'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as CheckInCode;
-    },
-    onSuccess: (data) => {
-      setActiveCode(data);
-      refetchCheckInCode();
-      toast({
-        title: "Check-in gerado com sucesso!",
-        description: `Apresente o QR Code ou informe o código: ${data.code}`,
-      });
-    },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Erro ao gerar check-in",
-        description: "Academia não encontrada ou indisponível.",
-      });
-      console.error("Error generating check-in:", error);
-    },
-  });
-
-  // Update countdown timer
   useEffect(() => {
     if (!checkInCode || checkInCode.status !== "active") {
       setTimeLeft(0);
+      setActiveCode(null);
       return;
     }
+
+    setActiveCode(checkInCode);
 
     const updateTimer = () => {
       const secondsLeft = differenceInSeconds(
@@ -129,6 +65,7 @@ export function DigitalCard() {
 
       if (secondsLeft <= 0) {
         setTimeLeft(0);
+        setActiveCode(null);
         refetchCheckInCode();
       } else {
         setTimeLeft(secondsLeft);
@@ -141,12 +78,14 @@ export function DigitalCard() {
     return () => clearInterval(interval);
   }, [checkInCode]);
 
-  // Format time left
-  const formatTimeLeft = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+  const handleCheckInSuccess = (newCode: CheckInCode) => {
+    setActiveCode(newCode);
+    refetchCheckInCode();
   };
+
+  if (!userProfile) {
+    return null;
+  }
 
   return (
     <div className="p-4">
@@ -155,47 +94,21 @@ export function DigitalCard() {
           <CardTitle className="text-center">Carteirinha Digital</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {userProfile && (
-            <>
-              <div className="text-center space-y-2">
-                <h3 className="font-semibold text-lg">{userProfile.full_name}</h3>
-                <p className="text-sm text-muted-foreground">CPF: {userProfile.cpf}</p>
-              </div>
-              
-              {checkInCode && checkInCode.status === "active" && (
-                <div className="space-y-4">
-                  <div className="flex justify-center">
-                    <QRCodeSVG
-                      value={JSON.stringify(checkInCode.qr_data)}
-                      size={200}
-                      level="H"
-                      includeMargin
-                      className="border-8 border-white rounded-lg shadow-lg"
-                    />
-                  </div>
-                  <div className="text-center space-y-2">
-                    <p className="text-lg font-semibold">Código: {checkInCode.code}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Apresente este QR Code ou informe o código acima
-                    </p>
-                    <p className="text-sm font-medium">
-                      Expira em: {formatTimeLeft(timeLeft)}
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              {(!checkInCode || checkInCode.status !== "active") && academiaId && (
-                <div className="text-center">
-                  <Button
-                    onClick={() => generateCheckInCode.mutate(academiaId)}
-                    disabled={generateCheckInCode.isPending}
-                  >
-                    Gerar Check-in
-                  </Button>
-                </div>
-              )}
-            </>
+          <div className="text-center space-y-2">
+            <h3 className="font-semibold text-lg">{userProfile.full_name}</h3>
+            <p className="text-sm text-muted-foreground">CPF: {userProfile.cpf}</p>
+          </div>
+
+          {activeCode && timeLeft > 0 ? (
+            <QRCodeDisplay checkInCode={activeCode} timeLeft={timeLeft} />
+          ) : (
+            academiaId && (
+              <CheckInButton
+                academiaId={academiaId}
+                userId={userProfile.id}
+                onSuccess={handleCheckInSuccess}
+              />
+            )
           )}
         </CardContent>
       </Card>
