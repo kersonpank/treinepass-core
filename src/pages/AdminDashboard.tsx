@@ -7,6 +7,7 @@ import { RevenueOverview } from "@/components/admin/financial/RevenueOverview";
 import { PaymentsList } from "@/components/admin/financial/PaymentsList";
 import { PlansManagement } from "@/components/admin/plans/PlansManagement";
 import { ModalitiesManagement } from "@/components/admin/modalities/ModalitiesManagement";
+import { GymManagement } from "@/components/admin/gyms/GymManagement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,11 +99,12 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-6 lg:w-[600px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="plans">Planos</TabsTrigger>
           <TabsTrigger value="modalities">Modalidades</TabsTrigger>
+          <TabsTrigger value="gyms">Academias</TabsTrigger>
           <TabsTrigger value="reports">Relatórios</TabsTrigger>
         </TabsList>
 
@@ -127,6 +129,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="modalities">
           <ModalitiesManagement />
+        </TabsContent>
+
+        <TabsContent value="gyms">
+          <GymManagement />
         </TabsContent>
 
         <TabsContent value="reports">
