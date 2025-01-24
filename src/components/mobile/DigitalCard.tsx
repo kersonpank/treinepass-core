@@ -4,13 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useParams } from "react-router-dom";
 import { CheckInCode } from "@/types/check-in";
-import { QRCodeDisplay } from "./check-in/QRCodeDisplay";
 import { CheckInButton } from "./check-in/CheckInButton";
-import { differenceInSeconds } from "date-fns";
+import { CheckInDisplay } from "./check-in/CheckInDisplay";
 
 export function DigitalCard() {
   const [activeCode, setActiveCode] = useState<CheckInCode | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(0);
   const { academiaId } = useParams();
 
   const { data: userProfile } = useQuery({
@@ -50,36 +48,19 @@ export function DigitalCard() {
 
   useEffect(() => {
     if (!checkInCode || checkInCode.status !== "active") {
-      setTimeLeft(0);
       setActiveCode(null);
       return;
     }
-
     setActiveCode(checkInCode);
-
-    const updateTimer = () => {
-      const secondsLeft = differenceInSeconds(
-        new Date(checkInCode.expires_at),
-        new Date()
-      );
-
-      if (secondsLeft <= 0) {
-        setTimeLeft(0);
-        setActiveCode(null);
-        refetchCheckInCode();
-      } else {
-        setTimeLeft(secondsLeft);
-      }
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-
-    return () => clearInterval(interval);
   }, [checkInCode]);
 
   const handleCheckInSuccess = (newCode: CheckInCode) => {
     setActiveCode(newCode);
+    refetchCheckInCode();
+  };
+
+  const handleExpire = () => {
+    setActiveCode(null);
     refetchCheckInCode();
   };
 
@@ -99,8 +80,11 @@ export function DigitalCard() {
             <p className="text-sm text-muted-foreground">CPF: {userProfile.cpf}</p>
           </div>
 
-          {activeCode && timeLeft > 0 ? (
-            <QRCodeDisplay checkInCode={activeCode} timeLeft={timeLeft} />
+          {activeCode ? (
+            <CheckInDisplay 
+              checkInCode={activeCode} 
+              onExpire={handleExpire}
+            />
           ) : (
             academiaId && (
               <CheckInButton
