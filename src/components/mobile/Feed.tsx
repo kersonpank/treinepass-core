@@ -10,12 +10,12 @@ export function Feed() {
   const { data: feed, isLoading } = useQuery({
     queryKey: ["feed"],
     queryFn: async () => {
-      const { data: academias, error } = await supabase
+      const { data, error } = await supabase
         .from("academias")
         .select(`
           *,
           academia_modalidades (
-            modalidade: modalidades (
+            modalidade:modalidades (
               nome
             )
           )
@@ -24,7 +24,7 @@ export function Feed() {
         .limit(20);
 
       if (error) throw error;
-      return academias;
+      return data;
     },
   });
 
@@ -103,7 +103,7 @@ export function Feed() {
             </CardHeader>
             <CardContent>
               <div className="relative h-48 mb-4 rounded-md overflow-hidden">
-                {academia.fotos && academia.fotos.length > 0 ? (
+                {academia.fotos && Array.isArray(academia.fotos) && academia.fotos.length > 0 ? (
                   <img
                     src={academia.fotos[0]}
                     alt={academia.nome}

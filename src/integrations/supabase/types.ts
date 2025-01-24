@@ -30,6 +30,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "academia_modalidades_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "academia_modalidades_modalidade_id_fkey"
             columns: ["modalidade_id"]
             isOneToOne: false
@@ -195,6 +202,13 @@ export type Database = {
           id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "benefit_usage_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "benefit_usage_employee_id_fkey"
             columns: ["employee_id"]

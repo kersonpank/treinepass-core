@@ -38,7 +38,7 @@ export function UsageReports() {
             department,
             cost_center
           ),
-          academia:academia_id (
+          academia:academias (
             nome
           )
         `)
