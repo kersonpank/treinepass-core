@@ -1,16 +1,12 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
-import { Feed } from "@/components/mobile/Feed";
 import { GymSearch } from "@/components/mobile/GymSearch";
 import { ClassSchedule } from "@/components/mobile/ClassSchedule";
 import { DigitalCard } from "@/components/mobile/DigitalCard";
 import { PlansTab } from "@/components/mobile/PlansTab";
-import { GymManagement } from "@/components/dashboard/GymManagement";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AppMobile() {
@@ -43,18 +39,13 @@ export default function AppMobile() {
       </header>
 
       <main className="flex-1 container mx-auto px-4 pt-20 pb-8">
-        <Tabs defaultValue="feed" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="feed">Feed</TabsTrigger>
+        <Tabs defaultValue="search" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="search">Buscar</TabsTrigger>
             <TabsTrigger value="schedule">Agenda</TabsTrigger>
             <TabsTrigger value="plans">Planos</TabsTrigger>
             <TabsTrigger value="card">Cartão</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="feed">
-            <Feed />
-          </TabsContent>
 
           <TabsContent value="search">
             <GymSearch />
@@ -72,8 +63,6 @@ export default function AppMobile() {
             <DigitalCard />
           </TabsContent>
         </Tabs>
-
-        {/* Removed GymManagement component since it's no longer needed */}
       </main>
     </div>
   );

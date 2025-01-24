@@ -143,14 +143,13 @@ export function GymSearch() {
       return "/lovable-uploads/ecfecf49-b6a8-4983-8a2a-bf8f276576e8.png";
     }
     
-    // Garantir que a URL da imagem seja completa
     const firstImage = fotos[0];
     if (firstImage.startsWith('http')) {
       return firstImage;
     }
     
-    // Se a imagem estiver no storage do Supabase
-    return `${supabase.supabaseUrl}/storage/v1/object/public/academy-images/${firstImage}`;
+    // Usar a URL pública do bucket do Supabase
+    return `https://jlzkwcgzpfrdgcdjmjao.supabase.co/storage/v1/object/public/academy-images/${firstImage}`;
   };
 
   return (
