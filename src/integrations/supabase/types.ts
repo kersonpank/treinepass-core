@@ -180,26 +180,38 @@ export type Database = {
         Row: {
           academia_id: string
           check_in: string
+          check_in_code_id: string | null
           check_out: string | null
           created_at: string
           employee_id: string
           id: string
+          validation_method:
+            | Database["public"]["Enums"]["check_in_validation_method"]
+            | null
         }
         Insert: {
           academia_id: string
           check_in?: string
+          check_in_code_id?: string | null
           check_out?: string | null
           created_at?: string
           employee_id: string
           id?: string
+          validation_method?:
+            | Database["public"]["Enums"]["check_in_validation_method"]
+            | null
         }
         Update: {
           academia_id?: string
           check_in?: string
+          check_in_code_id?: string | null
           check_out?: string | null
           created_at?: string
           employee_id?: string
           id?: string
+          validation_method?:
+            | Database["public"]["Enums"]["check_in_validation_method"]
+            | null
         }
         Relationships: [
           {
@@ -207,6 +219,13 @@ export type Database = {
             columns: ["academia_id"]
             isOneToOne: false
             referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "benefit_usage_check_in_code_id_fkey"
+            columns: ["check_in_code_id"]
+            isOneToOne: false
+            referencedRelation: "check_in_codes"
             referencedColumns: ["id"]
           },
           {
@@ -301,6 +320,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      check_in_codes: {
+        Row: {
+          academia_id: string
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          qr_data: Json
+          status: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          academia_id: string
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          qr_data: Json
+          status?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          academia_id?: string
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          qr_data?: Json
+          status?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_in_codes_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_benefits: {
         Row: {
@@ -749,8 +812,31 @@ export type Database = {
         }
         Returns: boolean
       }
+      register_check_in: {
+        Args: {
+          p_check_in_code_id: string
+          p_validation_method: Database["public"]["Enums"]["check_in_validation_method"]
+        }
+        Returns: {
+          success: boolean
+          message: string
+        }[]
+      }
+      validate_check_in_code: {
+        Args: {
+          p_code: string
+          p_academia_id: string
+        }
+        Returns: {
+          is_valid: boolean
+          message: string
+          user_id: string
+          user_name: string
+        }[]
+      }
     }
     Enums: {
+      check_in_validation_method: "qr_code" | "manual_code"
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
       plan_subscription_status: "active" | "pending" | "expired" | "cancelled"
       user_role_type:
