@@ -6,11 +6,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, DumbbellIcon } from "lucide-react";
 
+interface HorarioFuncionamento {
+  [key: string]: {
+    abertura: string;
+    fechamento: string;
+  };
+}
+
 interface Academia {
   id: string;
   nome: string;
   endereco: string;
-  horario_funcionamento: Record<string, { abertura: string; fechamento: string }> | null;
+  horario_funcionamento: HorarioFuncionamento | null;
   fotos: string[];
   academia_modalidades?: Array<{
     modalidade: {
@@ -37,7 +44,15 @@ export function Feed() {
         .limit(20);
 
       if (error) throw error;
-      return data as Academia[];
+      
+      // Transform the data to match the Academia interface
+      const transformedData = data.map((item: any) => ({
+        ...item,
+        horario_funcionamento: item.horario_funcionamento ? JSON.parse(JSON.stringify(item.horario_funcionamento)) : null,
+        fotos: Array.isArray(item.fotos) ? item.fotos : []
+      }));
+      
+      return transformedData as Academia[];
     },
   });
 
@@ -116,7 +131,7 @@ export function Feed() {
             </CardHeader>
             <CardContent>
               <div className="relative h-48 mb-4 rounded-md overflow-hidden">
-                {academia.fotos && Array.isArray(academia.fotos) && academia.fotos.length > 0 ? (
+                {academia.fotos && academia.fotos.length > 0 ? (
                   <img
                     src={academia.fotos[0]}
                     alt={academia.nome}
