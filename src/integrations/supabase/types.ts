@@ -816,6 +816,16 @@ export type Database = {
           message: string
         }[]
       }
+      get_user_access_types: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: {
+          type: Database["public"]["Enums"]["user_role_type"]
+          profile_id: string
+          details: Json
+        }[]
+      }
       is_gym_owner: {
         Args: {
           user_id: string

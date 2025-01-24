@@ -20,6 +20,17 @@ interface UserProfile {
   type?: string;
 }
 
+interface UserAccessType {
+  type: string;
+  profile_id: string;
+  details: {
+    gym_name?: string;
+    company_name?: string;
+    role?: string;
+    status?: string;
+  };
+}
+
 export const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -33,7 +44,6 @@ export const LoginForm = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
 
-        // Fetch user profile
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('full_name')
@@ -42,18 +52,17 @@ export const LoginForm = () => {
 
         if (profileError) throw profileError;
 
-        // Fetch user types
-        const { data: types, error: typesError } = await supabase
-          .from('user_types')
-          .select('type')
-          .eq('user_id', session.user.id);
-
-        if (typesError) throw typesError;
-
         if (profile) {
+          const { data: accessTypes, error: accessError } = await supabase
+            .rpc('get_user_access_types', {
+              p_user_id: session.user.id
+            });
+
+          if (accessError) throw accessError;
+
           setCurrentUser({
             full_name: profile.full_name || 'Usuário',
-            type: types?.map(t => t.type).join(', ')
+            type: accessTypes?.map(at => at.type).join(', ')
           });
         }
       } catch (error) {
@@ -76,14 +85,14 @@ export const LoginForm = () => {
         return;
       }
 
-      const { data: userTypes, error: typesError } = await supabase
-        .from('user_types')
-        .select('type')
-        .eq('user_id', session.user.id);
+      const { data: accessTypes, error: accessError } = await supabase
+        .rpc('get_user_access_types', {
+          p_user_id: session.user.id
+        });
 
-      if (typesError) throw typesError;
+      if (accessError) throw accessError;
 
-      if (!userTypes || userTypes.length === 0) {
+      if (!accessTypes || accessTypes.length === 0) {
         toast({
           variant: "destructive",
           title: "Erro",
@@ -92,30 +101,15 @@ export const LoginForm = () => {
         return;
       }
 
-      // Filtra tipos de acesso permitidos no login normal
-      const allowedTypes = userTypes.filter(ut => 
-        ['individual', 'business', 'gym'].includes(ut.type)
-      );
-
-      // Se não houver tipos permitidos, mostra erro
-      if (allowedTypes.length === 0) {
-        toast({
-          variant: "destructive",
-          title: "Acesso Negado",
-          description: "Use o painel administrativo para acessar sua conta",
-        });
-        return;
-      }
-
-      // Se houver múltiplos perfis permitidos, redireciona para a tela de seleção
-      if (allowedTypes.length > 1) {
-        console.log("Multiple profiles found, redirecting to profile selection");
+      // Se houver múltiplos perfis, redireciona para a tela de seleção
+      if (accessTypes.length > 1) {
         navigate('/selecionar-perfil');
         return;
       }
 
       // Se houver apenas um perfil, redireciona diretamente
-      switch (allowedTypes[0].type) {
+      const accessType = accessTypes[0];
+      switch (accessType.type) {
         case 'individual':
           navigate('/app');
           break;
@@ -123,15 +117,8 @@ export const LoginForm = () => {
           navigate('/dashboard-empresa');
           break;
         case 'gym':
-          const { data: gymRole } = await supabase
-            .from('user_gym_roles')
-            .select('gym_id')
-            .eq('user_id', session.user.id)
-            .eq('active', true)
-            .maybeSingle();
-          
-          if (gymRole) {
-            navigate(`/academia/${gymRole.gym_id}`);
+          if (accessType.profile_id) {
+            navigate(`/academia/${accessType.profile_id}`);
           } else {
             navigate('/');
           }
