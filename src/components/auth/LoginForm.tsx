@@ -92,38 +92,40 @@ export const LoginForm = () => {
         return;
       }
 
-      // Se houver apenas um perfil, redireciona diretamente
-      if (userTypes.length === 1) {
-        switch (userTypes[0].type) {
-          case 'individual':
-            navigate('/app');
-            break;
-          case 'business':
-            navigate('/dashboard-empresa');
-            break;
-          case 'gym':
-            const { data: gymRole } = await supabase
-              .from('user_gym_roles')
-              .select('gym_id')
-              .eq('user_id', session.user.id)
-              .eq('active', true)
-              .maybeSingle();
-            
-            if (gymRole) {
-              navigate(`/academia/${gymRole.gym_id}`);
-            } else {
-              navigate('/');
-            }
-            break;
-          case 'admin':
-            navigate('/admin/dashboard');
-            break;
-          default:
-            navigate('/');
-        }
-      } else {
-        // Se houver múltiplos perfis, redireciona para a tela de seleção
+      // Se houver múltiplos perfis, redireciona para a tela de seleção
+      if (userTypes.length > 1) {
+        console.log("Multiple profiles found, redirecting to profile selection");
         navigate('/selecionar-perfil');
+        return;
+      }
+
+      // Se houver apenas um perfil, redireciona diretamente
+      switch (userTypes[0].type) {
+        case 'individual':
+          navigate('/app');
+          break;
+        case 'business':
+          navigate('/dashboard-empresa');
+          break;
+        case 'gym':
+          const { data: gymRole } = await supabase
+            .from('user_gym_roles')
+            .select('gym_id')
+            .eq('user_id', session.user.id)
+            .eq('active', true)
+            .maybeSingle();
+          
+          if (gymRole) {
+            navigate(`/academia/${gymRole.gym_id}`);
+          } else {
+            navigate('/');
+          }
+          break;
+        case 'admin':
+          navigate('/admin/dashboard');
+          break;
+        default:
+          navigate('/');
       }
     } catch (error: any) {
       console.error("Error redirecting logged user:", error);
