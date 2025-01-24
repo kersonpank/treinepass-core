@@ -13,7 +13,7 @@ export function DigitalCard() {
   const [activeCode, setActiveCode] = useState<CheckInCode | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const { toast } = useToast();
-  const { academiaId } = useParams(); // Get academia ID from URL params
+  const { academiaId } = useParams(); 
 
   const { data: userProfile } = useQuery({
     queryKey: ["userProfile"],
