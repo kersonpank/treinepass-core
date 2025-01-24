@@ -11,11 +11,7 @@ interface RegisterData {
 export async function registerUser(data: RegisterData) {
   console.log("Starting user registration process...", { email: data.email });
 
-  // 1. Check if user already exists in auth
-  const { data: existingAuth } = await supabase.auth.admin.getUserByEmail(data.email);
-  let userId = existingAuth?.user?.id;
-
-  // 2. Check if there's already a profile with this CPF
+  // 1. Check if there's already a profile with this CPF
   const { data: existingProfile } = await supabase
     .from("user_profiles")
     .select("*")
@@ -27,25 +23,23 @@ export async function registerUser(data: RegisterData) {
   }
 
   try {
-    if (!userId) {
-      // If user doesn't exist in auth, create new auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            full_name: data.full_name,
-          },
+    // Create new auth user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          full_name: data.full_name,
         },
-      });
+      },
+    });
 
-      if (authError) {
-        console.error("Auth Error:", authError);
-        throw authError;
-      }
-
-      userId = authData.user?.id;
+    if (authError) {
+      console.error("Auth Error:", authError);
+      throw authError;
     }
+
+    const userId = authData.user?.id;
 
     if (!userId) {
       console.error("No user ID returned from auth signup");
@@ -59,7 +53,7 @@ export async function registerUser(data: RegisterData) {
       const [day, month, year] = data.birth_date.split('/');
       const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-      // 3. Create user profile if it doesn't exist
+      // Create user profile
       const { error: profileError } = await supabase
         .from("user_profiles")
         .upsert({
@@ -75,7 +69,7 @@ export async function registerUser(data: RegisterData) {
         throw profileError;
       }
 
-      // 4. Create user type entry for individual
+      // Create user type entry for individual
       const { error: typeError } = await supabase
         .from("user_types")
         .insert({

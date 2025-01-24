@@ -44,20 +44,32 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
   };
 
   const validateBirthDate = (value: string) => {
-    if (!value) return "Data de nascimento é obrigatória";
+    console.log("Validating birth date:", value);
+    
+    if (!value || value.trim() === "") {
+      console.log("Birth date is empty");
+      return "Data de nascimento é obrigatória";
+    }
+    
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+      console.log("Birth date format is invalid");
+      return "Data inválida";
+    }
     
     const [day, month, year] = value.split("/").map(Number);
-    if (!day || !month || !year) return "Data inválida";
-    
     const birthDate = new Date(year, month - 1, day);
     const today = new Date();
+    
+    console.log("Parsed date:", { day, month, year, birthDate });
     
     // Check if date is valid
     if (
       isNaN(birthDate.getTime()) || 
       birthDate > today ||
-      day > 31 || month > 12
+      day > 31 || month > 12 ||
+      day <= 0 || month <= 0 || year <= 0
     ) {
+      console.log("Date is invalid:", { isNaN: isNaN(birthDate.getTime()), isFuture: birthDate > today });
       return "Data inválida";
     }
     
@@ -69,7 +81,13 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       age--;
     }
     
-    return age >= 16 || "Você deve ter pelo menos 16 anos";
+    console.log("Calculated age:", age);
+    
+    if (age < 16) {
+      return "Você deve ter pelo menos 16 anos";
+    }
+    
+    return true;
   };
 
   const handleFormSubmit = async (data: UserFormData) => {
