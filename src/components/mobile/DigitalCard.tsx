@@ -41,7 +41,7 @@ export function DigitalCard() {
         .select("*")
         .eq("user_id", userProfile.id)
         .eq("status", "active")
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
       return data as CheckInCode | null;
@@ -54,11 +54,12 @@ export function DigitalCard() {
     mutationFn: async (academiaId: string) => {
       const code = Math.random().toString(36).substring(2, 8).toUpperCase();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+      const generatedAt = new Date().toISOString();
 
       const qrData = {
         user_id: userProfile!.id,
         academia_id: academiaId,
-        generated_at: new Date().toISOString(),
+        generated_at: generatedAt,
         code,
       };
 
@@ -70,12 +71,13 @@ export function DigitalCard() {
           code,
           qr_data: qrData,
           expires_at: expiresAt.toISOString(),
+          status: 'active'
         })
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return data as CheckInCode;
     },
     onSuccess: (data) => {
       setActiveCode(data);
@@ -91,6 +93,7 @@ export function DigitalCard() {
         title: "Erro ao gerar check-in",
         description: "Por favor, tente novamente.",
       });
+      console.error("Error generating check-in:", error);
     },
   });
 
@@ -168,7 +171,11 @@ export function DigitalCard() {
               {(!checkInCode || checkInCode.status !== "active") && (
                 <div className="text-center">
                   <Button
-                    onClick={() => generateCheckInCode.mutate("academia_id_here")}
+                    onClick={() => {
+                      // TODO: Replace with actual academia ID from context or route params
+                      const academiaId = "123e4567-e89b-12d3-a456-426614174000";
+                      generateCheckInCode.mutate(academiaId);
+                    }}
                     disabled={generateCheckInCode.isPending}
                   >
                     Gerar Check-in
