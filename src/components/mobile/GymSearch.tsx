@@ -47,7 +47,8 @@ export function GymSearch() {
               nome
             )
           )
-        `);
+        `)
+        .eq('status', 'ativo'); // Filtrar apenas academias ativas
 
       if (search) {
         query = query.ilike("nome", `%${search}%`);
@@ -137,6 +138,21 @@ export function GymSearch() {
     }
   };
 
+  const getImageUrl = (fotos: string[] | undefined) => {
+    if (!fotos || fotos.length === 0) {
+      return "/lovable-uploads/ecfecf49-b6a8-4983-8a2a-bf8f276576e8.png";
+    }
+    
+    // Garantir que a URL da imagem seja completa
+    const firstImage = fotos[0];
+    if (firstImage.startsWith('http')) {
+      return firstImage;
+    }
+    
+    // Se a imagem estiver no storage do Supabase
+    return `${supabase.supabaseUrl}/storage/v1/object/public/academy-images/${firstImage}`;
+  };
+
   return (
     <div className="space-y-4">
       <div className="sticky top-16 bg-white z-40 py-4 shadow-sm">
@@ -181,6 +197,14 @@ export function GymSearch() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
+                  <div className="relative h-48 mb-4 rounded-md overflow-hidden">
+                    <img
+                      src={getImageUrl(academia.fotos)}
+                      alt={academia.nome}
+                      className="w-full h-full object-cover transition-transform hover:scale-105"
+                    />
+                  </div>
+                  
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Clock className="h-4 w-4 mr-2" />
                     <span>{getHorarioFormatado(academia.horario_funcionamento)}</span>
