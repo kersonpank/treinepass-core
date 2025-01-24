@@ -59,7 +59,7 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       age--;
     }
     
-    return age >= 18 || "Você deve ter pelo menos 18 anos";
+    return age >= 16 || "Você deve ter pelo menos 16 anos";
   };
 
   const handleFormSubmit = async (data: UserFormData) => {
