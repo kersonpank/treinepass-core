@@ -832,6 +832,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      register_academia_with_user: {
+        Args: {
+          p_nome: string
+          p_cnpj: string
+          p_telefone: string
+          p_email: string
+          p_senha: string
+          p_endereco: string
+          p_horario_funcionamento: Json
+          p_modalidades: string[]
+          p_status?: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["registration_result"]
+      }
       register_check_in: {
         Args: {
           p_check_in_code_id: string
@@ -869,7 +883,12 @@ export type Database = {
         | "app_user"
     }
     CompositeTypes: {
-      [_ in never]: never
+      registration_result: {
+        success: boolean | null
+        message: string | null
+        user_id: string | null
+        academia_id: string | null
+      }
     }
   }
 }

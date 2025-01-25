@@ -25,7 +25,12 @@ export default function CadastroAcademia() {
     try {
       setIsSubmitting(true);
 
-      const academia = await registerGym(data);
+      const gymData = {
+        ...data,
+        senha: data.password, // Add password to the registration data
+      };
+
+      const academia = await registerGym(gymData);
 
       console.log("Academia registrada com sucesso:", academia);
       toast({
