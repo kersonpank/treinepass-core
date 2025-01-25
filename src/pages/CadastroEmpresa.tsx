@@ -31,31 +31,28 @@ export default function CadastroEmpresa() {
   const onSubmit = async (data: BusinessFormData) => {
     try {
       setIsSubmitting(true);
+      console.log("Iniciando cadastro de empresa:", { email: data.email });
 
-      // Primeiro tenta criar um novo usuário
-      let { data: authData, error: signUpError } = await supabase.auth.signUp({
+      // Criar usuário no auth
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
+        options: {
+          data: {
+            company_name: data.company_name,
+          },
+        },
       });
 
-      // Se o usuário já existe, tenta fazer login
-      if (signUpError?.message.includes("User already registered")) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: data.email,
-          password: data.password,
-        });
+      if (signUpError) throw signUpError;
 
-        if (signInError) throw signInError;
-        authData = signInData;
-      } else if (signUpError) {
-        throw signUpError;
-      }
-
-      if (!authData?.user?.id) {
+      if (!authData.user?.id) {
         throw new Error("Erro ao criar usuário");
       }
 
-      // Criar perfil da empresa com todos os campos obrigatórios
+      console.log("Usuário criado com sucesso:", { userId: authData.user.id });
+
+      // Criar perfil da empresa
       const { error: profileError } = await supabase.from("business_profiles").insert({
         user_id: authData.user.id,
         company_name: data.company_name,
@@ -63,29 +60,38 @@ export default function CadastroEmpresa() {
         cnpj: data.cnpj.replace(/\D/g, ""),
         email: data.email,
         inscricao_estadual: data.inscricao_estadual,
-        // Campos obrigatórios adicionados com valores padrão
-        // Estes serão atualizados nas próximas etapas do cadastro
+        // Campos obrigatórios com valores padrão
         address: "A ser preenchido",
         phone: "A ser preenchido",
         number_of_employees: 1,
         contact_person: "A ser preenchido",
         contact_position: "A ser preenchido",
         contact_phone: "A ser preenchido",
-        contact_email: data.email, // Usando o mesmo email corporativo inicialmente
+        contact_email: data.email,
         status: "pending"
       });
 
       if (profileError) throw profileError;
 
+      console.log("Perfil da empresa criado com sucesso");
+
+      // Login automático após o cadastro
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (signInError) throw signInError;
+
       toast({
-        title: "Cadastro iniciado com sucesso!",
+        title: "Cadastro realizado com sucesso!",
         description: "Continue o cadastro preenchendo as informações adicionais.",
       });
 
-      // Redirecionar para a próxima etapa do cadastro
+      // Redirecionar para a próxima etapa
       navigate("/cadastro-empresa/endereco");
     } catch (error: any) {
-      console.error(error);
+      console.error("Erro no cadastro:", error);
       toast({
         variant: "destructive",
         title: "Erro ao realizar cadastro",

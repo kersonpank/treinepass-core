@@ -28,6 +28,8 @@ export const LoginForm = () => {
 
   const handleRedirectLoggedUser = async (userId: string, accountType: string) => {
     try {
+      console.log("Redirecionando usuário:", { userId, accountType });
+      
       switch (accountType) {
         case 'individual':
           navigate('/app');
@@ -71,7 +73,7 @@ export const LoginForm = () => {
           navigate('/app');
       }
     } catch (error: any) {
-      console.error("Error redirecting logged user:", error);
+      console.error("Erro ao redirecionar usuário:", error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -83,6 +85,7 @@ export const LoginForm = () => {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setIsLoading(true);
+      console.log("Tentando login:", { email: data.credential, accountType: data.accountType });
       
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.credential,
@@ -92,10 +95,23 @@ export const LoginForm = () => {
       if (error) throw error;
 
       if (authData.user) {
+        // Verificar o tipo de usuário
+        const { data: userTypes } = await supabase
+          .from('user_types')
+          .select('type')
+          .eq('user_id', authData.user.id);
+
+        console.log("Tipos de usuário encontrados:", userTypes);
+
+        if (!userTypes?.some(ut => ut.type === data.accountType)) {
+          throw new Error("Tipo de conta não corresponde ao usuário");
+        }
+
         await handleRedirectLoggedUser(authData.user.id, data.accountType);
       }
 
     } catch (error: any) {
+      console.error("Erro no login:", error);
       toast({
         variant: "destructive",
         title: "Erro ao fazer login",
