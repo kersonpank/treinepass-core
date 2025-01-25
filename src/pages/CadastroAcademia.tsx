@@ -26,19 +26,25 @@ export default function CadastroAcademia() {
       setIsSubmitting(true);
 
       const gymData = {
-        ...data,
-        senha: data.password, // Add password to the registration data
+        nome: data.nome,
+        cnpj: data.cnpj,
+        telefone: data.telefone,
+        email: data.email,
+        senha: data.password,
+        endereco: data.endereco,
+        horario_funcionamento: data.horario_funcionamento,
+        modalidades: data.modalidades
       };
 
-      const academia = await registerGym(gymData);
+      const result = await registerGym(gymData);
 
-      console.log("Academia registrada com sucesso:", academia);
+      console.log("Academia registrada com sucesso:", result);
       toast({
         title: "Cadastro realizado com sucesso!",
         description: "Sua academia foi cadastrada e você será redirecionado para o painel.",
       });
 
-      navigate(`/academia/${academia.academia_id}`);
+      navigate(`/academia/${result.academia_id}`);
     } catch (error: any) {
       console.error("Erro detalhado durante o cadastro:", error);
       
