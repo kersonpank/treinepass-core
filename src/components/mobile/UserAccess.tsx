@@ -6,7 +6,7 @@ import { Building2, Dumbbell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-type UserAccessType = {
+interface UserAccessType {
   type: string;
   profile_id: string;
   details: {
