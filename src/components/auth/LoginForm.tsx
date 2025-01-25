@@ -16,8 +16,19 @@ interface LoginFormData {
 }
 
 interface UserProfile {
-  full_name: string | null;
-  email: string | null;
+  full_name: string;
+  type?: string;
+}
+
+interface UserAccessType {
+  type: string;
+  profile_id: string;
+  details: {
+    gym_name?: string;
+    company_name?: string;
+    role?: string;
+    status?: string;
+  };
 }
 
 export const LoginForm = () => {
@@ -35,14 +46,24 @@ export const LoginForm = () => {
 
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
-          .select('full_name, email')
+          .select('full_name')
           .eq('id', session.user.id)
           .maybeSingle();
 
         if (profileError) throw profileError;
 
         if (profile) {
-          setCurrentUser(profile);
+          const { data: accessTypes, error: accessError } = await supabase
+            .rpc('get_user_access_types', {
+              p_user_id: session.user.id
+            });
+
+          if (accessError) throw accessError;
+
+          setCurrentUser({
+            full_name: profile.full_name || 'Usuário',
+            type: accessTypes?.map(at => at.type).join(', ')
+          });
         }
       } catch (error) {
         console.error("Error checking current user:", error);
@@ -64,9 +85,47 @@ export const LoginForm = () => {
         return;
       }
 
-      // Redireciona para o app por padrão
-      navigate('/app');
+      const { data: accessTypes, error: accessError } = await supabase
+        .rpc('get_user_access_types', {
+          p_user_id: session.user.id
+        });
 
+      if (accessError) throw accessError;
+
+      if (!accessTypes || accessTypes.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Nenhum perfil encontrado para este usuário",
+        });
+        return;
+      }
+
+      // Se houver múltiplos perfis, redireciona para a tela de seleção
+      if (accessTypes.length > 1) {
+        navigate('/selecionar-perfil');
+        return;
+      }
+
+      // Se houver apenas um perfil, redireciona diretamente
+      const accessType = accessTypes[0];
+      switch (accessType.type) {
+        case 'individual':
+          navigate('/app');
+          break;
+        case 'business':
+          navigate('/dashboard-empresa');
+          break;
+        case 'gym':
+          if (accessType.profile_id) {
+            navigate(`/academia/${accessType.profile_id}`);
+          } else {
+            navigate('/');
+          }
+          break;
+        default:
+          navigate('/');
+      }
     } catch (error: any) {
       console.error("Error redirecting logged user:", error);
       toast({
@@ -141,7 +200,8 @@ export const LoginForm = () => {
         >
           <AlertDescription className="flex items-center justify-between">
             <span>
-              Olá {currentUser.full_name}! Você já está logado.
+              Olá {currentUser.full_name}
+              {currentUser.type && ` (${currentUser.type})`}! Você já está logado.
             </span>
             <span className="text-sm text-muted-foreground">
               Clique para acessar →
