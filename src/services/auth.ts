@@ -82,17 +82,27 @@ export async function registerUser(data: RegisterData) {
         throw profileError;
       }
 
-      // Add individual user type
-      const { error: typeError } = await supabase
+      // Check if user type already exists before inserting
+      const { data: existingType } = await supabase
         .from("user_types")
-        .insert({
-          user_id: userId,
-          type: "individual",
-        });
+        .select("*")
+        .eq("user_id", userId)
+        .eq("type", "individual")
+        .maybeSingle();
 
-      if (typeError) {
-        console.error("User Type Error:", typeError);
-        throw typeError;
+      if (!existingType) {
+        // Add individual user type only if it doesn't exist
+        const { error: typeError } = await supabase
+          .from("user_types")
+          .insert({
+            user_id: userId,
+            type: "individual",
+          });
+
+        if (typeError) {
+          console.error("User Type Error:", typeError);
+          throw typeError;
+        }
       }
 
       console.log("Registration process completed successfully!");
