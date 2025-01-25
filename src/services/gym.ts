@@ -5,51 +5,50 @@ interface GymRegistrationData {
   cnpj: string;
   telefone: string;
   email: string;
-  senha: string;
   endereco: string;
   horario_funcionamento: Record<string, any>;
-  modalidades: string | string[];
+  modalidades: string[];
 }
 
 export async function registerGym(data: GymRegistrationData) {
-  console.log("Iniciando registro de academia com dados:", { ...data, senha: '[REDACTED]' });
-
   try {
-    // Garantir que modalidades seja um array
-    const modalidades = Array.isArray(data.modalidades) 
+    console.log("Starting gym registration process...");
+    
+    // Ensure modalidades is properly formatted as an array
+    const formattedModalidades = Array.isArray(data.modalidades) 
       ? data.modalidades 
       : [data.modalidades];
-
+    
     const { data: result, error } = await supabase
-      .rpc('register_academia_with_user', {
+      .rpc("create_academia_v2", {
+        p_user_id: null,
         p_nome: data.nome,
         p_cnpj: data.cnpj,
         p_telefone: data.telefone,
         p_email: data.email,
-        p_senha: data.senha,
         p_endereco: data.endereco,
         p_horario_funcionamento: data.horario_funcionamento,
-        p_modalidades: modalidades
+        p_modalidades: formattedModalidades,
       });
 
     if (error) {
-      console.error("Erro ao registrar academia:", error);
+      console.error("Erro detalhado:", error);
       throw error;
     }
 
-    if (!result.success) {
-      throw new Error(result.message);
+    if (Array.isArray(result) && result[0]) {
+      const { academia_id, success, message } = result[0];
+      
+      if (!success) {
+        throw new Error(message);
+      }
+
+      return { academia_id, message };
     }
 
-    console.log("Academia registrada com sucesso:", result);
-    return {
-      success: result.success,
-      message: result.message,
-      academia_id: result.academia_id,
-      user_id: result.user_id
-    };
+    throw new Error("Erro inesperado ao criar academia");
   } catch (error: any) {
     console.error("Erro detalhado:", error);
-    throw error;
+    throw new Error(error.message || "Erro ao registrar academia");
   }
 }

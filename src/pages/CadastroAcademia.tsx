@@ -25,38 +25,15 @@ export default function CadastroAcademia() {
     try {
       setIsSubmitting(true);
 
-      const gymData = {
-        nome: data.nome,
-        cnpj: data.cnpj,
-        telefone: data.telefone,
-        email: data.email,
-        senha: data.password,
-        endereco: data.endereco,
-        horario_funcionamento: data.horario_funcionamento,
-        modalidades: data.modalidades
-      };
+      const academia = await registerGym(data);
 
-      const result = await registerGym(gymData);
-
-      console.log("Academia registrada com sucesso:", result);
-      
-      // Fazer login automático após o registro
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (loginError) {
-        console.error("Erro ao fazer login:", loginError);
-        throw loginError;
-      }
-
+      console.log("Academia registrada com sucesso:", academia);
       toast({
         title: "Cadastro realizado com sucesso!",
         description: "Sua academia foi cadastrada e você será redirecionado para o painel.",
       });
 
-      navigate(`/academia/${result.academia_id}`);
+      navigate(`/academia/${academia.academia_id}`);
     } catch (error: any) {
       console.error("Erro detalhado durante o cadastro:", error);
       

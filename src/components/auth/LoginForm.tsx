@@ -26,46 +26,8 @@ export const LoginForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const verifyUserType = async (userId: string, accountType: string) => {
-    try {
-      console.log("Verificando tipo de usuário:", { userId, accountType });
-      
-      const { data: userTypes, error } = await supabase
-        .from('user_types')
-        .select('type')
-        .eq('user_id', userId);
-
-      if (error) {
-        console.error("Erro ao verificar tipo de usuário:", error);
-        throw error;
-      }
-
-      console.log("Tipos de usuário encontrados:", userTypes);
-
-      // For individual users, no specific type is needed
-      if (accountType === 'individual') return true;
-
-      // For business users, check if they have a business type
-      if (accountType === 'business') {
-        return userTypes?.some(t => t.type === 'business');
-      }
-
-      // For gym users, check if they have a gym_owner type
-      if (accountType === 'gym') {
-        return userTypes?.some(t => t.type === 'gym_owner');
-      }
-
-      return false;
-    } catch (error) {
-      console.error("Error verifying user type:", error);
-      return false;
-    }
-  };
-
   const handleRedirectLoggedUser = async (userId: string, accountType: string) => {
     try {
-      console.log("Redirecionando usuário:", { userId, accountType });
-      
       switch (accountType) {
         case 'individual':
           navigate('/app');
@@ -76,8 +38,6 @@ export const LoginForm = () => {
             .select('id')
             .eq('user_id', userId)
             .maybeSingle();
-
-          console.log("Perfil empresarial:", { businessProfile, businessError });
 
           if (businessError || !businessProfile) {
             toast({
@@ -96,8 +56,6 @@ export const LoginForm = () => {
             .eq('user_id', userId)
             .eq('active', true)
             .maybeSingle();
-
-          console.log("Papéis da academia:", { gymRoles, gymError });
 
           if (gymError || !gymRoles) {
             toast({
@@ -126,50 +84,24 @@ export const LoginForm = () => {
     try {
       setIsLoading(true);
       
-      console.log("Tentando fazer login:", { 
-        email: data.credential, 
-        accountType: data.accountType 
-      });
-
-      // First attempt to sign in
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.credential,
         password: data.password,
       });
 
-      console.log("Resultado do login:", { authData, error });
+      if (error) throw error;
 
-      if (error) {
-        // If credentials are invalid, show specific message
-        if (error.message === "Invalid login credentials") {
-          throw new Error("Email ou senha incorretos");
-        }
-        throw error;
+      if (authData.user) {
+        await handleRedirectLoggedUser(authData.user.id, data.accountType);
       }
-
-      if (!authData.user) {
-        throw new Error("Erro ao fazer login");
-      }
-
-      // Verify if user has the correct type
-      const hasCorrectType = await verifyUserType(authData.user.id, data.accountType);
-      console.log("Verificação de tipo:", { hasCorrectType });
-      
-      if (!hasCorrectType) {
-        // Sign out if wrong account type
-        await supabase.auth.signOut();
-        throw new Error(`Credenciais inválidas para o tipo de conta "${data.accountType}"`);
-      }
-
-      // If everything is correct, redirect user
-      await handleRedirectLoggedUser(authData.user.id, data.accountType);
 
     } catch (error: any) {
-      console.error("Erro detalhado:", error);
       toast({
         variant: "destructive",
         title: "Erro ao fazer login",
-        description: error.message,
+        description: error.message === "Invalid login credentials"
+          ? "E-mail ou senha incorretos para o tipo de perfil selecionado"
+          : error.message,
       });
     } finally {
       setIsLoading(false);
