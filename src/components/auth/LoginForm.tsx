@@ -28,12 +28,19 @@ export const LoginForm = () => {
 
   const verifyUserType = async (userId: string, accountType: string) => {
     try {
+      console.log("Verificando tipo de usuário:", { userId, accountType });
+      
       const { data: userTypes, error } = await supabase
         .from('user_types')
         .select('type')
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao verificar tipo de usuário:", error);
+        throw error;
+      }
+
+      console.log("Tipos de usuário encontrados:", userTypes);
 
       // For individual users, no specific type is needed
       if (accountType === 'individual') return true;
@@ -57,6 +64,8 @@ export const LoginForm = () => {
 
   const handleRedirectLoggedUser = async (userId: string, accountType: string) => {
     try {
+      console.log("Redirecionando usuário:", { userId, accountType });
+      
       switch (accountType) {
         case 'individual':
           navigate('/app');
@@ -67,6 +76,8 @@ export const LoginForm = () => {
             .select('id')
             .eq('user_id', userId)
             .maybeSingle();
+
+          console.log("Perfil empresarial:", { businessProfile, businessError });
 
           if (businessError || !businessProfile) {
             toast({
@@ -85,6 +96,8 @@ export const LoginForm = () => {
             .eq('user_id', userId)
             .eq('active', true)
             .maybeSingle();
+
+          console.log("Papéis da academia:", { gymRoles, gymError });
 
           if (gymError || !gymRoles) {
             toast({
@@ -113,11 +126,18 @@ export const LoginForm = () => {
     try {
       setIsLoading(true);
       
+      console.log("Tentando fazer login:", { 
+        email: data.credential, 
+        accountType: data.accountType 
+      });
+
       // First attempt to sign in
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.credential,
         password: data.password,
       });
+
+      console.log("Resultado do login:", { authData, error });
 
       if (error) {
         // If credentials are invalid, show specific message
@@ -133,6 +153,7 @@ export const LoginForm = () => {
 
       // Verify if user has the correct type
       const hasCorrectType = await verifyUserType(authData.user.id, data.accountType);
+      console.log("Verificação de tipo:", { hasCorrectType });
       
       if (!hasCorrectType) {
         // Sign out if wrong account type
@@ -144,6 +165,7 @@ export const LoginForm = () => {
       await handleRedirectLoggedUser(authData.user.id, data.accountType);
 
     } catch (error: any) {
+      console.error("Erro detalhado:", error);
       toast({
         variant: "destructive",
         title: "Erro ao fazer login",
