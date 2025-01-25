@@ -5,10 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, Lock, Loader2, Home, Building2, User, Dumbbell } from "lucide-react";
+import { Mail, Lock, Loader2, Home } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { AccountTypeSelect } from "./AccountTypeSelect";
 
 interface LoginFormData {
   credential: string;
@@ -16,18 +16,15 @@ interface LoginFormData {
   accountType: string;
 }
 
-const accountTypes = [
-  { id: 'individual', label: 'Usuário', icon: User },
-  { id: 'business', label: 'Empresa', icon: Building2 },
-  { id: 'gym', label: 'Academia', icon: Dumbbell }
-];
-
 export const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<LoginFormData>();
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm<LoginFormData>({
+    defaultValues: {
+      accountType: 'individual'
+    }
+  });
   const { toast } = useToast();
   const navigate = useNavigate();
-  const selectedAccountType = watch("accountType");
 
   const handleRedirectLoggedUser = async (userId: string, accountType: string) => {
     try {
@@ -36,7 +33,6 @@ export const LoginForm = () => {
           navigate('/app');
           break;
         case 'business':
-          // Verificar se o usuário tem perfil de empresa
           const { data: businessProfile, error: businessError } = await supabase
             .from('business_profiles')
             .select('id')
@@ -54,7 +50,6 @@ export const LoginForm = () => {
           navigate('/dashboard-empresa');
           break;
         case 'gym':
-          // Verificar se o usuário tem perfil de academia
           const { data: gymRoles, error: gymError } = await supabase
             .from('user_gym_roles')
             .select('gym_id')
@@ -86,15 +81,6 @@ export const LoginForm = () => {
   };
 
   const onSubmit = async (data: LoginFormData) => {
-    if (!data.accountType) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Por favor, selecione o tipo de perfil para continuar",
-      });
-      return;
-    }
-
     try {
       setIsLoading(true);
       
@@ -200,24 +186,7 @@ export const LoginForm = () => {
 
       <div className="space-y-2">
         <Label>Tipo de Conta</Label>
-        <Select onValueChange={(value) => setValue("accountType", value)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o tipo de conta" />
-          </SelectTrigger>
-          <SelectContent>
-            {accountTypes.map((type) => {
-              const Icon = type.icon;
-              return (
-                <SelectItem key={type.id} value={type.id}>
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    <span>{type.label}</span>
-                  </div>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
+        <AccountTypeSelect onValueChange={(value) => setValue("accountType", value)} />
       </div>
 
       <Button
