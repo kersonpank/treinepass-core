@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -11,24 +12,56 @@ import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
 import { StaffPanel } from "@/components/gym/panels/StaffPanel";
 import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
 
-interface UserProfile {
-  full_name: string | null;
-  email: string | null;
-}
-
-interface StaffMember {
-  id: string;
-  role: "gym_owner" | "gym_admin" | "gym_staff";
-  active: boolean;
-  user_id: string;
-  user_profiles: UserProfile | null;
-}
-
 export default function AcademiaPanel() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Verificar autenticação e permissões ao carregar o componente
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          variant: "destructive",
+          title: "Acesso negado",
+          description: "Você precisa fazer login para acessar esta página",
+        });
+        navigate("/");
+        return;
+      }
+
+      // Verificar se o usuário tem permissão para acessar esta academia
+      const { data: userGymRoles } = await supabase
+        .from("user_gym_roles")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .eq("gym_id", id)
+        .eq("active", true)
+        .single();
+
+      const { data: academia } = await supabase
+        .from("academias")
+        .select("user_id")
+        .eq("id", id)
+        .single();
+
+      // Permitir acesso apenas se for dono da academia ou tiver um papel ativo
+      if (!userGymRoles && (!academia || academia.user_id !== session.user.id)) {
+        toast({
+          variant: "destructive",
+          title: "Acesso negado",
+          description: "Você não tem permissão para acessar esta academia",
+        });
+        navigate("/");
+        return;
+      }
+    };
+
+    checkAuth();
+  }, [id, navigate, toast]);
 
   const { data: academia, isLoading: loadingAcademia } = useQuery({
     queryKey: ["academia", id],
