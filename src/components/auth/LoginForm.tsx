@@ -26,6 +26,35 @@ export const LoginForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const verifyUserType = async (userId: string, accountType: string) => {
+    try {
+      const { data: userTypes, error } = await supabase
+        .from('user_types')
+        .select('type')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // For individual users, no specific type is needed
+      if (accountType === 'individual') return true;
+
+      // For business users, check if they have a business type
+      if (accountType === 'business') {
+        return userTypes?.some(t => t.type === 'business');
+      }
+
+      // For gym users, check if they have a gym_owner type
+      if (accountType === 'gym') {
+        return userTypes?.some(t => t.type === 'gym_owner');
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error verifying user type:", error);
+      return false;
+    }
+  };
+
   const handleRedirectLoggedUser = async (userId: string, accountType: string) => {
     try {
       switch (accountType) {
@@ -84,24 +113,41 @@ export const LoginForm = () => {
     try {
       setIsLoading(true);
       
+      // First attempt to sign in
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.credential,
         password: data.password,
       });
 
-      if (error) throw error;
-
-      if (authData.user) {
-        await handleRedirectLoggedUser(authData.user.id, data.accountType);
+      if (error) {
+        // If credentials are invalid, show specific message
+        if (error.message === "Invalid login credentials") {
+          throw new Error("Email ou senha incorretos");
+        }
+        throw error;
       }
+
+      if (!authData.user) {
+        throw new Error("Erro ao fazer login");
+      }
+
+      // Verify if user has the correct type
+      const hasCorrectType = await verifyUserType(authData.user.id, data.accountType);
+      
+      if (!hasCorrectType) {
+        // Sign out if wrong account type
+        await supabase.auth.signOut();
+        throw new Error(`Credenciais inválidas para o tipo de conta "${data.accountType}"`);
+      }
+
+      // If everything is correct, redirect user
+      await handleRedirectLoggedUser(authData.user.id, data.accountType);
 
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erro ao fazer login",
-        description: error.message === "Invalid login credentials"
-          ? "E-mail ou senha incorretos para o tipo de perfil selecionado"
-          : error.message,
+        description: error.message,
       });
     } finally {
       setIsLoading(false);
