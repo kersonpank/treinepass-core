@@ -27,30 +27,39 @@ export const LoginForm = () => {
   const navigate = useNavigate();
 
   const validateUserType = async (userId: string, requestedType: string) => {
-    const { data: userTypes, error } = await supabase
-      .from('user_types')
-      .select('type')
-      .eq('user_id', userId);
+    try {
+      console.log("Validando tipo de usuário:", { userId, requestedType });
+      
+      const { data: userTypes, error } = await supabase
+        .from('user_types')
+        .select('type')
+        .eq('user_id', userId);
 
-    if (error) {
-      console.error("Erro ao verificar tipos de usuário:", error);
+      if (error) {
+        console.error("Erro ao verificar tipos de usuário:", error);
+        return false;
+      }
+
+      console.log("Tipos de usuário encontrados:", userTypes);
+
+      // Se não encontrou nenhum tipo, só permite acesso como individual
+      if (!userTypes || userTypes.length === 0) {
+        return requestedType === 'individual';
+      }
+
+      // Verifica se o usuário tem o tipo solicitado
+      const hasRequestedType = userTypes.some(ut => ut.type === requestedType);
+      
+      // Se está tentando acessar como individual mas tem outros tipos, não permite
+      if (requestedType === 'individual' && userTypes.some(ut => ut.type !== 'individual')) {
+        return false;
+      }
+
+      return hasRequestedType;
+    } catch (error) {
+      console.error("Erro ao validar tipo de usuário:", error);
       return false;
     }
-
-    // Se não encontrou nenhum tipo, só permite acesso como individual
-    if (!userTypes || userTypes.length === 0) {
-      return requestedType === 'individual';
-    }
-
-    // Verifica se o usuário tem o tipo solicitado
-    const hasRequestedType = userTypes.some(ut => ut.type === requestedType);
-    
-    // Se está tentando acessar como individual mas tem outros tipos, não permite
-    if (requestedType === 'individual' && userTypes.some(ut => ut.type !== 'individual')) {
-      return false;
-    }
-
-    return hasRequestedType;
   };
 
   const handleRedirectLoggedUser = async (userId: string, accountType: string) => {
@@ -126,7 +135,18 @@ export const LoginForm = () => {
         password: data.password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro de autenticação:", error);
+        let errorMessage = "Erro ao fazer login";
+        
+        if (error.message === "Invalid login credentials") {
+          errorMessage = "Email ou senha incorretos";
+        } else if (error.message.includes("Email not confirmed")) {
+          errorMessage = "Por favor, confirme seu email antes de fazer login";
+        }
+        
+        throw new Error(errorMessage);
+      }
 
       if (authData.user) {
         await handleRedirectLoggedUser(authData.user.id, data.accountType);
@@ -137,9 +157,7 @@ export const LoginForm = () => {
       toast({
         variant: "destructive",
         title: "Erro ao fazer login",
-        description: error.message === "Invalid login credentials"
-          ? "E-mail ou senha incorretos"
-          : error.message,
+        description: error.message || "Ocorreu um erro inesperado",
       });
     } finally {
       setIsLoading(false);
@@ -191,6 +209,10 @@ export const LoginForm = () => {
             placeholder="Digite seu email"
             {...register("credential", {
               required: "Email é obrigatório",
+              pattern: {
+                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                message: "Email inválido",
+              },
             })}
           />
         </div>
