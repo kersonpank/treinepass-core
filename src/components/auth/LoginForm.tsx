@@ -41,7 +41,7 @@ export const LoginForm = () => {
             .from('business_profiles')
             .select('id')
             .eq('user_id', userId)
-            .single();
+            .maybeSingle();
 
           if (businessError || !businessProfile) {
             toast({
@@ -60,7 +60,7 @@ export const LoginForm = () => {
             .select('gym_id')
             .eq('user_id', userId)
             .eq('active', true)
-            .single();
+            .maybeSingle();
 
           if (gymError || !gymRoles) {
             toast({
