@@ -20,17 +20,6 @@ interface UserProfile {
   type?: string;
 }
 
-interface UserAccessType {
-  type: string;
-  profile_id: string;
-  details: {
-    gym_name?: string;
-    company_name?: string;
-    role?: string;
-    status?: string;
-  };
-}
-
 export const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -92,22 +81,19 @@ export const LoginForm = () => {
 
       if (accessError) throw accessError;
 
+      // Se não tiver nenhum tipo de acesso, vai para o app
       if (!accessTypes || accessTypes.length === 0) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Nenhum perfil encontrado para este usuário",
-        });
+        navigate('/app');
         return;
       }
 
-      // Se houver múltiplos perfis, redireciona para a tela de seleção
+      // Se tiver múltiplos tipos de acesso, vai para a tela de seleção
       if (accessTypes.length > 1) {
         navigate('/selecionar-perfil');
         return;
       }
 
-      // Se houver apenas um perfil, redireciona diretamente
+      // Se tiver apenas um tipo de acesso, redireciona diretamente
       const accessType = accessTypes[0];
       switch (accessType.type) {
         case 'individual':
@@ -120,11 +106,11 @@ export const LoginForm = () => {
           if (accessType.profile_id) {
             navigate(`/academia/${accessType.profile_id}`);
           } else {
-            navigate('/');
+            navigate('/app');
           }
           break;
         default:
-          navigate('/');
+          navigate('/app');
       }
     } catch (error: any) {
       console.error("Error redirecting logged user:", error);

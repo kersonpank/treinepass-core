@@ -2,63 +2,43 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { UserTypeSelect } from "@/components/auth/UserTypeSelect";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Building2, Dumbbell, User } from "lucide-react";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { useToast } from "@/hooks/use-toast";
+
+interface UserAccessType {
+  type: 'individual' | 'business' | 'gym';
+  profile_id: string;
+  details: {
+    gym_name?: string;
+    company_name?: string;
+    role?: string;
+    status?: string;
+  };
+}
 
 export default function SelecionarPerfil() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const { data: userTypes, isLoading } = useQuery({
-    queryKey: ["userTypes"],
+  const { data: accessTypes, isLoading } = useQuery({
+    queryKey: ["userAccessTypes"],
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
         throw new Error("Usuário não autenticado");
       }
 
-      const { data, error } = await supabase
-        .from("user_types")
-        .select("type")
-        .eq("user_id", session.session.user.id);
+      const { data, error } = await supabase.rpc('get_user_access_types', {
+        p_user_id: session.session.user.id
+      });
 
       if (error) throw error;
-
-      // Filtra apenas os tipos permitidos no login normal
-      return data?.filter(ut => ['individual', 'business', 'gym'].includes(ut.type)) || [];
+      return data as UserAccessType[];
     },
   });
-
-  const handleProfileSelect = async (type: string) => {
-    switch (type) {
-      case "individual":
-        navigate("/app");
-        break;
-      case "business":
-        navigate("/dashboard-empresa");
-        break;
-      case "gym":
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) return;
-
-        const { data: gymRole } = await supabase
-          .from("user_gym_roles")
-          .select("gym_id")
-          .eq("user_id", session.user.id)
-          .eq("active", true)
-          .maybeSingle();
-
-        if (gymRole) {
-          navigate(`/academia/${gymRole.gym_id}`);
-        } else {
-          navigate("/");
-        }
-        break;
-      default:
-        navigate("/");
-    }
-  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -69,6 +49,34 @@ export default function SelecionarPerfil() {
     };
     checkAuth();
   }, [navigate]);
+
+  const getAccessTypeDetails = (type: string) => {
+    switch (type) {
+      case 'individual':
+        return {
+          title: 'Área do Usuário',
+          description: 'Acesse seus treinos e benefícios',
+          icon: User,
+          path: '/app'
+        };
+      case 'business':
+        return {
+          title: 'Portal Empresarial',
+          description: 'Gerencie benefícios dos colaboradores',
+          icon: Building2,
+          path: '/dashboard-empresa'
+        };
+      case 'gym':
+        return {
+          title: 'Painel da Academia',
+          description: 'Gerencie sua academia',
+          icon: Dumbbell,
+          path: '/academia'
+        };
+      default:
+        return null;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -86,16 +94,60 @@ export default function SelecionarPerfil() {
             title="Selecionar Perfil"
             subtitle="Escolha qual perfil você deseja acessar"
           >
-            {userTypes && userTypes.length > 0 ? (
-              <UserTypeSelect
-                onSelect={handleProfileSelect}
-                availableTypes={userTypes.map(ut => ut.type)}
-              />
-            ) : (
-              <p className="text-center text-gray-600">
-                Nenhum perfil encontrado. Por favor, entre em contato com o suporte.
-              </p>
-            )}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {accessTypes?.map((access) => {
+                const details = getAccessTypeDetails(access.type);
+                if (!details) return null;
+
+                const Icon = details.icon;
+                return (
+                  <Card 
+                    key={access.type}
+                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => {
+                      if (access.type === 'gym' && access.profile_id) {
+                        navigate(`/academia/${access.profile_id}`);
+                      } else {
+                        navigate(details.path);
+                      }
+                    }}
+                  >
+                    <CardHeader>
+                      <div className="flex items-center space-x-2">
+                        <Icon className="h-5 w-5 text-[#0125F0]" />
+                        <CardTitle className="text-lg">{details.title}</CardTitle>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription>
+                        {details.description}
+                        {access.details?.gym_name && (
+                          <div className="mt-2 text-sm font-medium text-gray-700">
+                            {access.details.gym_name}
+                          </div>
+                        )}
+                        {access.details?.company_name && (
+                          <div className="mt-2 text-sm font-medium text-gray-700">
+                            {access.details.company_name}
+                          </div>
+                        )}
+                      </CardDescription>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <div className="mt-6">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/app')}
+              >
+                <User className="mr-2 h-4 w-4" />
+                Continuar como usuário comum
+              </Button>
+            </div>
           </AuthLayout>
         </div>
       </div>
