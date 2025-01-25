@@ -26,10 +26,42 @@ export const LoginForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const validateUserType = async (userId: string, requestedType: string) => {
+    const { data: userTypes, error } = await supabase
+      .from('user_types')
+      .select('type')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error("Erro ao verificar tipos de usuário:", error);
+      return false;
+    }
+
+    // Se não encontrou nenhum tipo, só permite acesso como individual
+    if (!userTypes || userTypes.length === 0) {
+      return requestedType === 'individual';
+    }
+
+    // Verifica se o usuário tem o tipo solicitado
+    const hasRequestedType = userTypes.some(ut => ut.type === requestedType);
+    
+    // Se está tentando acessar como individual mas tem outros tipos, não permite
+    if (requestedType === 'individual' && userTypes.some(ut => ut.type !== 'individual')) {
+      return false;
+    }
+
+    return hasRequestedType;
+  };
+
   const handleRedirectLoggedUser = async (userId: string, accountType: string) => {
     try {
       console.log("Redirecionando usuário:", { userId, accountType });
       
+      const isValidType = await validateUserType(userId, accountType);
+      if (!isValidType) {
+        throw new Error("Tipo de conta não corresponde ao perfil do usuário");
+      }
+
       switch (accountType) {
         case 'individual':
           navigate('/app');
@@ -77,8 +109,10 @@ export const LoginForm = () => {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao redirecionar usuário",
+        description: error.message || "Erro ao redirecionar usuário",
       });
+      // Em caso de erro de tipo, fazer logout
+      await supabase.auth.signOut();
     }
   };
 
@@ -95,18 +129,6 @@ export const LoginForm = () => {
       if (error) throw error;
 
       if (authData.user) {
-        // Verificar o tipo de usuário
-        const { data: userTypes } = await supabase
-          .from('user_types')
-          .select('type')
-          .eq('user_id', authData.user.id);
-
-        console.log("Tipos de usuário encontrados:", userTypes);
-
-        if (!userTypes?.some(ut => ut.type === data.accountType)) {
-          throw new Error("Tipo de conta não corresponde ao usuário");
-        }
-
         await handleRedirectLoggedUser(authData.user.id, data.accountType);
       }
 
@@ -116,7 +138,7 @@ export const LoginForm = () => {
         variant: "destructive",
         title: "Erro ao fazer login",
         description: error.message === "Invalid login credentials"
-          ? "E-mail ou senha incorretos para o tipo de perfil selecionado"
+          ? "E-mail ou senha incorretos"
           : error.message,
       });
     } finally {
