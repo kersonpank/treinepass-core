@@ -8,13 +8,18 @@ interface GymRegistrationData {
   senha: string;
   endereco: string;
   horario_funcionamento: Record<string, any>;
-  modalidades: string[];
+  modalidades: string | string[];
 }
 
 export async function registerGym(data: GymRegistrationData) {
   console.log("Iniciando registro de academia com dados:", { ...data, senha: '[REDACTED]' });
 
   try {
+    // Garantir que modalidades seja um array
+    const modalidades = Array.isArray(data.modalidades) 
+      ? data.modalidades 
+      : [data.modalidades];
+
     const { data: result, error } = await supabase
       .rpc('register_academia_with_user', {
         p_nome: data.nome,
@@ -24,7 +29,7 @@ export async function registerGym(data: GymRegistrationData) {
         p_senha: data.senha,
         p_endereco: data.endereco,
         p_horario_funcionamento: data.horario_funcionamento,
-        p_modalidades: data.modalidades
+        p_modalidades: modalidades
       });
 
     if (error) {
