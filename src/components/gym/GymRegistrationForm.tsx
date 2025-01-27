@@ -43,18 +43,8 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
 
   const [replicateHours, setReplicateHours] = useState(false);
 
-  const handleFormSubmit = async (data: GymFormData) => {
-    // Ensure modalidades is always an array
-    const formattedData = {
-      ...data,
-      modalidades: Array.isArray(data.modalidades) ? data.modalidades : [data.modalidades].filter(Boolean)
-    };
-    
-    await onSubmit(formattedData);
-  };
-
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <UserDataForm register={register} errors={errors} />
       <GymDataForm register={register} errors={errors} />
       <OperatingHoursForm
