@@ -11,9 +11,15 @@ import { GymManagement } from "@/components/admin/gyms/GymManagement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { DataTable } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 export default function AdminDashboard() {
-  const { data: pendingGyms } = useQuery({
+  const [selectedTab, setSelectedTab] = useState("overview");
+
+  // Fetch pending gyms
+  const { data: pendingGyms = 0 } = useQuery({
     queryKey: ["pendingGyms"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -23,6 +29,82 @@ export default function AdminDashboard() {
       
       if (error) throw error;
       return data?.length || 0;
+    },
+  });
+
+  // Fetch active gyms count
+  const { data: activeGymsCount = 0 } = useQuery({
+    queryKey: ["activeGyms"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("academias")
+        .select("id")
+        .eq("status", "ativo");
+      
+      if (error) throw error;
+      return data?.length || 0;
+    },
+  });
+
+  // Fetch active users count
+  const { data: activeUsersCount = 0 } = useQuery({
+    queryKey: ["activeUsers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("id");
+      
+      if (error) throw error;
+      return data?.length || 0;
+    },
+  });
+
+  // Fetch total check-ins count
+  const { data: checkInsCount = 0 } = useQuery({
+    queryKey: ["checkIns"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("benefit_usage")
+        .select("id");
+      
+      if (error) throw error;
+      return data?.length || 0;
+    },
+  });
+
+  // Fetch active plans count
+  const { data: activePlansCount = 0 } = useQuery({
+    queryKey: ["activePlans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("benefit_plans")
+        .select("id")
+        .eq("status", "active");
+      
+      if (error) throw error;
+      return data?.length || 0;
+    },
+  });
+
+  // Fetch users for management
+  const { data: users = [], isLoading: isLoadingUsers } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select(`
+          id,
+          full_name,
+          email,
+          cpf,
+          created_at,
+          user_types (
+            type
+          )
+        `);
+      
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -54,9 +136,9 @@ export default function AdminDashboard() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">123</div>
+            <div className="text-2xl font-bold">{activeGymsCount}</div>
             <p className="text-xs text-muted-foreground">
-              +10% em relação ao mês anterior
+              Total de academias ativas no sistema
             </p>
           </CardContent>
         </Card>
@@ -66,9 +148,9 @@ export default function AdminDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,432</div>
+            <div className="text-2xl font-bold">{activeUsersCount}</div>
             <p className="text-xs text-muted-foreground">
-              +20% em relação ao mês anterior
+              Total de usuários cadastrados
             </p>
           </CardContent>
         </Card>
@@ -78,9 +160,9 @@ export default function AdminDashboard() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">573</div>
+            <div className="text-2xl font-bold">{checkInsCount}</div>
             <p className="text-xs text-muted-foreground">
-              +12% em relação ao mês anterior
+              Total de check-ins realizados
             </p>
           </CardContent>
         </Card>
@@ -90,27 +172,75 @@ export default function AdminDashboard() {
             <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{activePlansCount}</div>
             <p className="text-xs text-muted-foreground">
-              +2 novos planos este mês
+              Total de planos ativos
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-6 lg:w-[600px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="plans">Planos</TabsTrigger>
           <TabsTrigger value="modalities">Modalidades</TabsTrigger>
           <TabsTrigger value="gyms">Academias</TabsTrigger>
-          <TabsTrigger value="reports">Relatórios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <Overview />
           <UsageReports />
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Gerenciamento de Usuários</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoadingUsers ? (
+                <div>Carregando usuários...</div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>CPF</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Data de Cadastro</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>{user.full_name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.cpf}</TableCell>
+                          <TableCell>
+                            {user.user_types?.map((type) => type.type).join(", ")}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm">
+                              Detalhes
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-4">
@@ -133,19 +263,6 @@ export default function AdminDashboard() {
 
         <TabsContent value="gyms">
           <GymManagement />
-        </TabsContent>
-
-        <TabsContent value="reports">
-          <Card>
-            <CardHeader>
-              <CardTitle>Relatórios Detalhados</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Funcionalidade em desenvolvimento. Em breve você poderá gerar relatórios personalizados.
-              </p>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>
