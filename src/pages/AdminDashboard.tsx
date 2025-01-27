@@ -11,7 +11,14 @@ import { GymManagement } from "@/components/admin/gyms/GymManagement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { DataTable } from "@/components/ui/table";
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow 
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -86,25 +93,35 @@ export default function AdminDashboard() {
     },
   });
 
-  // Fetch users for management
+  // Fetch users with their types
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get all user profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from("user_profiles")
-        .select(`
-          id,
-          full_name,
-          email,
-          cpf,
-          created_at,
-          user_types (
-            type
-          )
-        `);
-      
-      if (error) throw error;
-      return data || [];
+        .select("*");
+
+      if (profilesError) throw profilesError;
+
+      // Then get user types for each profile
+      const usersWithTypes = await Promise.all(
+        profiles.map(async (profile) => {
+          const { data: types, error: typesError } = await supabase
+            .from("user_types")
+            .select("type")
+            .eq("user_id", profile.id);
+
+          if (typesError) throw typesError;
+
+          return {
+            ...profile,
+            user_types: types || []
+          };
+        })
+      );
+
+      return usersWithTypes;
     },
   });
 
