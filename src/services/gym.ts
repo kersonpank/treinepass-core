@@ -78,7 +78,7 @@ export const createGymRole = async (userId: string, gymId: string) => {
     .insert({
       user_id: userId,
       gym_id: gymId,
-      role: "gym_owner"
+      role: "gym_owner" as const
     });
 
   if (error) {
@@ -105,7 +105,7 @@ export const getGymRole = async (userId: string, gymId: string) => {
   return data;
 };
 
-export const updateGymRole = async (userId: string, gymId: string, role: string) => {
+export const updateGymRole = async (userId: string, gymId: string, role: "gym_owner" | "gym_admin" | "gym_staff") => {
   const { data, error } = await supabase
     .from("user_gym_roles")
     .update({ role })
@@ -131,6 +131,36 @@ export const deleteGymRole = async (userId: string, gymId: string) => {
 
   if (error) {
     console.error("Error deleting gym role:", error);
+    throw error;
+  }
+};
+
+export const registerGym = async (data: any) => {
+  console.log("Starting gym registration with data:", data);
+  
+  try {
+    // Call the register_academia_with_user function
+    const { data: result, error } = await supabase
+      .rpc('register_academia_with_user', {
+        p_nome: data.nome,
+        p_cnpj: data.cnpj,
+        p_telefone: data.telefone,
+        p_email: data.email,
+        p_senha: data.password,
+        p_endereco: data.endereco,
+        p_horario_funcionamento: data.horario_funcionamento,
+        p_modalidades: data.modalidades,
+      });
+
+    if (error) {
+      console.error("Error in registerGym:", error);
+      throw error;
+    }
+
+    console.log("Registration result:", result);
+    return result;
+  } catch (error) {
+    console.error("Error in registerGym:", error);
     throw error;
   }
 };
