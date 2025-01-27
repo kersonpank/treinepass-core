@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, MapPin, Clock, Navigation } from "lucide-react";
-import { Json } from "@/integrations/supabase/types";
 
 interface Modalidade {
   nome: string;
@@ -20,7 +19,7 @@ interface Academia {
   id: string;
   nome: string;
   endereco: string;
-  horario_funcionamento: Json;
+  horario_funcionamento: any;
   fotos?: string[];
   latitude?: number;
   longitude?: number;
@@ -48,7 +47,7 @@ export function GymSearch() {
             )
           )
         `)
-        .eq('status', 'ativo'); // Filtrar apenas academias ativas
+        .eq('status', 'ativo');
 
       if (search) {
         query = query.ilike("nome", `%${search}%`);
@@ -113,7 +112,7 @@ export function GymSearch() {
 
   const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
-  const getHorarioFormatado = (horario: Json) => {
+  const getHorarioFormatado = (horario: any) => {
     try {
       const horarioObj = typeof horario === 'string' ? JSON.parse(horario) : horario;
       if (!horarioObj) return "Horário não disponível";
@@ -148,7 +147,6 @@ export function GymSearch() {
       return firstImage;
     }
     
-    // Usar a URL pública do bucket do Supabase
     return `https://jlzkwcgzpfrdgcdjmjao.supabase.co/storage/v1/object/public/academy-images/${firstImage}`;
   };
 
