@@ -28,6 +28,10 @@ export default function CadastroAcademia() {
       const result = await registerGym(data);
       console.log("Resultado do registro da academia:", result);
 
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
       if (!result.academia_id) {
         throw new Error("ID da academia não retornado");
       }
@@ -43,7 +47,6 @@ export default function CadastroAcademia() {
         throw signInError;
       }
 
-      console.log("Academia registrada com sucesso:", result);
       toast({
         title: "Cadastro realizado com sucesso!",
         description: "Sua academia foi cadastrada e você será redirecionado para o painel.",
@@ -57,12 +60,10 @@ export default function CadastroAcademia() {
     } catch (error: any) {
       console.error("Erro detalhado durante o cadastro:", error);
       
-      const errorMessage = error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.";
-      
       toast({
         variant: "destructive",
         title: "Erro no cadastro",
-        description: errorMessage,
+        description: error.message || "Ocorreu um erro inesperado. Por favor, tente novamente.",
       });
     } finally {
       setIsSubmitting(false);

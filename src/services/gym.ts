@@ -11,8 +11,17 @@ interface GymRegistrationData {
   modalidades: string[];
 }
 
-export async function registerGym(data: GymRegistrationData) {
+interface RegistrationResult {
+  success: boolean;
+  message: string;
+  user_id?: string;
+  academia_id?: string;
+}
+
+export async function registerGym(data: GymRegistrationData): Promise<RegistrationResult> {
   try {
+    console.log("Iniciando registro de academia com dados:", { ...data, password: '[REDACTED]' });
+    
     const { data: result, error } = await supabase.rpc('register_academia_with_user', {
       p_nome: data.nome,
       p_cnpj: data.cnpj,
@@ -24,7 +33,12 @@ export async function registerGym(data: GymRegistrationData) {
       p_modalidades: data.modalidades
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Erro ao registrar academia:", error);
+      throw error;
+    }
+
+    console.log("Resultado do registro:", result);
 
     if (!result.success) {
       throw new Error(result.message);
@@ -37,8 +51,11 @@ export async function registerGym(data: GymRegistrationData) {
       user_id: result.user_id
     };
   } catch (error: any) {
-    console.error('Erro ao registrar academia:', error);
-    throw error;
+    console.error('Erro detalhado ao registrar academia:', error);
+    return {
+      success: false,
+      message: error.message || 'Erro ao registrar academia'
+    };
   }
 }
 
