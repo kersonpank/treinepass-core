@@ -160,7 +160,7 @@ export const getGymRole = async (userId: string, gymId: string) => {
   return data;
 };
 
-export const updateGymRole = async (userId: string, gymId: string, role: string) => {
+export const updateGymRole = async (userId: string, gymId: string, role: GymRole) => {
   const { data, error } = await supabase
     .from("user_gym_roles")
     .update({ role })
