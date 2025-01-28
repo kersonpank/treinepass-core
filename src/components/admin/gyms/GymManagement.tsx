@@ -13,6 +13,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Edit2, Eye, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { EditGymDialog } from "./EditGymDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Gym {
   id: string;
@@ -26,6 +29,10 @@ interface Gym {
 
 export function GymManagement() {
   const { toast } = useToast();
+  const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
   const { data: gyms, isLoading, refetch } = useQuery({
     queryKey: ["adminGyms"],
     queryFn: async () => {
@@ -153,6 +160,10 @@ export function GymManagement() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
+                        onClick={() => {
+                          setSelectedGym(gym);
+                          setIsEditDialogOpen(true);
+                        }}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
@@ -160,6 +171,10 @@ export function GymManagement() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
+                        onClick={() => {
+                          setSelectedGym(gym);
+                          setIsViewDialogOpen(true);
+                        }}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -179,6 +194,53 @@ export function GymManagement() {
           </Table>
         </div>
       </CardContent>
+
+      {selectedGym && (
+        <>
+          <EditGymDialog
+            gym={selectedGym}
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            onSuccess={refetch}
+          />
+
+          <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Detalhes da Academia</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium">Nome</h4>
+                  <p>{selectedGym.nome}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium">CNPJ</h4>
+                  <p>{selectedGym.cnpj}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium">Email</h4>
+                  <p>{selectedGym.email}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium">Telefone</h4>
+                  <p>{selectedGym.telefone || "Não informado"}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium">Endereço</h4>
+                  <p>{selectedGym.endereco || "Não informado"}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium">Status</h4>
+                  <Badge variant={selectedGym.status === "ativo" ? "default" : "secondary"}>
+                    {selectedGym.status === "ativo" ? "Ativo" : "Pendente"}
+                  </Badge>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </Card>
   );
 }

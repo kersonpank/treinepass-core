@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { UserManagement } from "@/components/admin/users/UserManagement";
 
 export default function AdminDashboard() {
   const [selectedTab, setSelectedTab] = useState("overview");
@@ -213,51 +214,7 @@ export default function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Gerenciamento de Usuários</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingUsers ? (
-                <div>Carregando usuários...</div>
-              ) : (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>CPF</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Data de Cadastro</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {users.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell>{user.full_name}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>{user.cpf}</TableCell>
-                          <TableCell>
-                            {user.user_types?.map((type) => type.type).join(", ")}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(user.created_at).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm">
-                              Detalhes
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <UserManagement />
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-4">
