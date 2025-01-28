@@ -9,6 +9,7 @@ interface GymRegistrationData {
   endereco: string;
   horario_funcionamento: Record<string, any>;
   modalidades: string[];
+  full_name: string;
 }
 
 interface RegistrationResult {
@@ -22,41 +23,116 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
   try {
     console.log("Iniciando registro de academia com dados:", { ...data, password: '[REDACTED]' });
     
-    const { data: result, error } = await supabase.rpc('register_academia_with_user', {
-      p_nome: data.nome,
-      p_cnpj: data.cnpj,
-      p_telefone: data.telefone,
-      p_email: data.email,
-      p_senha: data.password,
-      p_endereco: data.endereco,
-      p_horario_funcionamento: data.horario_funcionamento,
-      p_modalidades: data.modalidades
+    // 1. Criar usuário da academia no auth
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          full_name: data.full_name,
+          user_type: 'gym',
+          role: 'gym_owner'
+        },
+      },
     });
 
-    if (error) {
-      console.error("Erro ao registrar academia:", error);
-      return {
-        success: false,
-        message: error.message || 'Erro ao registrar academia'
-      };
+    if (signUpError) {
+      console.error("Erro ao criar usuário:", signUpError);
+      throw signUpError;
     }
 
-    console.log("Resultado do registro:", result);
+    if (!authData.user?.id) {
+      throw new Error("Erro ao criar usuário");
+    }
 
-    // Parse the result properly
-    if (result && typeof result === 'object') {
-      const { success, message, user_id, academia_id } = result;
-      return {
-        success: Boolean(success),
-        message: message || 'Academia registrada com sucesso',
-        user_id: user_id || undefined,
-        academia_id: academia_id || undefined
-      };
+    console.log("Usuário da academia criado com sucesso:", { userId: authData.user.id });
+
+    // 2. Criar academia
+    const { data: academiaData, error: academiaError } = await supabase
+      .from("academias")
+      .insert({
+        user_id: authData.user.id,
+        nome: data.nome,
+        cnpj: data.cnpj.replace(/\D/g, ""),
+        telefone: data.telefone,
+        email: data.email,
+        endereco: data.endereco,
+        horario_funcionamento: data.horario_funcionamento,
+        status: 'active'
+      })
+      .select()
+      .single();
+
+    if (academiaError) {
+      console.error("Erro ao criar academia:", academiaError);
+      // Se falhar, tentar reverter a criação do usuário
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      throw academiaError;
+    }
+
+    console.log("Academia criada com sucesso:", academiaData);
+
+    // 3. Associar modalidades
+    if (data.modalidades && data.modalidades.length > 0) {
+      const modalidadesAcademia = data.modalidades.map(modalidadeId => ({
+        academia_id: academiaData.id,
+        modalidade_id: modalidadeId
+      }));
+
+      const { error: modalidadesError } = await supabase
+        .from('academia_modalidades')
+        .insert(modalidadesAcademia);
+
+      if (modalidadesError) {
+        console.error("Erro ao associar modalidades:", modalidadesError);
+        // Não falhar o processo se as modalidades não forem associadas
+      }
+    }
+
+    // 4. Criar role de dono da academia
+    const { error: roleError } = await supabase
+      .from('user_gym_roles')
+      .insert({
+        user_id: authData.user.id,
+        gym_id: academiaData.id,
+        role: 'gym_owner',
+        active: true
+      });
+
+    if (roleError) {
+      console.error("Erro ao criar role:", roleError);
+      // Não falhar o processo se a role não for criada
+    }
+
+    // 5. Registrar o tipo de usuário
+    const { error: userTypeError } = await supabase
+      .from('user_types')
+      .insert({
+        user_id: authData.user.id,
+        type: 'gym'
+      });
+
+    if (userTypeError) {
+      console.error("Erro ao registrar tipo de usuário:", userTypeError);
+      // Não falhar o processo se não conseguir registrar o tipo
+    }
+
+    // 6. Login automático como usuário da academia
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    });
+
+    if (signInError) {
+      console.error("Erro ao fazer login:", signInError);
+      // Não falhar o processo se o login automático falhar
     }
 
     return {
-      success: false,
-      message: 'Resposta inválida do servidor'
+      success: true,
+      message: 'Academia registrada com sucesso',
+      user_id: authData.user.id,
+      academia_id: academiaData.id
     };
 
   } catch (error: any) {

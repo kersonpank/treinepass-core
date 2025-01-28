@@ -30,32 +30,36 @@ export const LoginForm = () => {
     try {
       console.log("Validando tipo de usuário:", { userId, requestedType });
       
-      const { data: userTypes, error } = await supabase
-        .from('user_types')
-        .select('type')
-        .eq('user_id', userId);
-
-      if (error) {
-        console.error("Erro ao verificar tipos de usuário:", error);
-        return false;
-      }
-
-      console.log("Tipos de usuário encontrados:", userTypes);
-
-      // Se não encontrou nenhum tipo, só permite acesso como individual
-      if (!userTypes || userTypes.length === 0) {
-        return requestedType === 'individual';
-      }
-
-      // Verifica se o usuário tem o tipo solicitado
-      const hasRequestedType = userTypes.some(ut => ut.type === requestedType);
+      // Buscar o tipo do usuário nos metadados
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      // Se está tentando acessar como individual mas tem outros tipos, não permite
-      if (requestedType === 'individual' && userTypes.some(ut => ut.type !== 'individual')) {
+      if (userError || !user) {
+        console.error("Erro ao obter dados do usuário:", userError);
         return false;
       }
 
-      return hasRequestedType;
+      const userType = user.user_metadata?.user_type;
+      console.log("Tipo de usuário nos metadados:", userType);
+
+      // Se não encontrou tipo nos metadados, buscar na tabela
+      if (!userType) {
+        const { data: userTypes, error } = await supabase
+          .from('user_types')
+          .select('type')
+          .eq('user_id', userId)
+          .single();
+
+        if (error) {
+          console.error("Erro ao verificar tipo de usuário:", error);
+          return false;
+        }
+
+        console.log("Tipo de usuário na tabela:", userTypes?.type);
+        return userTypes?.type === requestedType;
+      }
+
+      console.log("Comparando tipos:", { userType, requestedType });
+      return userType === requestedType;
     } catch (error) {
       console.error("Erro ao validar tipo de usuário:", error);
       return false;
@@ -100,7 +104,7 @@ export const LoginForm = () => {
             .eq('active', true)
             .maybeSingle();
 
-          if (gymError || !gymRoles) {
+          if (gymError || !gymRoles?.gym_id) {
             toast({
               variant: "destructive",
               title: "Acesso negado",
@@ -137,27 +141,26 @@ export const LoginForm = () => {
 
       if (error) {
         console.error("Erro de autenticação:", error);
-        let errorMessage = "Erro ao fazer login";
-        
-        if (error.message === "Invalid login credentials") {
-          errorMessage = "Email ou senha incorretos";
-        } else if (error.message.includes("Email not confirmed")) {
-          errorMessage = "Por favor, confirme seu email antes de fazer login";
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error("Email ou senha incorretos");
       }
 
-      if (authData.user) {
-        await handleRedirectLoggedUser(authData.user.id, data.accountType);
+      if (!authData.user) {
+        throw new Error("Usuário não encontrado");
       }
+
+      const isValidType = await validateUserType(authData.user.id, data.accountType);
+      if (!isValidType) {
+        throw new Error("Tipo de conta não corresponde ao perfil do usuário");
+      }
+
+      await handleRedirectLoggedUser(authData.user.id, data.accountType);
 
     } catch (error: any) {
       console.error("Erro no login:", error);
       toast({
         variant: "destructive",
-        title: "Erro ao fazer login",
-        description: error.message || "Ocorreu um erro inesperado",
+        title: "Erro no login",
+        description: error.message,
       });
     } finally {
       setIsLoading(false);

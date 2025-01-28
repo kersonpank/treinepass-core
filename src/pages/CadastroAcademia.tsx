@@ -49,7 +49,7 @@ export default function CadastroAcademia() {
 
       toast({
         title: "Cadastro realizado com sucesso!",
-        description: "Sua academia foi cadastrada e você será redirecionado para o painel.",
+        description: "Sua academia foi cadastrada. Você será redirecionado para a área da academia.",
       });
 
       // Adicionar um pequeno delay antes do redirecionamento
