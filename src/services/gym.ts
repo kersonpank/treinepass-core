@@ -125,13 +125,13 @@ export const deleteGym = async (id: string) => {
   }
 };
 
-export const createGymRole = async (userId: string, gymId: string) => {
+export const createGymRole = async (userId: string, gymId: string, role: "gym_owner" | "gym_admin" | "gym_staff") => {
   const { data, error } = await supabase
     .from("user_gym_roles")
     .insert({
       user_id: userId,
       gym_id: gymId,
-      role: "gym_owner"
+      role: role
     });
 
   if (error) {

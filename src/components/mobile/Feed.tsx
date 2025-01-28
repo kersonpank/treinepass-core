@@ -19,40 +19,51 @@ interface Academia {
   endereco: string;
   horario_funcionamento: HorarioFuncionamento | null;
   fotos: string[];
-  academia_modalidades?: Array<{
-    modalidade: {
-      nome: string;
-    };
-  }>;
+  modalidades: string[];
 }
 
 export function Feed() {
   const { data: feed, isLoading } = useQuery({
     queryKey: ["feed"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Primeiro, buscar as academias
+      const { data: academias, error: academiasError } = await supabase
         .from("academias")
         .select(`
-          *,
-          academia_modalidades (
-            modalidade:modalidades (
-              nome
-            )
-          )
+          id,
+          nome,
+          endereco,
+          horario_funcionamento,
+          fotos,
+          modalidades
         `)
         .order("created_at", { ascending: false })
         .limit(20);
 
-      if (error) throw error;
-      
-      // Transform the data to match the Academia interface
-      const transformedData = data.map((item: any) => ({
-        ...item,
-        horario_funcionamento: item.horario_funcionamento ? JSON.parse(JSON.stringify(item.horario_funcionamento)) : null,
-        fotos: Array.isArray(item.fotos) ? item.fotos : []
+      if (academiasError) throw academiasError;
+
+      // Depois, buscar as modalidades
+      const { data: modalidades, error: modalidadesError } = await supabase
+        .from("modalidades")
+        .select("id, nome");
+
+      if (modalidadesError) throw modalidadesError;
+
+      // Criar um mapa de modalidades para fácil acesso
+      const modalidadesMap = new Map(modalidades.map(m => [m.id, m.nome]));
+
+      // Transformar os dados para incluir os nomes das modalidades
+      return academias.map((academia: any) => ({
+        ...academia,
+        horario_funcionamento: academia.horario_funcionamento 
+          ? JSON.parse(JSON.stringify(academia.horario_funcionamento)) 
+          : null,
+        fotos: Array.isArray(academia.fotos) ? academia.fotos : [],
+        modalidades: (academia.modalidades || []).map((id: string) => ({
+          id,
+          nome: modalidadesMap.get(id) || 'Modalidade não encontrada'
+        }))
       }));
-      
-      return transformedData as Academia[];
     },
   });
 
@@ -140,7 +151,7 @@ export function Feed() {
                 ) : (
                   <div className="w-full h-full bg-muted flex items-center justify-center">
                     <img
-                      src={getPlaceholderImage()}
+                      src="/lovable-uploads/ecfecf49-b6a8-4983-8a2a-bf8f276576e8.png"
                       alt="Placeholder"
                       className="w-full h-full object-cover"
                     />
@@ -155,12 +166,12 @@ export function Feed() {
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
-                  {academia.academia_modalidades?.map((am, index) => (
+                  {academia.modalidades?.map((modalidade) => (
                     <span
-                      key={index}
+                      key={modalidade.id}
                       className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
                     >
-                      {am.modalidade.nome}
+                      {modalidade.nome}
                     </span>
                   ))}
                 </div>
