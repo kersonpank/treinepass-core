@@ -3,10 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, MapPin, Clock, Navigation } from "lucide-react";
-import { Json } from "@/integrations/supabase/types";
+import { GymCard } from "./GymCard";
+import useEmblaCarousel from 'embla-carousel-react';
 
 interface Modalidade {
   nome: string;
@@ -20,7 +21,7 @@ interface Academia {
   id: string;
   nome: string;
   endereco: string;
-  horario_funcionamento: Json;
+  horario_funcionamento: Record<string, any>;
   fotos?: string[];
   latitude?: number;
   longitude?: number;
@@ -34,6 +35,10 @@ interface AcademiaWithDistance extends Academia {
 export function GymSearch() {
   const [search, setSearch] = useState("");
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [emblaRef] = useEmblaCarousel({ 
+    align: 'start',
+    containScroll: 'trimSnaps'
+  });
 
   const { data: academias, isLoading } = useQuery({
     queryKey: ["academias", search, userLocation],
@@ -48,7 +53,7 @@ export function GymSearch() {
             )
           )
         `)
-        .eq('status', 'ativo'); // Filtrar apenas academias ativas
+        .eq('status', 'ativo');
 
       if (search) {
         query = query.ilike("nome", `%${search}%`);
@@ -100,7 +105,7 @@ export function GymSearch() {
   };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
+    const R = 6371; // Raio da Terra em km
     const dLat = deg2rad(lat2 - lat1);
     const dLon = deg2rad(lon2 - lon1);
     const a =
@@ -108,47 +113,20 @@ export function GymSearch() {
       Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+    const d = R * c; // Distância em km
+    return d;
   };
 
   const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
-  const getHorarioFormatado = (horario: Json) => {
-    try {
-      const horarioObj = typeof horario === 'string' ? JSON.parse(horario) : horario;
-      if (!horarioObj) return "Horário não disponível";
-      
-      const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long' }).toLowerCase();
-      const diasSemana = {
-        'domingo': 'domingo',
-        'segunda-feira': 'segunda',
-        'terça-feira': 'terca',
-        'quarta-feira': 'quarta',
-        'quinta-feira': 'quinta',
-        'sexta-feira': 'sexta',
-        'sábado': 'sabado'
-      };
-      
-      const diaHoje = diasSemana[hoje as keyof typeof diasSemana];
-      if (!horarioObj[diaHoje]) return "Fechado hoje";
-      
-      return `${horarioObj[diaHoje].abertura} - ${horarioObj[diaHoje].fechamento}`;
-    } catch {
-      return "Horário não disponível";
-    }
-  };
-
   const getImageUrl = (fotos: string[] | undefined) => {
-    if (!fotos || fotos.length === 0) {
-      return "/lovable-uploads/ecfecf49-b6a8-4983-8a2a-bf8f276576e8.png";
-    }
+    if (!fotos || fotos.length === 0) return undefined;
     
     const firstImage = fotos[0];
     if (firstImage.startsWith('http')) {
       return firstImage;
     }
     
-    // Usar a URL pública do bucket do Supabase
     return `https://jlzkwcgzpfrdgcdjmjao.supabase.co/storage/v1/object/public/academy-images/${firstImage}`;
   };
 
@@ -176,55 +154,41 @@ export function GymSearch() {
         </div>
       </div>
 
-      <ScrollArea className="h-[calc(100vh-12rem)]">
-        <div className="space-y-4">
-          {academias?.map((academia) => (
-            <Card key={academia.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-xl font-bold">{academia.nome}</CardTitle>
-                    <CardDescription className="flex items-center text-sm text-muted-foreground mt-1">
-                      <MapPin className="h-4 w-4 mr-1" />
-                      {academia.endereco}
-                    </CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" className="shrink-0">
-                    Check-in
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="relative h-48 mb-4 rounded-md overflow-hidden">
-                    <img
-                      src={getImageUrl(academia.fotos)}
-                      alt={academia.nome}
-                      className="w-full h-full object-cover transition-transform hover:scale-105"
-                    />
-                  </div>
-                  
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4 mr-2" />
-                    <span>{getHorarioFormatado(academia.horario_funcionamento)}</span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {academia.academia_modalidades?.map((am, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium"
-                      >
-                        {am.modalidade.nome}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {isLoading ? (
+        <Card>
+          <CardContent className="p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-muted rounded w-3/4" />
+              <div className="h-4 bg-muted rounded w-1/2" />
+            </div>
+          </CardContent>
+        </Card>
+      ) : academias?.length === 0 ? (
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">
+              Nenhuma academia encontrada
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="overflow-hidden" ref={emblaRef}>
+          <div className="flex">
+            {academias?.map((academia) => (
+              <div key={academia.id} className="flex-[0_0_90%] sm:flex-[0_0_45%] md:flex-[0_0_30%] min-w-0">
+                <GymCard
+                  id={academia.id}
+                  name={academia.nome}
+                  address={academia.endereco}
+                  imageUrl={getImageUrl(academia.fotos)}
+                  horario_funcionamento={academia.horario_funcionamento}
+                  modalidades={academia.academia_modalidades}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </ScrollArea>
+      )}
     </div>
   );
 }

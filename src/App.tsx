@@ -16,6 +16,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import { AdminProvider } from "./contexts/AdminContext";
 import { Toaster } from "@/components/ui/toaster";
 import "./App.css";
+import { GymProfilePage } from "@/pages/GymProfilePage";
 
 const BackButton = () => {
   const location = useLocation();

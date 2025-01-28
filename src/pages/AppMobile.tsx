@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Routes, Route } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
@@ -6,6 +6,7 @@ import { GymSearch } from "@/components/mobile/GymSearch";
 import { ClassSchedule } from "@/components/mobile/ClassSchedule";
 import { DigitalCard } from "@/components/mobile/DigitalCard";
 import { PlansTab } from "@/components/mobile/PlansTab";
+import { GymProfile } from "@/pages/GymProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,30 +40,35 @@ export default function AppMobile() {
       </header>
 
       <main className="flex-1 container mx-auto px-4 pt-20 pb-8">
-        <Tabs defaultValue="search" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="search">Buscar</TabsTrigger>
-            <TabsTrigger value="schedule">Agenda</TabsTrigger>
-            <TabsTrigger value="plans">Planos</TabsTrigger>
-            <TabsTrigger value="card">Cartão</TabsTrigger>
-          </TabsList>
+        <Routes>
+          <Route path="gym/:id" element={<GymProfile />} />
+          <Route path="*" element={
+            <Tabs defaultValue="search" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="search">Buscar</TabsTrigger>
+                <TabsTrigger value="schedule">Agenda</TabsTrigger>
+                <TabsTrigger value="plans">Planos</TabsTrigger>
+                <TabsTrigger value="card">Cartão</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="search">
-            <GymSearch />
-          </TabsContent>
+              <TabsContent value="search">
+                <GymSearch />
+              </TabsContent>
 
-          <TabsContent value="schedule">
-            <ClassSchedule />
-          </TabsContent>
+              <TabsContent value="schedule">
+                <ClassSchedule />
+              </TabsContent>
 
-          <TabsContent value="plans">
-            <PlansTab />
-          </TabsContent>
+              <TabsContent value="plans">
+                <PlansTab />
+              </TabsContent>
 
-          <TabsContent value="card">
-            <DigitalCard />
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="card">
+                <DigitalCard />
+              </TabsContent>
+            </Tabs>
+          } />
+        </Routes>
       </main>
     </div>
   );

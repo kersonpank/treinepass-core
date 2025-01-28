@@ -11,11 +11,13 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Eye, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Edit2, Eye, Trash2, CheckCircle2, XCircle, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { EditGymDialog } from "./EditGymDialog";
+import { GymPhotosDialog } from "./GymPhotosDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Gym {
   id: string;
@@ -25,6 +27,9 @@ interface Gym {
   telefone: string | null;
   endereco: string | null;
   status: string;
+  fotos?: string[];
+  horario_funcionamento?: Record<string, any>;
+  academia_modalidades?: { modalidade: { nome: string } }[];
 }
 
 export function GymManagement() {
@@ -32,13 +37,21 @@ export function GymManagement() {
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isPhotosDialogOpen, setIsPhotosDialogOpen] = useState(false);
 
   const { data: gyms, isLoading, refetch } = useQuery({
     queryKey: ["adminGyms"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("academias")
-        .select("*")
+        .select(`
+          *,
+          academia_modalidades (
+            modalidade:modalidades (
+              nome
+            )
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -74,6 +87,17 @@ export function GymManagement() {
     if (!confirm("Tem certeza que deseja excluir esta academia?")) return;
 
     try {
+      // Primeiro excluir as fotos do storage
+      const gym = gyms?.find(g => g.id === gymId);
+      if (gym?.fotos?.length) {
+        const { error: storageError } = await supabase.storage
+          .from('academy-images')
+          .remove(gym.fotos);
+
+        if (storageError) throw storageError;
+      }
+
+      // Depois excluir o registro da academia
       const { error } = await supabase
         .from("academias")
         .delete()
@@ -94,6 +118,11 @@ export function GymManagement() {
         description: error.message,
       });
     }
+  };
+
+  const getImageUrl = (path: string) => {
+    if (path?.startsWith('http')) return path;
+    return `https://jlzkwcgzpfrdgcdjmjao.supabase.co/storage/v1/object/public/academy-images/${path}`;
   };
 
   if (isLoading) {
@@ -124,14 +153,25 @@ export function GymManagement() {
             <TableBody>
               {gyms?.map((gym) => (
                 <TableRow key={gym.id}>
-                  <TableCell className="font-medium">{gym.nome}</TableCell>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {gym.fotos?.[0] && (
+                        <img
+                          src={getImageUrl(gym.fotos[0])}
+                          alt={gym.nome}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      )}
+                      {gym.nome}
+                    </div>
+                  </TableCell>
                   <TableCell>{gym.cnpj}</TableCell>
                   <TableCell>{gym.email}</TableCell>
                   <TableCell>
                     <Badge
-                      variant={gym.status === "ativo" ? "default" : "secondary"}
+                      variant={gym.status === "ativo" ? "default" : gym.status === "inativo" ? "secondary" : "warning"}
                     >
-                      {gym.status === "ativo" ? "Ativo" : "Pendente"}
+                      {gym.status === "ativo" ? "Ativo" : gym.status === "inativo" ? "Inativo" : "Pendente"}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -150,10 +190,20 @@ export function GymManagement() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleStatusChange(gym.id, "pendente")}
+                          onClick={() => handleStatusChange(gym.id, "inativo")}
                           className="h-8 w-8 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
                         >
                           <XCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {gym.status === "inativo" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleStatusChange(gym.id, "ativo")}
+                          className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
                         </Button>
                       )}
                       <Button
@@ -166,6 +216,17 @@ export function GymManagement() {
                         }}
                       >
                         <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setSelectedGym(gym);
+                          setIsPhotosDialogOpen(true);
+                        }}
+                      >
+                        <Image className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -204,39 +265,75 @@ export function GymManagement() {
             onSuccess={refetch}
           />
 
+          <GymPhotosDialog
+            gymId={selectedGym.id}
+            fotos={selectedGym.fotos || []}
+            open={isPhotosDialogOpen}
+            onOpenChange={setIsPhotosDialogOpen}
+            onSuccess={refetch}
+          />
+
           <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Detalhes da Academia</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium">Nome</h4>
-                  <p>{selectedGym.nome}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium">CNPJ</h4>
-                  <p>{selectedGym.cnpj}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium">Email</h4>
-                  <p>{selectedGym.email}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium">Telefone</h4>
-                  <p>{selectedGym.telefone || "Não informado"}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium">Endereço</h4>
-                  <p>{selectedGym.endereco || "Não informado"}</p>
-                </div>
-                <div>
-                  <h4 className="font-medium">Status</h4>
-                  <Badge variant={selectedGym.status === "ativo" ? "default" : "secondary"}>
-                    {selectedGym.status === "ativo" ? "Ativo" : "Pendente"}
-                  </Badge>
-                </div>
-              </div>
+              <Tabs defaultValue="info" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="info">Informações</TabsTrigger>
+                  <TabsTrigger value="schedule">Horários</TabsTrigger>
+                  <TabsTrigger value="modalities">Modalidades</TabsTrigger>
+                </TabsList>
+                <TabsContent value="info" className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold">Nome</h4>
+                    <p>{selectedGym.nome}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">CNPJ</h4>
+                    <p>{selectedGym.cnpj}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Email</h4>
+                    <p>{selectedGym.email}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Telefone</h4>
+                    <p>{selectedGym.telefone || "-"}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold">Endereço</h4>
+                    <p>{selectedGym.endereco || "-"}</p>
+                  </div>
+                </TabsContent>
+                <TabsContent value="schedule">
+                  {selectedGym.horario_funcionamento ? (
+                    <div className="space-y-2">
+                      {Object.entries(selectedGym.horario_funcionamento).map(([dia, horario]: [string, any]) => (
+                        <div key={dia} className="flex justify-between">
+                          <span className="font-semibold capitalize">{dia}</span>
+                          <span>{horario.abertura} - {horario.fechamento}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">Nenhum horário cadastrado</p>
+                  )}
+                </TabsContent>
+                <TabsContent value="modalities">
+                  {selectedGym.academia_modalidades?.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedGym.academia_modalidades.map((am, index) => (
+                        <Badge key={index} variant="secondary">
+                          {am.modalidade.nome}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">Nenhuma modalidade cadastrada</p>
+                  )}
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
         </>
