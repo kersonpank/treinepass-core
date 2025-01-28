@@ -35,21 +35,29 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
 
     if (error) {
       console.error("Erro ao registrar academia:", error);
-      throw error;
+      return {
+        success: false,
+        message: error.message
+      };
     }
 
     console.log("Resultado do registro:", result);
 
-    if (!result.success) {
-      throw new Error(result.message);
+    // Ensure result is properly structured
+    if (!result || typeof result.success !== 'boolean') {
+      return {
+        success: false,
+        message: 'Resposta inválida do servidor'
+      };
     }
 
     return {
-      success: true,
+      success: result.success,
       message: result.message,
       academia_id: result.academia_id,
       user_id: result.user_id
     };
+
   } catch (error: any) {
     console.error('Erro detalhado ao registrar academia:', error);
     return {
