@@ -1,14 +1,15 @@
 import React from "react";
-import { UseFormRegister, FieldErrors } from "react-hook-form";
+import { UseFormRegister, FieldErrors, UseFormSetValue } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface BusinessAddressFormProps {
   register: UseFormRegister<any>;
   errors: FieldErrors;
+  setValue: UseFormSetValue<any>;
 }
 
-export function BusinessAddressForm({ register, errors }: BusinessAddressFormProps) {
+export function BusinessAddressForm({ register, errors, setValue }: BusinessAddressFormProps) {
   const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length === 8) {
@@ -16,13 +17,11 @@ export function BusinessAddressForm({ register, errors }: BusinessAddressFormPro
         const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
         const data = await response.json();
         if (!data.erro) {
-          const addressInputs = document.querySelectorAll('input');
-          addressInputs.forEach((input) => {
-            if (input.id === 'street') input.value = data.logradouro;
-            if (input.id === 'neighborhood') input.value = data.bairro;
-            if (input.id === 'city') input.value = data.localidade;
-            if (input.id === 'state') input.value = data.uf;
-          });
+          // Atualizar os campos usando setValue
+          setValue('street', data.logradouro, { shouldValidate: true });
+          setValue('neighborhood', data.bairro, { shouldValidate: true });
+          setValue('city', data.localidade, { shouldValidate: true });
+          setValue('state', data.uf, { shouldValidate: true });
         }
       } catch (error) {
         console.error('Error fetching CEP:', error);
@@ -55,9 +54,7 @@ export function BusinessAddressForm({ register, errors }: BusinessAddressFormPro
         <Label htmlFor="street">Rua</Label>
         <Input
           id="street"
-          {...register("street", {
-            required: "Rua é obrigatória",
-          })}
+          {...register("street", { required: "Rua é obrigatória" })}
         />
         {errors.street && (
           <p className="text-sm text-red-500 mt-1">{errors.street.message as string}</p>
@@ -68,9 +65,7 @@ export function BusinessAddressForm({ register, errors }: BusinessAddressFormPro
         <Label htmlFor="number">Número</Label>
         <Input
           id="number"
-          {...register("number", {
-            required: "Número é obrigatório",
-          })}
+          {...register("number", { required: "Número é obrigatório" })}
         />
         {errors.number && (
           <p className="text-sm text-red-500 mt-1">{errors.number.message as string}</p>
@@ -78,7 +73,7 @@ export function BusinessAddressForm({ register, errors }: BusinessAddressFormPro
       </div>
 
       <div>
-        <Label htmlFor="complement">Complemento (opcional)</Label>
+        <Label htmlFor="complement">Complemento</Label>
         <Input
           id="complement"
           {...register("complement")}
@@ -89,9 +84,7 @@ export function BusinessAddressForm({ register, errors }: BusinessAddressFormPro
         <Label htmlFor="neighborhood">Bairro</Label>
         <Input
           id="neighborhood"
-          {...register("neighborhood", {
-            required: "Bairro é obrigatório",
-          })}
+          {...register("neighborhood", { required: "Bairro é obrigatório" })}
         />
         {errors.neighborhood && (
           <p className="text-sm text-red-500 mt-1">{errors.neighborhood.message as string}</p>
@@ -102,9 +95,7 @@ export function BusinessAddressForm({ register, errors }: BusinessAddressFormPro
         <Label htmlFor="city">Cidade</Label>
         <Input
           id="city"
-          {...register("city", {
-            required: "Cidade é obrigatória",
-          })}
+          {...register("city", { required: "Cidade é obrigatória" })}
         />
         {errors.city && (
           <p className="text-sm text-red-500 mt-1">{errors.city.message as string}</p>
@@ -115,9 +106,7 @@ export function BusinessAddressForm({ register, errors }: BusinessAddressFormPro
         <Label htmlFor="state">Estado</Label>
         <Input
           id="state"
-          {...register("state", {
-            required: "Estado é obrigatório",
-          })}
+          {...register("state", { required: "Estado é obrigatório" })}
         />
         {errors.state && (
           <p className="text-sm text-red-500 mt-1">{errors.state.message as string}</p>

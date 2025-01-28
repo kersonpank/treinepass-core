@@ -26,6 +26,7 @@ export default function CadastroEmpresaEndereco() {
     register,
     handleSubmit,
     formState: { errors },
+    setValue
   } = useForm<AddressFormData>();
 
   const onSubmit = async (data: AddressFormData) => {
@@ -52,32 +53,41 @@ export default function CadastroEmpresaEndereco() {
         throw new Error("Perfil da empresa não encontrado");
       }
 
-      const formattedAddress = `${data.street}, ${data.number}${data.complement ? ` - ${data.complement}` : ''}, ${data.neighborhood}, ${data.city} - ${data.state}, CEP: ${data.cep}`;
-
-      const { error: updateError } = await supabase
+      // Atualizar o endereço da empresa
+      const { error: addressError } = await supabase
         .from("business_profiles")
         .update({
-          address: formattedAddress,
+          address: {
+            cep: data.cep,
+            street: data.street,
+            number: data.number,
+            complement: data.complement,
+            neighborhood: data.neighborhood,
+            city: data.city,
+            state: data.state
+          }
         })
         .eq("id", businessProfile.id);
 
-      console.log("Update result:", updateError);
-
-      if (updateError) throw updateError;
+      if (addressError) {
+        throw addressError;
+      }
 
       toast({
         title: "Endereço cadastrado com sucesso!",
-        description: "Você será redirecionado para o painel da empresa.",
+        description: "Você será redirecionado para a área da empresa.",
       });
 
-      // Redirect to the business dashboard
-      navigate("/dashboard-empresa");
+      setTimeout(() => {
+        navigate("/dashboard-empresa");
+      }, 2000);
+
     } catch (error: any) {
-      console.error("Error during address registration:", error);
+      console.error("Error submitting address:", error);
       toast({
         variant: "destructive",
         title: "Erro ao cadastrar endereço",
-        description: error.message || "Ocorreu um erro ao salvar os dados. Tente novamente.",
+        description: error.message || "Ocorreu um erro inesperado"
       });
     } finally {
       setIsSubmitting(false);
@@ -85,22 +95,26 @@ export default function CadastroEmpresaEndereco() {
   };
 
   return (
-    <AuthLayout 
-      title="Endereço da Empresa" 
-      subtitle="Preencha o endereço da sua empresa"
+    <AuthLayout
+      title="Cadastro de Endereço"
+      description="Complete o cadastro da sua empresa informando o endereço"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <BusinessAddressForm
-          register={register}
-          errors={errors}
+        <BusinessAddressForm 
+          register={register} 
+          errors={errors} 
+          setValue={setValue}
         />
 
-        <Button
-          type="submit"
-          className="w-full bg-[#0125F0] hover:bg-blue-700"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Salvando..." : "Continuar"}
+        <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <span className="mr-2">Cadastrando...</span>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-opacity-20 border-t-white"></span>
+            </>
+          ) : (
+            "Finalizar Cadastro"
+          )}
         </Button>
       </form>
     </AuthLayout>
