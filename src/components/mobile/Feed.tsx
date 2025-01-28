@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { MapPin, Clock, DumbbellIcon } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { MapPin, Clock } from "lucide-react";
 
 interface HorarioFuncionamento {
   [key: string]: {
@@ -13,13 +10,18 @@ interface HorarioFuncionamento {
   };
 }
 
+interface Modalidade {
+  id: string;
+  nome: string;
+}
+
 interface Academia {
   id: string;
   nome: string;
   endereco: string;
   horario_funcionamento: HorarioFuncionamento | null;
   fotos: string[];
-  modalidades: string[];
+  modalidades: Modalidade[];
 }
 
 export function Feed() {
@@ -67,86 +69,26 @@ export function Feed() {
     },
   });
 
-  const getHorarioFormatado = (horario: any) => {
-    try {
-      const horarioObj = typeof horario === 'string' ? JSON.parse(horario) : horario;
-      if (!horarioObj) return "Horário não disponível";
-      
-      const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long' }).toLowerCase();
-      const diasSemana = {
-        'domingo': 'domingo',
-        'segunda-feira': 'segunda',
-        'terça-feira': 'terca',
-        'quarta-feira': 'quarta',
-        'quinta-feira': 'quinta',
-        'sexta-feira': 'sexta',
-        'sábado': 'sabado'
-      };
-      
-      const diaHoje = diasSemana[hoje as keyof typeof diasSemana];
-      if (!horarioObj[diaHoje]) return "Fechado hoje";
-      
-      return `Hoje: ${horarioObj[diaHoje].abertura} - ${horarioObj[diaHoje].fechamento}`;
-    } catch {
-      return "Horário não disponível";
-    }
-  };
-
-  const getPlaceholderImage = () => {
-    return "/lovable-uploads/ecfecf49-b6a8-4983-8a2a-bf8f276576e8.png";
-  };
-
   if (isLoading) {
     return (
-      <div className="p-4 space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader>
-              <Skeleton className="h-4 w-[250px]" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-[200px] w-full" />
-              <div className="mt-4 space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <ScrollArea className="h-[calc(100vh-8rem)]">
-      <div className="p-4 space-y-4">
-        {feed?.map((academia) => (
-          <Card key={academia.id} className="overflow-hidden hover:shadow-lg transition-shadow animate-fade-in">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-xl font-bold">{academia.nome}</CardTitle>
-                  <CardDescription className="flex items-center text-sm text-muted-foreground mt-1">
-                    <MapPin className="h-4 w-4 mr-1" />
-                    {academia.endereco}
-                  </CardDescription>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="shrink-0 hover:bg-primary hover:text-white transition-colors"
-                >
-                  Check-in
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="relative h-48 mb-4 rounded-md overflow-hidden">
+    <div className="space-y-4 p-4">
+      {feed?.map((academia) => (
+        <Card key={academia.id} className="overflow-hidden">
+          <CardContent className="p-0">
+            <div className="relative">
+              <div className="aspect-video w-full overflow-hidden">
                 {academia.fotos && academia.fotos.length > 0 ? (
                   <img
                     src={academia.fotos[0]}
                     alt={academia.nome}
-                    className="w-full h-full object-cover transition-transform hover:scale-105"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -159,10 +101,12 @@ export function Feed() {
                 )}
               </div>
               
-              <div className="space-y-3">
+              <div className="p-4 space-y-4">
+                <h3 className="text-lg font-semibold">{academia.nome}</h3>
+                
                 <div className="flex items-center text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4 mr-2" />
-                  <span>{getHorarioFormatado(academia.horario_funcionamento)}</span>
+                  <MapPin className="w-4 h-4 mr-1" />
+                  {academia.endereco}
                 </div>
                 
                 <div className="flex flex-wrap gap-2">
@@ -175,11 +119,20 @@ export function Feed() {
                     </span>
                   ))}
                 </div>
+
+                {academia.horario_funcionamento && (
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4 mr-1" />
+                    <span>
+                      {academia.horario_funcionamento.segunda?.abertura} - {academia.horario_funcionamento.segunda?.fechamento}
+                    </span>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </ScrollArea>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }
