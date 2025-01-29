@@ -8,6 +8,7 @@ import { PaymentsList } from "@/components/admin/financial/PaymentsList";
 import { PlansManagement } from "@/components/admin/plans/PlansManagement";
 import { ModalitiesManagement } from "@/components/admin/modalities/ModalitiesManagement";
 import { GymManagement } from "@/components/admin/gyms/GymManagement";
+import { GymCategoriesManagement } from "@/components/admin/categories/GymCategoriesManagement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -199,11 +200,12 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6 lg:w-[600px]">
+        <TabsList className="grid w-full grid-cols-7 lg:w-[700px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="plans">Planos</TabsTrigger>
+          <TabsTrigger value="categories">Categorias</TabsTrigger>
           <TabsTrigger value="modalities">Modalidades</TabsTrigger>
           <TabsTrigger value="gyms">Academias</TabsTrigger>
         </TabsList>
@@ -229,6 +231,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="plans">
           <PlansManagement />
+        </TabsContent>
+
+        <TabsContent value="categories">
+          <GymCategoriesManagement />
         </TabsContent>
 
         <TabsContent value="modalities">
