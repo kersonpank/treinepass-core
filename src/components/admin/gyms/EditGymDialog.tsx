@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GymRepassRules } from "./GymRepassRules";
 
 interface EditGymDialogProps {
   gym: {
@@ -24,6 +25,7 @@ interface EditGymDialogProps {
     status: string;
     horario_funcionamento?: Record<string, any>;
     academia_modalidades?: { modalidade: { nome: string; id: string } }[];
+    usa_regras_personalizadas?: boolean;
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,6 +40,7 @@ interface GymFormData {
   endereco: string;
   status: string;
   horario_funcionamento: Record<string, any>;
+  usa_regras_personalizadas: boolean;
 }
 
 export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDialogProps) {
@@ -69,6 +72,7 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
         sexta: { abertura: "06:00", fechamento: "22:00" },
         sabado: { abertura: "09:00", fechamento: "18:00" },
       },
+      usa_regras_personalizadas: gym.usa_regras_personalizadas || false,
     },
   });
 
@@ -87,6 +91,7 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
 
   const currentStatus = watch("status");
   const horario_funcionamento = watch("horario_funcionamento");
+  const usa_regras_personalizadas = watch("usa_regras_personalizadas");
 
   const onSubmit = async (data: GymFormData) => {
     try {
@@ -103,12 +108,12 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
           endereco: data.endereco,
           status: data.status,
           horario_funcionamento: data.horario_funcionamento,
+          usa_regras_personalizadas: data.usa_regras_personalizadas,
         })
         .eq("id", gym.id);
 
       if (updateError) throw updateError;
 
-      // Atualizar modalidades usando upsert
       const existingModalidades = gym.academia_modalidades?.map(am => am.modalidade.id) || [];
       const modalidadesToAdd = selectedModalidades.filter(id => !existingModalidades.includes(id));
       const modalidadesToRemove = existingModalidades.filter(id => !selectedModalidades.includes(id));
@@ -176,14 +181,15 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
           <DialogTitle>Editar Academia</DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="info" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="info">Informações</TabsTrigger>
             <TabsTrigger value="schedule">Horários</TabsTrigger>
             <TabsTrigger value="modalities">Modalidades</TabsTrigger>
+            <TabsTrigger value="rules">Regras de Repasse</TabsTrigger>
           </TabsList>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
-            <TabsContent value="info" className="space-y-4">
+            <TabsContent value="info">
               <div>
                 <Label htmlFor="nome">Nome</Label>
                 <Input
@@ -291,6 +297,14 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
                   </div>
                 ))}
               </div>
+            </TabsContent>
+
+            <TabsContent value="rules">
+              <GymRepassRules
+                gymId={gym.id}
+                usaRegrasPersonalizadas={usa_regras_personalizadas}
+                onToggleCustomRules={(value) => setValue("usa_regras_personalizadas", value)}
+              />
             </TabsContent>
 
             <div className="flex justify-end space-x-2 pt-4">

@@ -59,6 +59,7 @@ export type Database = {
           status: string | null
           telefone: string | null
           updated_at: string | null
+          usa_regras_personalizadas: boolean | null
           user_id: string | null
         }
         Insert: {
@@ -74,6 +75,7 @@ export type Database = {
           status?: string | null
           telefone?: string | null
           updated_at?: string | null
+          usa_regras_personalizadas?: boolean | null
           user_id?: string | null
         }
         Update: {
@@ -89,6 +91,7 @@ export type Database = {
           status?: string | null
           telefone?: string | null
           updated_at?: string | null
+          usa_regras_personalizadas?: boolean | null
           user_id?: string | null
         }
         Relationships: []
@@ -824,6 +827,17 @@ export type Database = {
           type: Database["public"]["Enums"]["user_role_type"]
           profile_id: string
           details: Json
+        }[]
+      }
+      get_valor_repasse_academia: {
+        Args: {
+          p_academia_id: string
+          p_num_checkins: number
+        }
+        Returns: {
+          valor_repasse: number
+          origem: string
+          descricao: string
         }[]
       }
       is_gym_owner: {
