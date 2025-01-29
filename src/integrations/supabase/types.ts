@@ -653,6 +653,47 @@ export type Database = {
           },
         ]
       }
+      regras_repasse: {
+        Row: {
+          academia_id: string | null
+          active: boolean | null
+          checkins_maximos: number | null
+          checkins_minimos: number
+          created_at: string
+          id: string
+          updated_at: string
+          valor_repasse: number
+        }
+        Insert: {
+          academia_id?: string | null
+          active?: boolean | null
+          checkins_maximos?: number | null
+          checkins_minimos: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          valor_repasse: number
+        }
+        Update: {
+          academia_id?: string | null
+          active?: boolean | null
+          checkins_maximos?: number | null
+          checkins_minimos?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          valor_repasse?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regras_repasse_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_gym_roles: {
         Row: {
           active: boolean
