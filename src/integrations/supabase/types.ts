@@ -16,6 +16,7 @@ export type Database = {
           descricao: string | null
           id: string
           nome: string
+          ordem: number | null
           updated_at: string
           valor_repasse_checkin: number
         }
@@ -25,6 +26,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome: string
+          ordem?: number | null
           updated_at?: string
           valor_repasse_checkin?: number
         }
@@ -34,6 +36,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           nome?: string
+          ordem?: number | null
           updated_at?: string
           valor_repasse_checkin?: number
         }
