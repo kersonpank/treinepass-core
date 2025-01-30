@@ -29,7 +29,14 @@ interface Gym {
   status: string;
   fotos?: string[];
   horario_funcionamento?: Record<string, any>;
-  academia_modalidades?: { modalidade: { nome: string } }[];
+  academia_modalidades?: { 
+    modalidade: { 
+      nome: string;
+      id: string;
+    } 
+  }[];
+  usa_regras_personalizadas?: boolean;
+  categoria_id?: string | null;
 }
 
 export function GymManagement() {
@@ -169,7 +176,13 @@ export function GymManagement() {
                   <TableCell>{gym.email}</TableCell>
                   <TableCell>
                     <Badge
-                      variant={gym.status === "ativo" ? "default" : gym.status === "inativo" ? "secondary" : "warning"}
+                      variant={
+                        gym.status === "ativo" 
+                          ? "default" 
+                          : gym.status === "inativo" 
+                            ? "secondary" 
+                            : "outline"
+                      }
                     >
                       {gym.status === "ativo" ? "Ativo" : gym.status === "inativo" ? "Inativo" : "Pendente"}
                     </Badge>

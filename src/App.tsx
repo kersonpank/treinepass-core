@@ -16,7 +16,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import { AdminProvider } from "./contexts/AdminContext";
 import { Toaster } from "@/components/ui/toaster";
 import "./App.css";
-import { GymProfilePage } from "@/pages/GymProfilePage";
+import { GymProfilePage } from "./pages/GymProfilePage";
 
 const BackButton = () => {
   const location = useLocation();
@@ -56,6 +56,7 @@ function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route path="dashboard" element={<AdminDashboard />} />
           </Route>
+          <Route path="/gym/:id" element={<GymProfilePage />} />
         </Routes>
         <Toaster />
       </Router>
