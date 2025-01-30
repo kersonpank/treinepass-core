@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -25,46 +25,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, CreditCard, Calendar, Users } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-
-const planFormSchema = z.object({
-  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  description: z.string().optional(),
-  monthly_cost: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
-    message: "Custo mensal deve ser um número maior que 0",
-  }),
-  plan_type: z.enum(["corporate", "individual", "corporate_subsidized"]),
-  period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
-  status: z.enum(["active", "inactive"]),
-  category_id: z.string().uuid().optional(),
-  payment_methods: z.array(z.enum(["credit_card", "pix", "boleto"])).default(["credit_card"]),
-  check_in_rules: z.object({
-    daily_limit: z.number().nullable(),
-    weekly_limit: z.number().nullable(),
-    monthly_limit: z.number().nullable(),
-    allow_extra_checkins: z.boolean(),
-    extra_checkin_cost: z.number().nullable(),
-  }).default({
-    daily_limit: null,
-    weekly_limit: null,
-    monthly_limit: null,
-    allow_extra_checkins: false,
-    extra_checkin_cost: null,
-  }),
-  auto_renewal: z.boolean().default(true),
-  cancellation_rules: z.object({
-    company_can_cancel: z.boolean(),
-    user_can_cancel: z.boolean(),
-    notice_period_days: z.number(),
-  }).default({
-    company_can_cancel: true,
-    user_can_cancel: true,
-    notice_period_days: 30,
-  }),
-});
+import { planFormSchema } from "./types/plan";
 
 type PlanFormValues = z.infer<typeof planFormSchema>;
 
@@ -100,6 +65,21 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("details");
+
+  // Query to fetch categories
+  const { data: categories, isLoading: isLoadingCategories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("academia_categorias")
+        .select("*")
+        .eq("active", true)
+        .order("ordem", { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
@@ -146,6 +126,7 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
         check_in_rules: data.check_in_rules,
         auto_renewal: data.auto_renewal,
         cancellation_rules: data.cancellation_rules,
+        business_id: businessId,
         rules: {},
       });
 
@@ -159,12 +140,12 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
       queryClient.invalidateQueries({ queryKey: ["plans"] });
       form.reset(defaultValues);
       onSuccess?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating plan:", error);
       toast({
         variant: "destructive",
         title: "Erro ao criar plano",
-        description: "Não foi possível criar o plano. Tente novamente.",
+        description: error.message || "Não foi possível criar o plano. Tente novamente.",
       });
     } finally {
       setIsSubmitting(false);
@@ -248,11 +229,20 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {/* Categories will be loaded dynamically */}
-                        <SelectItem value="category1">Categoria 1</SelectItem>
-                        <SelectItem value="category2">Categoria 2</SelectItem>
+                        {isLoadingCategories ? (
+                          <SelectItem value="loading" disabled>
+                            Carregando categorias...
+                          </SelectItem>
+                        ) : categories?.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.nome}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    <FormDescription>
+                      A categoria define quais academias este plano terá acesso
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -275,7 +265,9 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
                       <SelectContent>
                         <SelectItem value="corporate">Corporativo</SelectItem>
                         <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="corporate_subsidized">Corporativo Subsidiado</SelectItem>
+                        <SelectItem value="corporate_subsidized">
+                          Corporativo Subsidiado
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
