@@ -1,134 +1,159 @@
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-
-const volumeDiscountSchema = z.object({
-  min_employees: z.number().min(1, "Mínimo deve ser maior que 0"),
-  max_employees: z.number().optional(),
-  discount_percentage: z.number().min(0).max(100),
-});
-
-type VolumeDiscountFormValues = z.infer<typeof volumeDiscountSchema>;
+import { UseFormReturn } from "react-hook-form";
+import { PlanFormValues } from "../types/plan";
+import { useState } from "react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 
 interface VolumeDiscountsFormProps {
-  planId: string;
-  onSuccess?: () => void;
+  form: UseFormReturn<PlanFormValues>;
+  planId?: string;
 }
 
-export function VolumeDiscountsForm({ planId, onSuccess }: VolumeDiscountsFormProps) {
-  const { toast } = useToast();
-  const form = useForm<VolumeDiscountFormValues>({
-    resolver: zodResolver(volumeDiscountSchema),
-    defaultValues: {
-      min_employees: 1,
-      discount_percentage: 0,
+export function VolumeDiscountsForm({ form, planId }: VolumeDiscountsFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: volumeDiscounts, refetch } = useQuery({
+    queryKey: ["volume-discounts", planId],
+    queryFn: async () => {
+      if (!planId) return [];
+      
+      const { data, error } = await supabase
+        .from("plan_volume_discounts")
+        .select("*")
+        .eq("plan_id", planId)
+        .order("min_employees", { ascending: true });
+
+      if (error) throw error;
+      return data;
     },
+    enabled: !!planId
   });
 
-  const onSubmit = async (data: VolumeDiscountFormValues) => {
+  const handleAddDiscount = async () => {
+    if (!planId) return;
+    
+    setIsSubmitting(true);
     try {
       const { error } = await supabase
         .from("plan_volume_discounts")
         .insert({
           plan_id: planId,
-          ...data,
+          min_employees: 1,
+          discount_percentage: 0,
         });
 
       if (error) throw error;
-
-      toast({
-        title: "Desconto adicionado",
-        description: "O desconto por volume foi adicionado com sucesso.",
-      });
-
-      form.reset();
-      onSuccess?.();
+      refetch();
     } catch (error) {
       console.error("Error adding volume discount:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao adicionar desconto",
-        description: "Não foi possível adicionar o desconto por volume.",
-      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDiscount = async (id: string) => {
+    if (!planId) return;
+    
+    try {
+      const { error } = await supabase
+        .from("plan_volume_discounts")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      refetch();
+    } catch (error) {
+      console.error("Error deleting volume discount:", error);
     }
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="min_employees"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Mínimo de Funcionários</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min="1"
-                  {...field}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">Descontos por Volume</h3>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleAddDiscount}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
           )}
-        />
+          <span className="ml-2">Adicionar Desconto</span>
+        </Button>
+      </div>
 
-        <FormField
-          control={form.control}
-          name="max_employees"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Máximo de Funcionários (opcional)</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min={form.watch("min_employees")}
-                  {...field}
-                  onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      <div className="space-y-4">
+        {volumeDiscounts?.map((discount) => (
+          <div key={discount.id} className="flex items-end gap-4">
+            <FormField
+              control={form.control}
+              name={`volume_discounts.${discount.id}.min_employees`}
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>Mínimo de Funcionários</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="1" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <FormField
-          control={form.control}
-          name="discount_percentage"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Percentual de Desconto (%)</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  {...field}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+            <FormField
+              control={form.control}
+              name={`volume_discounts.${discount.id}.max_employees`}
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>Máximo de Funcionários</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="1" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-        <Button type="submit">Adicionar Desconto</Button>
-      </form>
-    </Form>
+            <FormField
+              control={form.control}
+              name={`volume_discounts.${discount.id}.discount_percentage`}
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormLabel>Desconto (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="mb-2"
+              onClick={() => handleDeleteDiscount(discount.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

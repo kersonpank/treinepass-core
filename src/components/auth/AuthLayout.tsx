@@ -1,35 +1,36 @@
-import React from "react";
-import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
-interface AuthLayoutProps {
+export interface AuthLayoutProps {
   children: React.ReactNode;
   title: string;
-  subtitle?: string;
+  description?: string;
+  className?: string;
 }
 
-export const AuthLayout = ({ children, title, subtitle }: AuthLayoutProps) => {
+export function AuthLayout({ children, title, description, className }: AuthLayoutProps) {
   return (
-    <div className="flex min-h-full flex-1 flex-col justify-center">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="mt-8 sm:mx-auto sm:w-full sm:max-w-[480px]"
-      >
-        <div className="bg-white px-6 py-12 shadow sm:rounded-lg sm:px-12">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              {title}
-            </h1>
-            {subtitle && (
-              <p className="mt-2 text-sm leading-6 text-gray-500">
-                {subtitle}
-              </p>
-            )}
+    <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0">
+      <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r">
+        <div className="absolute inset-0 bg-zinc-900" />
+        <div className="relative z-20 flex items-center text-lg font-medium">
+          <img src="/logo.png" alt="Logo" className="h-8" />
+        </div>
+        <div className="relative z-20 mt-auto">
+          <blockquote className="space-y-2">
+            <p className="text-lg">
+              {description}
+            </p>
+          </blockquote>
+        </div>
+      </div>
+      <div className="lg:p-8">
+        <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+          <div className="flex flex-col space-y-2 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           </div>
           {children}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
-};
+}
