@@ -18,7 +18,19 @@ import { EditGymDialog } from "./EditGymDialog";
 import { GymPhotosDialog } from "./GymPhotosDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Gym } from "@/types/gym";
+
+interface Gym {
+  id: string;
+  nome: string;
+  cnpj: string;
+  email: string;
+  telefone: string | null;
+  endereco: string | null;
+  status: string;
+  fotos?: string[];
+  horario_funcionamento?: Record<string, any>;
+  academia_modalidades?: { modalidade: { nome: string } }[];
+}
 
 export function GymManagement() {
   const { toast } = useToast();
@@ -75,6 +87,7 @@ export function GymManagement() {
     if (!confirm("Tem certeza que deseja excluir esta academia?")) return;
 
     try {
+      // Primeiro excluir as fotos do storage
       const gym = gyms?.find(g => g.id === gymId);
       if (gym?.fotos?.length) {
         const { error: storageError } = await supabase.storage
@@ -84,6 +97,7 @@ export function GymManagement() {
         if (storageError) throw storageError;
       }
 
+      // Depois excluir o registro da academia
       const { error } = await supabase
         .from("academias")
         .delete()
@@ -155,7 +169,7 @@ export function GymManagement() {
                   <TableCell>{gym.email}</TableCell>
                   <TableCell>
                     <Badge
-                      variant={gym.status === "ativo" ? "default" : gym.status === "inativo" ? "secondary" : "outline"}
+                      variant={gym.status === "ativo" ? "default" : gym.status === "inativo" ? "secondary" : "warning"}
                     >
                       {gym.status === "ativo" ? "Ativo" : gym.status === "inativo" ? "Inativo" : "Pendente"}
                     </Badge>

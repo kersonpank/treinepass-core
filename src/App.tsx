@@ -1,123 +1,66 @@
-import { lazy } from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Home } from "lucide-react";
+import Index from "./pages/Index";
+import SelecionarPerfil from "./pages/SelecionarPerfil";
+import CadastroAcademia from "./pages/CadastroAcademia";
+import CadastroPessoaFisica from "./pages/CadastroPessoaFisica";
+import CadastroEmpresa from "./pages/CadastroEmpresa";
+import CadastroEmpresaEndereco from "./pages/CadastroEmpresaEndereco";
+import DashboardEmpresa from "./pages/DashboardEmpresa";
+import AcademiaPanel from "./pages/AcademiaPanel";
+import AppMobile from "./pages/AppMobile";
+import AdminLogin from "./pages/AdminLogin";
+import AdminLayout from "./components/admin/AdminLayout";
+import AdminDashboard from "./pages/AdminDashboard";
+import { AdminProvider } from "./contexts/AdminContext";
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from "@/contexts/auth";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AppLayout } from "@/components/layouts/AppLayout";
-import { AuthLayout } from "@/components/layouts/AuthLayout";
-import { GymProfile } from "@/pages/GymProfile";
+import "./App.css";
+import { GymProfilePage } from "@/pages/GymProfilePage";
 
-const LoginPage = lazy(() => import("@/pages/LoginPage"));
-const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
-const HomePage = lazy(() => import("@/pages/HomePage"));
-const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
-const DigitalCardPage = lazy(() => import("@/pages/DigitalCardPage"));
-const AdminPage = lazy(() => import("@/pages/AdminPage"));
-const CadastroAcademiaPage = lazy(() => import("@/pages/CadastroAcademiaPage"));
-const CadastroEmpresaPage = lazy(() => import("@/pages/CadastroEmpresaPage"));
-const CadastroEmpresaEndereco = lazy(() => import("@/pages/CadastroEmpresaEndereco"));
-const CadastroEmpresaPlano = lazy(() => import("@/pages/CadastroEmpresaPlano"));
-const CadastroEmpresaDocumentos = lazy(() => import("@/pages/CadastroEmpresaDocumentos"));
+const BackButton = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
 
-const queryClient = new QueryClient();
+  if (location.pathname === '/') return null;
 
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <HomePage />,
-  },
-  {
-    path: "/login",
-    element: (
-      <AuthLayout title="Login">
-        <LoginPage />
-      </AuthLayout>
-    ),
-  },
-  {
-    path: "/register",
-    element: (
-      <AuthLayout title="Cadastro">
-        <RegisterPage />
-      </AuthLayout>
-    ),
-  },
-  {
-    path: "/cadastro-academia",
-    element: (
-      <AuthLayout title="Cadastro de Academia">
-        <CadastroAcademiaPage />
-      </AuthLayout>
-    ),
-  },
-  {
-    path: "/cadastro-empresa",
-    element: (
-      <AuthLayout title="Cadastro de Empresa">
-        <CadastroEmpresaPage />
-      </AuthLayout>
-    ),
-  },
-  {
-    path: "/cadastro-empresa/endereco",
-    element: (
-      <AuthLayout title="Cadastro de Empresa">
-        <CadastroEmpresaEndereco />
-      </AuthLayout>
-    ),
-  },
-  {
-    path: "/cadastro-empresa/plano",
-    element: (
-      <AuthLayout title="Cadastro de Empresa">
-        <CadastroEmpresaPlano />
-      </AuthLayout>
-    ),
-  },
-  {
-    path: "/cadastro-empresa/documentos",
-    element: (
-      <AuthLayout title="Cadastro de Empresa">
-        <CadastroEmpresaDocumentos />
-      </AuthLayout>
-    ),
-  },
-  {
-    path: "/app",
-    element: (
-      <ProtectedRoute>
-        <AppLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <DashboardPage />,
-      },
-      {
-        path: "digital-card/:gymId",
-        element: <DigitalCardPage />,
-      },
-      {
-        path: "admin",
-        element: <AdminPage />,
-      },
-    ],
-  },
-  {
-    path: "/gym/:id",
-    element: <GymProfile />
-  }
-]);
-
-export function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RouterProvider router={router} />
+    <Button
+      variant="outline"
+      size="sm"
+      className="fixed top-4 left-4 z-50"
+      onClick={() => navigate('/')}
+    >
+      <Home className="mr-2 h-4 w-4" />
+      Início
+    </Button>
+  );
+};
+
+function App() {
+  return (
+    <AdminProvider>
+      <Router>
+        <BackButton />
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/selecionar-perfil" element={<SelecionarPerfil />} />
+          <Route path="/cadastro-academia" element={<CadastroAcademia />} />
+          <Route path="/cadastro-pessoa-fisica" element={<CadastroPessoaFisica />} />
+          <Route path="/cadastro-empresa" element={<CadastroEmpresa />} />
+          <Route path="/cadastro-empresa/endereco" element={<CadastroEmpresaEndereco />} />
+          <Route path="/dashboard-empresa" element={<DashboardEmpresa />} />
+          <Route path="/academia/:id" element={<AcademiaPanel />} />
+          <Route path="/app/*" element={<AppMobile />} />
+          <Route path="/loginadmin" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route path="dashboard" element={<AdminDashboard />} />
+          </Route>
+        </Routes>
         <Toaster />
-      </AuthProvider>
-    </QueryClientProvider>
+      </Router>
+    </AdminProvider>
   );
 }
+
+export default App;
