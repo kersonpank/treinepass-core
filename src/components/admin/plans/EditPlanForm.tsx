@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { updatePlan } from "@/services/plans";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { MultipleSelect, TTag } from "@/components/ui/multiple-select";
 
 interface Plan {
   id: string;
@@ -16,6 +19,7 @@ interface Plan {
   rules: Record<string, any>;
   subsidy_amount?: number;
   final_user_cost?: number;
+  category_ids?: string[];
 }
 
 interface EditPlanFormProps {
@@ -28,6 +32,49 @@ export function EditPlanForm({ plan, onSuccess }: EditPlanFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
+  // Fetch categories
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("academia_categorias")
+        .select("*")
+        .eq("active", true)
+        .order("ordem", { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch current plan categories
+  const { data: planCategories } = useQuery({
+    queryKey: ["plan-categories", plan.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("plan_categories")
+        .select("category_id")
+        .eq("plan_id", plan.id);
+
+      if (error) throw error;
+      return data.map(pc => pc.category_id);
+    },
+  });
+
+  useEffect(() => {
+    if (planCategories) {
+      setPlanData(prev => ({
+        ...prev,
+        category_ids: planCategories
+      }));
+    }
+  }, [planCategories]);
+
+  const categoryTags: TTag[] = categories?.map(cat => ({
+    key: cat.id,
+    name: cat.nome
+  })) || [];
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPlanData((prev) => ({ ...prev, [name]: value }));
@@ -38,17 +85,28 @@ export function EditPlanForm({ plan, onSuccess }: EditPlanFormProps) {
     setIsSubmitting(true);
 
     try {
-      await updatePlan(plan.id, {
-        name: planData.name,
-        description: planData.description,
-        monthly_cost: planData.monthly_cost,
-        plan_type: planData.plan_type,
-        period_type: planData.period_type,
-        status: planData.status,
-        rules: planData.rules,
-        subsidy_amount: Number(planData.subsidy_amount),
-        final_user_cost: Number(planData.final_user_cost)
-      });
+      await updatePlan(plan.id, planData);
+
+      // Update plan categories
+      if (planData.category_ids) {
+        // Remove existing categories
+        await supabase
+          .from("plan_categories")
+          .delete()
+          .eq("plan_id", plan.id);
+
+        // Add new categories
+        const planCategories = planData.category_ids.map(categoryId => ({
+          plan_id: plan.id,
+          category_id: categoryId
+        }));
+
+        const { error: categoriesError } = await supabase
+          .from("plan_categories")
+          .insert(planCategories);
+
+        if (categoriesError) throw categoriesError;
+      }
 
       toast({
         title: "Plano atualizado",
@@ -87,6 +145,15 @@ export function EditPlanForm({ plan, onSuccess }: EditPlanFormProps) {
           name="description"
           value={planData.description}
           onChange={handleChange}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="categories">Categorias</Label>
+        <MultipleSelect
+          tags={categoryTags}
+          onChange={(selected) => setPlanData(prev => ({ ...prev, category_ids: selected.map(s => s.key) }))}
+          defaultValue={categoryTags.filter(tag => planData.category_ids?.includes(tag.key))}
         />
       </div>
 

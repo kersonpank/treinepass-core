@@ -18,7 +18,6 @@ export async function updatePlan(planId: string, data: PlanFormValues) {
       platform_fee: data.platform_fee,
       renewal_type: data.renewal_type,
       payment_rules: data.payment_rules,
-      category_id: data.category_id,
       payment_methods: data.payment_methods,
       check_in_rules: data.check_in_rules,
       validity_period: data.validity_period,
@@ -28,6 +27,16 @@ export async function updatePlan(planId: string, data: PlanFormValues) {
     .eq("id", planId);
 
   if (error) throw error;
+}
+
+export async function getPlanCategories(planId: string) {
+  const { data, error } = await supabase
+    .from("plan_categories")
+    .select("category_id")
+    .eq("plan_id", planId);
+
+  if (error) throw error;
+  return data.map(pc => pc.category_id);
 }
 
 export async function createPlanVersion(planId: string, data: PlanFormValues) {

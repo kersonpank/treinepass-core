@@ -612,6 +612,42 @@ export type Database = {
           },
         ]
       }
+      plan_categories: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          plan_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          plan_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "academia_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_categories_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_change_history: {
         Row: {
           changed_by: string | null

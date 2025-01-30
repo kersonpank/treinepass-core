@@ -253,7 +253,7 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
                       <MultipleSelect
                         tags={categoryTags}
                         onChange={(selected) => field.onChange(selected.map(s => s.key))}
-                        defaultValue={defaultTags}
+                        defaultValue={[]}
                       />
                     </FormControl>
                     <FormDescription>
