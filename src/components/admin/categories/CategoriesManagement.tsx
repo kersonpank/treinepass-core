@@ -270,6 +270,7 @@ export function CategoriesManagement() {
                       id="active"
                       name="active"
                       defaultChecked={selectedCategory?.active ?? true}
+                      value="true"
                     />
                     <Label htmlFor="active">Ativo</Label>
                   </div>
