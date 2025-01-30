@@ -8,14 +8,16 @@ import { PlanFormValues } from "../types/plan";
 import { MultipleSelect, TTag } from "@/components/ui/multiple-select";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { CorporatePlanFields } from "./CorporatePlanFields";
 
 interface PlanDetailsFormProps {
   form: UseFormReturn<PlanFormValues>;
 }
 
 export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
-  const showSubsidyFields = form.watch("plan_type") === "corporate_subsidized";
-  const showCorporateFields = form.watch("plan_type") === "corporate" || form.watch("plan_type") === "corporate_subsidized";
+  const planType = form.watch("plan_type");
+  const isCorporate = planType === "corporate" || planType === "corporate_subsidized";
+  const isSubsidized = planType === "corporate_subsidized";
 
   // Query to fetch categories
   const { data: categories } = useQuery({
@@ -139,81 +141,34 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
         )}
       />
 
-      {showCorporateFields && (
+      {isCorporate && (
+        <CorporatePlanFields form={form} isSubsidized={isSubsidized} />
+      )}
+
+      {isSubsidized && (
         <FormField
           control={form.control}
-          name="employee_limit"
+          name="subsidy_amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Limite de Funcionários</FormLabel>
+              <FormLabel>Valor do Subsídio</FormLabel>
               <FormControl>
                 <Input
                   type="number"
-                  min="1"
-                  placeholder="Sem limite"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
                   {...field}
                   onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
                 />
               </FormControl>
               <FormDescription>
-                Número máximo de funcionários que podem ser adicionados a este plano
+                Valor que será subsidiado pela empresa
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-      )}
-
-      {showSubsidyFields && (
-        <>
-          <FormField
-            control={form.control}
-            name="subsidy_amount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Valor do Subsídio</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    {...field}
-                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Valor que será subsidiado pela empresa
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="user_final_cost"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Custo Final para Usuário</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    {...field}
-                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Valor que o usuário pagará após o subsídio
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </>
       )}
 
       <FormField
@@ -250,6 +205,7 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
                 min="0"
                 placeholder="0.00"
                 {...field}
+                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
               />
             </FormControl>
             <FormMessage />
@@ -271,6 +227,7 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
                 max="100"
                 placeholder="0.00"
                 {...field}
+                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
               />
             </FormControl>
             <FormMessage />
