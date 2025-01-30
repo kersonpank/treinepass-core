@@ -1,13 +1,9 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Upload, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { compressImage } from "@/utils/imageCompression";
+import { supabase } from "@/integrations/supabase/client";
+import { Trash2, Upload } from "lucide-react";
 
 interface GymPhotosDialogProps {
   gymId: string;
@@ -25,64 +21,37 @@ export function GymPhotosDialog({
   onSuccess,
 }: GymPhotosDialogProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const { toast } = useToast();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
+    const file = event.target.files?.[0];
+    if (!file) return;
 
     try {
       setIsUploading(true);
-      const uploadPromises = files.map(async (file) => {
-        try {
-          // Comprimir a imagem
-          const compressedBlob = await compressImage(file);
-          const compressedFile = new File([compressedBlob], file.name, {
-            type: 'image/jpeg',
-          });
 
-          // Upload para o Supabase Storage
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-          const filePath = `${gymId}/${fileName}`;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
 
-          const { error: uploadError, data } = await supabase.storage
-            .from('academy-images')
-            .upload(filePath, compressedFile, {
-              cacheControl: '3600',
-              upsert: false,
-              onUploadProgress: (progress) => {
-                setUploadProgress(prev => ({
-                  ...prev,
-                  [fileName]: Math.round((progress.loaded / progress.total) * 100),
-                }));
-              },
-            });
+      const { error: uploadError } = await supabase.storage
+        .from('academy-images')
+        .upload(filePath, file);
 
-          if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
 
-          return data.path;
-        } catch (error) {
-          console.error(`Error uploading file ${file.name}:`, error);
-          throw error;
-        }
-      });
+      const updatedFotos = [...fotos, filePath];
 
-      const newPaths = await Promise.all(uploadPromises);
-
-      // Atualizar o registro da academia com os novos caminhos
-      const newPhotos = [...fotos, ...newPaths];
       const { error: updateError } = await supabase
         .from('academias')
-        .update({ fotos: newPhotos })
+        .update({ fotos: updatedFotos })
         .eq('id', gymId);
 
       if (updateError) throw updateError;
 
       toast({
         title: "Sucesso",
-        description: `${files.length} foto${files.length > 1 ? 's' : ''} adicionada${files.length > 1 ? 's' : ''} com sucesso`,
+        description: "Foto adicionada com sucesso",
       });
 
       onSuccess();
@@ -94,26 +63,22 @@ export function GymPhotosDialog({
       });
     } finally {
       setIsUploading(false);
-      setUploadProgress({});
     }
   };
 
   const handleDeletePhoto = async (photoPath: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta foto?")) return;
-
     try {
-      // Remove from Storage
-      const { error: deleteError } = await supabase.storage
+      const { error: storageError } = await supabase.storage
         .from('academy-images')
         .remove([photoPath]);
 
-      if (deleteError) throw deleteError;
+      if (storageError) throw storageError;
 
-      // Update academy record
-      const newPhotos = fotos.filter(foto => foto !== photoPath);
+      const updatedFotos = fotos.filter(foto => foto !== photoPath);
+
       const { error: updateError } = await supabase
         .from('academias')
-        .update({ fotos: newPhotos })
+        .update({ fotos: updatedFotos })
         .eq('id', gymId);
 
       if (updateError) throw updateError;
@@ -146,34 +111,7 @@ export function GymPhotosDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="photo">Adicionar Novas Fotos</Label>
-            <div className="flex gap-2">
-              <Input
-                id="photo"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-            </div>
-            {isUploading && Object.keys(uploadProgress).length > 0 && (
-              <div className="mt-2 space-y-2">
-                {Object.entries(uploadProgress).map(([fileName, progress]) => (
-                  <div key={fileName} className="space-y-1">
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>{fileName}</span>
-                      <span>{progress}%</span>
-                    </div>
-                    <Progress value={progress} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {fotos.map((foto, index) => (
               <div key={index} className="relative group">
                 <img
@@ -193,15 +131,23 @@ export function GymPhotosDialog({
             ))}
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-center">
             <Button
-              type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
               disabled={isUploading}
+              className="w-full"
+              onClick={() => document.getElementById('photo-upload')?.click()}
             >
-              {isUploading ? "Aguarde..." : "Fechar"}
+              <Upload className="h-4 w-4 mr-2" />
+              {isUploading ? "Enviando..." : "Adicionar Foto"}
             </Button>
+            <input
+              type="file"
+              id="photo-upload"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
           </div>
         </div>
       </DialogContent>
