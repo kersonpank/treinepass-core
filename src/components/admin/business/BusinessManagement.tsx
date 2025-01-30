@@ -13,22 +13,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, Edit2, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Business {
-  id: string;
-  company_name: string;
-  cnpj: string;
-  email: string;
-  phone: string;
-  status: string;
-  number_of_employees: number;
-  industry?: string;
-  contact_person: string;
-  created_at: string;
-}
+import { useState } from "react";
+import { Business } from "./types/business";
+import { BusinessDetailsDialog } from "./BusinessDetailsDialog";
+import { BusinessEditDialog } from "./BusinessEditDialog";
 
 export function BusinessManagement() {
   const { toast } = useToast();
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   const { data: businesses, isLoading, refetch } = useQuery({
     queryKey: ["businesses"],
@@ -178,7 +172,8 @@ export function BusinessManagement() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => {
-                          // TODO: Implement edit functionality
+                          setSelectedBusiness(business);
+                          setIsEditDialogOpen(true);
                         }}
                       >
                         <Edit2 className="h-4 w-4" />
@@ -188,7 +183,8 @@ export function BusinessManagement() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => {
-                          // TODO: Implement view functionality
+                          setSelectedBusiness(business);
+                          setIsViewDialogOpen(true);
                         }}
                       >
                         <Eye className="h-4 w-4" />
@@ -209,6 +205,19 @@ export function BusinessManagement() {
           </Table>
         </div>
       </CardContent>
+
+      <BusinessDetailsDialog
+        business={selectedBusiness}
+        open={isViewDialogOpen}
+        onOpenChange={setIsViewDialogOpen}
+      />
+
+      <BusinessEditDialog
+        business={selectedBusiness}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSuccess={refetch}
+      />
     </Card>
   );
 }
