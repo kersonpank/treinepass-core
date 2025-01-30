@@ -49,7 +49,9 @@ export function PlansList({ onEditPlan }: PlansListProps) {
         status: plan.status as Plan["status"],
         plan_type: plan.plan_type as Plan["plan_type"],
         period_type: plan.period_type as Plan["period_type"],
-        rules: plan.rules as Record<string, any>,
+        renewal_type: (plan.renewal_type || "automatic") as Plan["renewal_type"],
+        rules: plan.rules || {},
+        payment_rules: plan.payment_rules || { continue_without_use: true },
       }));
     },
   });
@@ -101,7 +103,21 @@ export function PlansList({ onEditPlan }: PlansListProps) {
                       {periodTypeLabels[plan.period_type]}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatCurrency(Number(plan.monthly_cost))}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div>{formatCurrency(Number(plan.monthly_cost))}</div>
+                      {plan.base_price && (
+                        <div className="text-xs text-muted-foreground">
+                          Base: {formatCurrency(plan.base_price)}
+                        </div>
+                      )}
+                      {plan.platform_fee && (
+                        <div className="text-xs text-muted-foreground">
+                          Taxa: {plan.platform_fee}%
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={plan.status === "active" ? "default" : "destructive"}

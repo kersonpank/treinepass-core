@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { Json } from "@/integrations/supabase/types";
 
 export type PlanType = "corporate" | "individual" | "corporate_subsidized";
 export type PeriodType = "monthly" | "quarterly" | "semiannual" | "annual";
@@ -10,7 +9,7 @@ export interface Plan {
   id: string;
   business_id: string | null;
   name: string;
-  description: string | null;
+  description?: string;
   monthly_cost: string;
   plan_type: PlanType;
   period_type: PeriodType;
@@ -20,7 +19,7 @@ export interface Plan {
   final_user_cost?: number;
   base_price?: number;
   platform_fee?: number;
-  renewal_type?: RenewalType;
+  renewal_type: RenewalType;
   payment_rules?: {
     continue_without_use: boolean;
   };
