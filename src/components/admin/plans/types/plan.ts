@@ -4,6 +4,7 @@ import { Json } from "@/integrations/supabase/types";
 export type PlanType = "corporate" | "individual" | "corporate_subsidized";
 export type PeriodType = "monthly" | "quarterly" | "semiannual" | "annual";
 export type PlanStatus = "active" | "inactive";
+export type RenewalType = "automatic" | "manual";
 
 export interface Plan {
   id: string;
@@ -17,6 +18,12 @@ export interface Plan {
   rules: Record<string, any>;
   subsidy_amount?: number;
   final_user_cost?: number;
+  base_price?: number;
+  platform_fee?: number;
+  renewal_type?: RenewalType;
+  payment_rules?: {
+    continue_without_use: boolean;
+  };
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +40,12 @@ export const planFormSchema = z.object({
   rules: z.record(z.any()).default({}),
   subsidy_amount: z.number().optional(),
   final_user_cost: z.number().optional(),
+  base_price: z.number().optional(),
+  platform_fee: z.number().optional(),
+  renewal_type: z.enum(["automatic", "manual"]).default("automatic"),
+  payment_rules: z.object({
+    continue_without_use: z.boolean()
+  }).default({ continue_without_use: true }),
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;

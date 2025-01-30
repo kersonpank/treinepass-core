@@ -7,10 +7,18 @@ interface PlanPreviewProps {
     name: string;
     description?: string;
     monthly_cost: string;
-    plan_type: "corporate" | "individual";
+    plan_type: "corporate" | "individual" | "corporate_subsidized";
     period_type: "monthly" | "quarterly" | "semiannual" | "annual";
     status: "active" | "inactive";
     rules: Record<string, any>;
+    subsidy_amount?: number;
+    final_user_cost?: number;
+    base_price?: number;
+    platform_fee?: number;
+    renewal_type?: "automatic" | "manual";
+    payment_rules?: {
+      continue_without_use: boolean;
+    };
   };
 }
 
@@ -19,6 +27,12 @@ const periodTypeLabels: Record<string, string> = {
   quarterly: "Trimestral",
   semiannual: "Semestral",
   annual: "Anual",
+};
+
+const planTypeLabels: Record<string, string> = {
+  corporate: "Corporativo",
+  individual: "Individual",
+  corporate_subsidized: "Corporativo Subsidiado",
 };
 
 export function PlanPreview({ plan }: PlanPreviewProps) {
@@ -42,20 +56,40 @@ export function PlanPreview({ plan }: PlanPreviewProps) {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">
-              {plan.plan_type === "corporate" ? "Corporativo" : "Individual"}
+              {planTypeLabels[plan.plan_type]}
             </Badge>
             <Badge variant="secondary">{periodTypeLabels[plan.period_type]}</Badge>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div>
+        <div className="space-y-2">
           <p className="text-2xl font-bold">
             {formatCurrency(Number(plan.monthly_cost))}
             <span className="text-sm font-normal text-muted-foreground">
               /{periodTypeLabels[plan.period_type].toLowerCase()}
             </span>
           </p>
+          {plan.plan_type === "corporate_subsidized" && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Subsídio da empresa: {formatCurrency(plan.subsidy_amount || 0)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Custo para usuário: {formatCurrency(plan.final_user_cost || 0)}
+              </p>
+            </>
+          )}
+          {plan.base_price && (
+            <p className="text-sm text-muted-foreground">
+              Preço base: {formatCurrency(plan.base_price)}
+            </p>
+          )}
+          {plan.platform_fee && (
+            <p className="text-sm text-muted-foreground">
+              Taxa da plataforma: {plan.platform_fee}%
+            </p>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -68,6 +102,13 @@ export function PlanPreview({ plan }: PlanPreviewProps) {
               </li>
             ))}
           </ul>
+          <div className="text-sm text-muted-foreground">
+            <p>Renovação: {plan.renewal_type === "automatic" ? "Automática" : "Manual"}</p>
+            <p>
+              Cobrança sem uso:{" "}
+              {plan.payment_rules?.continue_without_use ? "Continua" : "Pausa"}
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>

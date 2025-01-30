@@ -166,6 +166,7 @@ export type Database = {
       }
       benefit_plans: {
         Row: {
+          base_price: number | null
           business_id: string | null
           created_at: string
           description: string | null
@@ -173,14 +174,18 @@ export type Database = {
           id: string
           monthly_cost: number
           name: string
+          payment_rules: Json | null
           period_type: string
           plan_type: string
+          platform_fee: number | null
+          renewal_type: string | null
           rules: Json
           status: string
           subsidy_amount: number | null
           updated_at: string
         }
         Insert: {
+          base_price?: number | null
           business_id?: string | null
           created_at?: string
           description?: string | null
@@ -188,14 +193,18 @@ export type Database = {
           id?: string
           monthly_cost: number
           name: string
+          payment_rules?: Json | null
           period_type?: string
           plan_type?: string
+          platform_fee?: number | null
+          renewal_type?: string | null
           rules?: Json
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
         }
         Update: {
+          base_price?: number | null
           business_id?: string | null
           created_at?: string
           description?: string | null
@@ -203,8 +212,11 @@ export type Database = {
           id?: string
           monthly_cost?: number
           name?: string
+          payment_rules?: Json | null
           period_type?: string
           plan_type?: string
+          platform_fee?: number | null
+          renewal_type?: string | null
           rules?: Json
           status?: string
           subsidy_amount?: number | null
@@ -617,6 +629,44 @@ export type Database = {
           },
         ]
       }
+      plan_check_in_limits: {
+        Row: {
+          created_at: string
+          daily_limit: number | null
+          id: string
+          monthly_limit: number | null
+          plan_id: string | null
+          updated_at: string
+          weekly_limit: number | null
+        }
+        Insert: {
+          created_at?: string
+          daily_limit?: number | null
+          id?: string
+          monthly_limit?: number | null
+          plan_id?: string | null
+          updated_at?: string
+          weekly_limit?: number | null
+        }
+        Update: {
+          created_at?: string
+          daily_limit?: number | null
+          id?: string
+          monthly_limit?: number | null
+          plan_id?: string | null
+          updated_at?: string
+          weekly_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_check_in_limits_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_rules: {
         Row: {
           created_at: string
@@ -687,6 +737,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "plan_versions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_volume_discounts: {
+        Row: {
+          created_at: string
+          discount_percentage: number
+          id: string
+          max_employees: number | null
+          min_employees: number
+          plan_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount_percentage: number
+          id?: string
+          max_employees?: number | null
+          min_employees: number
+          plan_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount_percentage?: number
+          id?: string
+          max_employees?: number | null
+          min_employees?: number
+          plan_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_volume_discounts_plan_id_fkey"
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "benefit_plans"

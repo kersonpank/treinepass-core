@@ -164,12 +164,98 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
 
       <FormField
         control={form.control}
+        name="base_price"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Preço Base</FormLabel>
+            <FormControl>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="platform_fee"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Taxa da Plataforma (%)</FormLabel>
+            <FormControl>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                placeholder="0.00"
+                {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="renewal_type"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Tipo de Renovação</FormLabel>
+            <Select onValueChange={field.onChange} value={field.value}>
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo de renovação" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="automatic">Automática</SelectItem>
+                <SelectItem value="manual">Manual</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="payment_rules.continue_without_use"
+        render={({ field }) => (
+          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <FormLabel className="text-base">Continuar Cobrança sem Uso</FormLabel>
+              <FormDescription>
+                Continuar cobrando mesmo se o plano não for utilizado
+              </FormDescription>
+            </div>
+            <FormControl>
+              <Switch
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
         name="status"
         render={({ field }) => (
           <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
               <FormLabel className="text-base">Status</FormLabel>
-              <FormMessage />
+              <FormDescription>
+                Ative ou desative a disponibilidade do plano
+              </FormDescription>
             </div>
             <FormControl>
               <Switch
