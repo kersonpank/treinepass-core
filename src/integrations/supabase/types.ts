@@ -18,7 +18,6 @@ export type Database = {
           nome: string
           ordem: number | null
           updated_at: string
-          valor_repasse_checkin: number
         }
         Insert: {
           active?: boolean | null
@@ -28,7 +27,6 @@ export type Database = {
           nome: string
           ordem?: number | null
           updated_at?: string
-          valor_repasse_checkin?: number
         }
         Update: {
           active?: boolean | null
@@ -38,7 +36,6 @@ export type Database = {
           nome?: string
           ordem?: number | null
           updated_at?: string
-          valor_repasse_checkin?: number
         }
         Relationships: []
       }

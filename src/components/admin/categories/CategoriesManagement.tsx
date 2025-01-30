@@ -18,7 +18,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { formatCurrency } from "@/lib/utils";
 import { CategoryRepassRules } from "./CategoryRepassRules";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -26,7 +25,6 @@ interface Category {
   id: string;
   nome: string;
   descricao: string | null;
-  valor_repasse_checkin: number;
   active: boolean;
   ordem: number;
 }
@@ -57,7 +55,6 @@ export function CategoriesManagement() {
     const categoryData = {
       nome: formData.get("nome") as string,
       descricao: formData.get("descricao") as string,
-      valor_repasse_checkin: Number(formData.get("valor_repasse_checkin")),
       active: formData.get("active") === "true",
     };
 
@@ -172,7 +169,6 @@ export function CategoriesManagement() {
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Descrição</TableHead>
-                <TableHead>Valor Repasse</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Ordem</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
@@ -183,7 +179,6 @@ export function CategoriesManagement() {
                 <TableRow key={category.id}>
                   <TableCell className="font-medium">{category.nome}</TableCell>
                   <TableCell>{category.descricao || "-"}</TableCell>
-                  <TableCell>{formatCurrency(category.valor_repasse_checkin)}</TableCell>
                   <TableCell>
                     <Badge
                       variant={category.active ? "default" : "secondary"}
@@ -267,18 +262,6 @@ export function CategoriesManagement() {
                       id="descricao"
                       name="descricao"
                       defaultValue={selectedCategory?.descricao || ""}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="valor_repasse_checkin">Valor de Repasse por Check-in</Label>
-                    <Input
-                      id="valor_repasse_checkin"
-                      name="valor_repasse_checkin"
-                      type="number"
-                      step="0.01"
-                      defaultValue={selectedCategory?.valor_repasse_checkin || 5.00}
-                      required
                     />
                   </div>
                   

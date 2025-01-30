@@ -27,7 +27,6 @@ export interface GymCategory {
   id: string;
   nome: string;
   descricao: string | null;
-  valor_repasse_checkin: number;
   active: boolean;
 }
 
