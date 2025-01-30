@@ -88,7 +88,9 @@ export const planFormSchema = z.object({
     company_can_cancel: true,
     user_can_cancel: true,
     notice_period_days: 30
-  })
+  }),
+  employee_limit: z.number().nullable().optional(),
+  user_final_cost: z.number().nullable().optional()
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;

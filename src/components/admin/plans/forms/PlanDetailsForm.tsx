@@ -15,9 +15,10 @@ interface PlanDetailsFormProps {
 
 export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
   const showSubsidyFields = form.watch("plan_type") === "corporate_subsidized";
+  const showCorporateFields = form.watch("plan_type") === "corporate" || form.watch("plan_type") === "corporate_subsidized";
 
   // Query to fetch categories
-  const { data: categories, isLoading: isLoadingCategories } = useQuery({
+  const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -138,6 +139,83 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
         )}
       />
 
+      {showCorporateFields && (
+        <FormField
+          control={form.control}
+          name="employee_limit"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Limite de Funcionários</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="Sem limite"
+                  {...field}
+                  onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                />
+              </FormControl>
+              <FormDescription>
+                Número máximo de funcionários que podem ser adicionados a este plano
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
+      {showSubsidyFields && (
+        <>
+          <FormField
+            control={form.control}
+            name="subsidy_amount"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Valor do Subsídio</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Valor que será subsidiado pela empresa
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="user_final_cost"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Custo Final para Usuário</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Valor que o usuário pagará após o subsídio
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </>
+      )}
+
       <FormField
         control={form.control}
         name="category_ids"
@@ -158,56 +236,6 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
           </FormItem>
         )}
       />
-
-      {showSubsidyFields && (
-        <>
-          <FormField
-            control={form.control}
-            name="subsidy_amount"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Valor do Subsídio</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Valor que será subsidiado pela empresa
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="final_user_cost"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Custo Final para Usuário</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    {...field}
-                  />
-                </FormControl>
-                <FormDescription>
-                  Valor que o usuário pagará após o subsídio
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </>
-      )}
 
       <FormField
         control={form.control}

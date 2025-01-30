@@ -174,6 +174,7 @@ export type Database = {
           check_in_rules: Json | null
           created_at: string
           description: string | null
+          employee_limit: number | null
           final_user_cost: number | null
           id: string
           monthly_cost: number
@@ -188,6 +189,7 @@ export type Database = {
           status: string
           subsidy_amount: number | null
           updated_at: string
+          user_final_cost: number | null
           validity_period: unknown | null
         }
         Insert: {
@@ -199,6 +201,7 @@ export type Database = {
           check_in_rules?: Json | null
           created_at?: string
           description?: string | null
+          employee_limit?: number | null
           final_user_cost?: number | null
           id?: string
           monthly_cost: number
@@ -213,6 +216,7 @@ export type Database = {
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
+          user_final_cost?: number | null
           validity_period?: unknown | null
         }
         Update: {
@@ -224,6 +228,7 @@ export type Database = {
           check_in_rules?: Json | null
           created_at?: string
           description?: string | null
+          employee_limit?: number | null
           final_user_cost?: number | null
           id?: string
           monthly_cost?: number
@@ -238,6 +243,7 @@ export type Database = {
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
+          user_final_cost?: number | null
           validity_period?: unknown | null
         }
         Relationships: [
