@@ -19,6 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { formatCurrency } from "@/lib/utils";
+import { CategoryRepassRules } from "./CategoryRepassRules";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Category {
   id: string;
@@ -233,66 +235,83 @@ export function CategoriesManagement() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-[800px]">
             <DialogHeader>
               <DialogTitle>
                 {selectedCategory ? "Editar Categoria" : "Nova Categoria"}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSaveCategory} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome</Label>
-                <Input
-                  id="nome"
-                  name="nome"
-                  defaultValue={selectedCategory?.nome}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Input
-                  id="descricao"
-                  name="descricao"
-                  defaultValue={selectedCategory?.descricao || ""}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="valor_repasse_checkin">Valor de Repasse por Check-in</Label>
-                <Input
-                  id="valor_repasse_checkin"
-                  name="valor_repasse_checkin"
-                  type="number"
-                  step="0.01"
-                  defaultValue={selectedCategory?.valor_repasse_checkin || 5.00}
-                  required
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="active"
-                  name="active"
-                  defaultChecked={selectedCategory?.active ?? true}
-                />
-                <Label htmlFor="active">Ativo</Label>
-              </div>
-              
-              <div className="flex justify-end space-x-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button type="submit">
-                  {selectedCategory ? "Salvar" : "Criar"}
-                </Button>
-              </div>
-            </form>
+            <Tabs defaultValue="info">
+              <TabsList>
+                <TabsTrigger value="info">Informações</TabsTrigger>
+                {selectedCategory && (
+                  <TabsTrigger value="rules">Regras de Repasse</TabsTrigger>
+                )}
+              </TabsList>
+
+              <TabsContent value="info">
+                <form onSubmit={handleSaveCategory} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nome">Nome</Label>
+                    <Input
+                      id="nome"
+                      name="nome"
+                      defaultValue={selectedCategory?.nome}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="descricao">Descrição</Label>
+                    <Input
+                      id="descricao"
+                      name="descricao"
+                      defaultValue={selectedCategory?.descricao || ""}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="valor_repasse_checkin">Valor de Repasse por Check-in</Label>
+                    <Input
+                      id="valor_repasse_checkin"
+                      name="valor_repasse_checkin"
+                      type="number"
+                      step="0.01"
+                      defaultValue={selectedCategory?.valor_repasse_checkin || 5.00}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="active"
+                      name="active"
+                      defaultChecked={selectedCategory?.active ?? true}
+                    />
+                    <Label htmlFor="active">Ativo</Label>
+                  </div>
+                  
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsDialogOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button type="submit">
+                      {selectedCategory ? "Salvar" : "Criar"}
+                    </Button>
+                  </div>
+                </form>
+              </TabsContent>
+
+              {selectedCategory && (
+                <TabsContent value="rules">
+                  <CategoryRepassRules categoryId={selectedCategory.id} />
+                </TabsContent>
+              )}
+            </Tabs>
           </DialogContent>
         </Dialog>
       </CardContent>

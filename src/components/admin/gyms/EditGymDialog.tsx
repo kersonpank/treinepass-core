@@ -26,6 +26,7 @@ interface EditGymDialogProps {
     horario_funcionamento?: Record<string, any>;
     academia_modalidades?: { modalidade: { nome: string; id: string } }[];
     usa_regras_personalizadas?: boolean;
+    categoria_id?: string | null;
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -41,6 +42,7 @@ interface GymFormData {
   status: string;
   horario_funcionamento: Record<string, any>;
   usa_regras_personalizadas: boolean;
+  categoria_id?: string | null;
 }
 
 export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDialogProps) {
@@ -73,6 +75,7 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
         sabado: { abertura: "09:00", fechamento: "18:00" },
       },
       usa_regras_personalizadas: gym.usa_regras_personalizadas || false,
+      categoria_id: gym.categoria_id || null,
     },
   });
 
@@ -82,6 +85,20 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
       const { data, error } = await supabase
         .from("modalidades")
         .select("*")
+        .order("nome");
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["gymCategories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("academia_categorias")
+        .select("*")
+        .eq("active", true)
         .order("nome");
 
       if (error) throw error;
@@ -109,6 +126,7 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
           status: data.status,
           horario_funcionamento: data.horario_funcionamento,
           usa_regras_personalizadas: data.usa_regras_personalizadas,
+          categoria_id: data.categoria_id,
         })
         .eq("id", gym.id);
 
@@ -188,67 +206,88 @@ export function EditGymDialog({ gym, open, onOpenChange, onSuccess }: EditGymDia
             <TabsTrigger value="rules">Regras de Repasse</TabsTrigger>
           </TabsList>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <TabsContent value="info">
-              <div>
-                <Label htmlFor="nome">Nome</Label>
-                <Input
-                  id="nome"
-                  {...register("nome", { required: "Nome é obrigatório" })}
-                />
-                {errors.nome && (
-                  <p className="text-sm text-red-500">{errors.nome.message}</p>
-                )}
-              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="nome">Nome</Label>
+                  <Input
+                    id="nome"
+                    {...register("nome", { required: "Nome é obrigatório" })}
+                  />
+                  {errors.nome && (
+                    <p className="text-sm text-red-500">{errors.nome.message}</p>
+                  )}
+                </div>
 
-              <div>
-                <Label htmlFor="cnpj">CNPJ</Label>
-                <Input
-                  id="cnpj"
-                  {...register("cnpj", { required: "CNPJ é obrigatório" })}
-                />
-                {errors.cnpj && (
-                  <p className="text-sm text-red-500">{errors.cnpj.message}</p>
-                )}
-              </div>
+                <div>
+                  <Label htmlFor="cnpj">CNPJ</Label>
+                  <Input
+                    id="cnpj"
+                    {...register("cnpj", { required: "CNPJ é obrigatório" })}
+                  />
+                  {errors.cnpj && (
+                    <p className="text-sm text-red-500">{errors.cnpj.message}</p>
+                  )}
+                </div>
 
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register("email", { required: "Email é obrigatório" })}
-                />
-                {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email.message}</p>
-                )}
-              </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...register("email", { required: "Email é obrigatório" })}
+                  />
+                  {errors.email && (
+                    <p className="text-sm text-red-500">{errors.email.message}</p>
+                  )}
+                </div>
 
-              <div>
-                <Label htmlFor="telefone">Telefone</Label>
-                <Input id="telefone" {...register("telefone")} />
-              </div>
+                <div>
+                  <Label htmlFor="telefone">Telefone</Label>
+                  <Input id="telefone" {...register("telefone")} />
+                </div>
 
-              <div>
-                <Label htmlFor="endereco">Endereço</Label>
-                <Input id="endereco" {...register("endereco")} />
-              </div>
+                <div>
+                  <Label htmlFor="endereco">Endereço</Label>
+                  <Input id="endereco" {...register("endereco")} />
+                </div>
 
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={currentStatus}
-                  onValueChange={(value) => setValue("status", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="inativo">Inativo</SelectItem>
-                    <SelectItem value="pendente">Pendente</SelectItem>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={currentStatus}
+                    onValueChange={(value) => setValue("status", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inativo">Inativo</SelectItem>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="ativo">Ativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="categoria_id">Categoria</Label>
+                  <Select
+                    value={watch("categoria_id") || ""}
+                    onValueChange={(value) => setValue("categoria_id", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma categoria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </TabsContent>
 
