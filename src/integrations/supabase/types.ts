@@ -166,14 +166,19 @@ export type Database = {
       }
       benefit_plans: {
         Row: {
+          auto_renewal: boolean | null
           base_price: number | null
           business_id: string | null
+          cancellation_rules: Json | null
+          category_id: string | null
+          check_in_rules: Json | null
           created_at: string
           description: string | null
           final_user_cost: number | null
           id: string
           monthly_cost: number
           name: string
+          payment_methods: Json | null
           payment_rules: Json | null
           period_type: string
           plan_type: string
@@ -183,16 +188,22 @@ export type Database = {
           status: string
           subsidy_amount: number | null
           updated_at: string
+          validity_period: unknown | null
         }
         Insert: {
+          auto_renewal?: boolean | null
           base_price?: number | null
           business_id?: string | null
+          cancellation_rules?: Json | null
+          category_id?: string | null
+          check_in_rules?: Json | null
           created_at?: string
           description?: string | null
           final_user_cost?: number | null
           id?: string
           monthly_cost: number
           name: string
+          payment_methods?: Json | null
           payment_rules?: Json | null
           period_type?: string
           plan_type?: string
@@ -202,16 +213,22 @@ export type Database = {
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
+          validity_period?: unknown | null
         }
         Update: {
+          auto_renewal?: boolean | null
           base_price?: number | null
           business_id?: string | null
+          cancellation_rules?: Json | null
+          category_id?: string | null
+          check_in_rules?: Json | null
           created_at?: string
           description?: string | null
           final_user_cost?: number | null
           id?: string
           monthly_cost?: number
           name?: string
+          payment_methods?: Json | null
           payment_rules?: Json | null
           period_type?: string
           plan_type?: string
@@ -221,6 +238,7 @@ export type Database = {
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
+          validity_period?: unknown | null
         }
         Relationships: [
           {
@@ -228,6 +246,13 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "benefit_plans_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "academia_categorias"
             referencedColumns: ["id"]
           },
         ]

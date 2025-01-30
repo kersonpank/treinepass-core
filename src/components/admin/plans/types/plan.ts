@@ -4,10 +4,24 @@ export type PlanType = "corporate" | "individual" | "corporate_subsidized";
 export type PeriodType = "monthly" | "quarterly" | "semiannual" | "annual";
 export type PlanStatus = "active" | "inactive";
 export type RenewalType = "automatic" | "manual";
+export type PaymentMethod = "credit_card" | "pix" | "boleto";
+
+export interface CheckInRules {
+  daily_limit: number | null;
+  weekly_limit: number | null;
+  monthly_limit: number | null;
+  allow_extra_checkins: boolean;
+  extra_checkin_cost: number | null;
+}
+
+export interface CancellationRules {
+  company_can_cancel: boolean;
+  user_can_cancel: boolean;
+  notice_period_days: number;
+}
 
 export interface Plan {
   id: string;
-  business_id: string | null;
   name: string;
   description?: string;
   monthly_cost: string;
@@ -23,8 +37,12 @@ export interface Plan {
   payment_rules?: {
     continue_without_use: boolean;
   };
-  created_at: string;
-  updated_at: string;
+  category_id?: string;
+  payment_methods: PaymentMethod[];
+  check_in_rules: CheckInRules;
+  validity_period?: string;
+  auto_renewal: boolean;
+  cancellation_rules: CancellationRules;
 }
 
 export const planFormSchema = z.object({
@@ -45,6 +63,32 @@ export const planFormSchema = z.object({
   payment_rules: z.object({
     continue_without_use: z.boolean()
   }).default({ continue_without_use: true }),
+  category_id: z.string().uuid().optional(),
+  payment_methods: z.array(z.enum(["credit_card", "pix", "boleto"])).default(["credit_card", "pix", "boleto"]),
+  check_in_rules: z.object({
+    daily_limit: z.number().nullable(),
+    weekly_limit: z.number().nullable(),
+    monthly_limit: z.number().nullable(),
+    allow_extra_checkins: z.boolean(),
+    extra_checkin_cost: z.number().nullable()
+  }).default({
+    daily_limit: null,
+    weekly_limit: null,
+    monthly_limit: null,
+    allow_extra_checkins: false,
+    extra_checkin_cost: null
+  }),
+  validity_period: z.string().optional(),
+  auto_renewal: z.boolean().default(true),
+  cancellation_rules: z.object({
+    company_can_cancel: z.boolean(),
+    user_can_cancel: z.boolean(),
+    notice_period_days: z.number()
+  }).default({
+    company_can_cancel: true,
+    user_can_cancel: true,
+    notice_period_days: 30
+  })
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;
