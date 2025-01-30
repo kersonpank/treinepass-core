@@ -29,10 +29,10 @@ export interface Plan {
   period_type: PeriodType;
   status: PlanStatus;
   rules: Record<string, any>;
-  subsidy_amount?: number;
-  final_user_cost?: number;
-  base_price?: number;
-  platform_fee?: number;
+  subsidy_amount?: number | null;
+  final_user_cost?: number | null;
+  base_price?: number | null;
+  platform_fee?: number | null;
   renewal_type: RenewalType;
   payment_rules?: {
     continue_without_use: boolean;
