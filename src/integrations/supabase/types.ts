@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      academia_categorias: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+          valor_repasse_checkin: number
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+          valor_repasse_checkin?: number
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+          valor_repasse_checkin?: number
+        }
+        Relationships: []
+      }
       academia_modalidades: {
         Row: {
           academia_id: string
@@ -47,6 +77,7 @@ export type Database = {
       }
       academias: {
         Row: {
+          categoria_id: string | null
           cnpj: string
           created_at: string | null
           email: string
@@ -63,6 +94,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          categoria_id?: string | null
           cnpj: string
           created_at?: string | null
           email: string
@@ -79,6 +111,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          categoria_id?: string | null
           cnpj?: string
           created_at?: string | null
           email?: string
@@ -94,7 +127,15 @@ export type Database = {
           usa_regras_personalizadas?: boolean | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "academias_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "academia_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       amenities: {
         Row: {
@@ -690,6 +731,47 @@ export type Database = {
             columns: ["academia_id"]
             isOneToOne: false
             referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      regras_repasse_categoria: {
+        Row: {
+          active: boolean | null
+          categoria_id: string | null
+          checkins_maximos: number | null
+          checkins_minimos: number
+          created_at: string
+          id: string
+          updated_at: string
+          valor_repasse: number
+        }
+        Insert: {
+          active?: boolean | null
+          categoria_id?: string | null
+          checkins_maximos?: number | null
+          checkins_minimos: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          valor_repasse: number
+        }
+        Update: {
+          active?: boolean | null
+          categoria_id?: string | null
+          checkins_maximos?: number | null
+          checkins_minimos?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          valor_repasse?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regras_repasse_categoria_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "academia_categorias"
             referencedColumns: ["id"]
           },
         ]
