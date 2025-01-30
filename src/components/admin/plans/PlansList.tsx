@@ -20,9 +20,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Plan } from "./types/plan";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlansListProps {
-  onEditPlan: (planId: string) => void;
+  onEditPlan: (plan: Plan) => void;
+  onViewPlan: (plan: Plan) => void;
 }
 
 const periodTypeLabels: Record<string, string> = {
@@ -32,7 +34,8 @@ const periodTypeLabels: Record<string, string> = {
   annual: "Anual",
 };
 
-export function PlansList({ onEditPlan }: PlansListProps) {
+export function PlansList({ onEditPlan, onViewPlan }: PlansListProps) {
+  const { toast } = useToast();
   const { data: plans, isLoading } = useQuery({
     queryKey: ["plans"],
     queryFn: async () => {
@@ -55,6 +58,29 @@ export function PlansList({ onEditPlan }: PlansListProps) {
       }));
     },
   });
+
+  const handleDeletePlan = async (planId: string) => {
+    try {
+      const { error } = await supabase
+        .from("benefit_plans")
+        .delete()
+        .eq("id", planId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Plano excluído",
+        description: "O plano foi removido com sucesso.",
+      });
+    } catch (error) {
+      console.error("Error deleting plan:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao excluir plano",
+        description: "Não foi possível excluir o plano. Tente novamente.",
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -131,7 +157,7 @@ export function PlansList({ onEditPlan }: PlansListProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onEditPlan(plan.id)}
+                        onClick={() => onEditPlan(plan)}
                         className="h-8 w-8"
                       >
                         <Edit2 className="h-4 w-4" />
@@ -139,6 +165,7 @@ export function PlansList({ onEditPlan }: PlansListProps) {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => onViewPlan(plan)}
                         className="h-8 w-8"
                       >
                         <Eye className="h-4 w-4" />
@@ -146,6 +173,7 @@ export function PlansList({ onEditPlan }: PlansListProps) {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => handleDeletePlan(plan.id)}
                         className="h-8 w-8 hover:bg-destructive/20 hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
