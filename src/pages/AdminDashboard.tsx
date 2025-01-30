@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { UserManagement } from "@/components/admin/users/UserManagement";
+import { BusinessManagement } from "@/components/admin/business/BusinessManagement";
 
 export default function AdminDashboard() {
   const [selectedTab, setSelectedTab] = useState("overview");
@@ -200,9 +201,10 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7 lg:w-[700px]">
+        <TabsList className="grid w-full grid-cols-8 lg:w-[800px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
+          <TabsTrigger value="business">Empresas</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="plans">Planos</TabsTrigger>
           <TabsTrigger value="modalities">Modalidades</TabsTrigger>
@@ -217,6 +219,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="users" className="space-y-4">
           <UserManagement />
+        </TabsContent>
+
+        <TabsContent value="business">
+          <BusinessManagement />
         </TabsContent>
 
         <TabsContent value="financial" className="space-y-4">
