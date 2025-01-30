@@ -37,7 +37,7 @@ export interface Plan {
   payment_rules?: {
     continue_without_use: boolean;
   };
-  category_id?: string;
+  category_ids?: string[];
   payment_methods: PaymentMethod[];
   check_in_rules: CheckInRules;
   validity_period?: string;
@@ -63,7 +63,7 @@ export const planFormSchema = z.object({
   payment_rules: z.object({
     continue_without_use: z.boolean()
   }).default({ continue_without_use: true }),
-  category_id: z.string().uuid().optional(),
+  category_ids: z.array(z.string().uuid()).default([]),
   payment_methods: z.array(z.enum(["credit_card", "pix", "boleto"])).default(["credit_card", "pix", "boleto"]),
   check_in_rules: z.object({
     daily_limit: z.number().nullable(),

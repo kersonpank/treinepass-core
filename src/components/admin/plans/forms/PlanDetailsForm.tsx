@@ -5,6 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { UseFormReturn } from "react-hook-form";
 import { PlanFormValues } from "../types/plan";
+import { MultipleSelect, TTag } from "@/components/ui/multiple-select";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PlanDetailsFormProps {
   form: UseFormReturn<PlanFormValues>;
@@ -12,6 +15,29 @@ interface PlanDetailsFormProps {
 
 export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
   const showSubsidyFields = form.watch("plan_type") === "corporate_subsidized";
+
+  // Query to fetch categories
+  const { data: categories, isLoading: isLoadingCategories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("academia_categorias")
+        .select("*")
+        .eq("active", true)
+        .order("ordem", { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const categoryTags: TTag[] = categories?.map(cat => ({
+    key: cat.id,
+    name: cat.nome
+  })) || [];
+
+  const selectedCategories = form.watch("category_ids") || [];
+  const defaultTags = categoryTags.filter(tag => selectedCategories.includes(tag.key));
 
   return (
     <div className="space-y-4">
@@ -107,6 +133,27 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
                 <SelectItem value="corporate_subsidized">Corporativo Subsidiado</SelectItem>
               </SelectContent>
             </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="category_ids"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Categorias</FormLabel>
+            <FormControl>
+              <MultipleSelect
+                tags={categoryTags}
+                onChange={(selected) => field.onChange(selected.map(s => s.key))}
+                defaultValue={defaultTags}
+              />
+            </FormControl>
+            <FormDescription>
+              As categorias definem quais academias este plano terá acesso
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}

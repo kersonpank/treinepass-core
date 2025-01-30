@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { planFormSchema } from "./types/plan";
+import { MultipleSelect, TTag } from "@/components/ui/multiple-select";
 
 type PlanFormValues = z.infer<typeof planFormSchema>;
 
@@ -42,6 +43,7 @@ const defaultValues: Partial<PlanFormValues> = {
   status: "active",
   payment_methods: ["credit_card"],
   auto_renewal: true,
+  category_ids: [],
   check_in_rules: {
     daily_limit: null,
     weekly_limit: null,
@@ -81,6 +83,11 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
     },
   });
 
+  const categoryTags: TTag[] = categories?.map(cat => ({
+    key: cat.id,
+    name: cat.nome
+  })) || [];
+
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
     defaultValues,
@@ -114,23 +121,43 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
         businessId = businessProfile.id;
       }
 
-      const { error } = await supabase.from("benefit_plans").insert({
+      // Create plan-category relationships for each selected category
+      const planData = {
         name: data.name,
         description: data.description,
         monthly_cost: Number(data.monthly_cost),
         plan_type: data.plan_type,
         period_type: data.period_type,
         status: data.status,
-        category_id: data.category_id,
         payment_methods: data.payment_methods,
         check_in_rules: data.check_in_rules,
         auto_renewal: data.auto_renewal,
         cancellation_rules: data.cancellation_rules,
         business_id: businessId,
         rules: {},
-      });
+      };
+
+      const { data: newPlan, error } = await supabase
+        .from("benefit_plans")
+        .insert(planData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Create plan-category relationships
+      if (data.category_ids.length > 0) {
+        const planCategories = data.category_ids.map(categoryId => ({
+          plan_id: newPlan.id,
+          category_id: categoryId
+        }));
+
+        const { error: categoriesError } = await supabase
+          .from("plan_categories")
+          .insert(planCategories);
+
+        if (categoriesError) throw categoriesError;
+      }
 
       toast({
         title: "Plano criado com sucesso!",
@@ -218,30 +245,19 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
 
               <FormField
                 control={form.control}
-                name="category_id"
+                name="category_ids"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Categoria</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a categoria" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {isLoadingCategories ? (
-                          <SelectItem value="loading" disabled>
-                            Carregando categorias...
-                          </SelectItem>
-                        ) : categories?.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.nome}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Categorias</FormLabel>
+                    <FormControl>
+                      <MultipleSelect
+                        tags={categoryTags}
+                        onChange={(selected) => field.onChange(selected.map(s => s.key))}
+                        defaultValue={defaultTags}
+                      />
+                    </FormControl>
                     <FormDescription>
-                      A categoria define quais academias este plano terá acesso
+                      As categorias definem quais academias este plano terá acesso
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
