@@ -6,26 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
-
-interface Modalidade {
-  nome: string;
-}
-
-interface AcademiaModalidade {
-  modalidade: Modalidade;
-}
-
-interface Gym {
-  id: string;
-  nome: string;
-  endereco: string;
-  telefone: string;
-  email: string;
-  horario_funcionamento: Record<string, any>;
-  fotos: string[];
-  descricao?: string;
-  academia_modalidades?: AcademiaModalidade[];
-}
+import { Gym } from "@/types/gym";
 
 export function GymProfile() {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +21,7 @@ export function GymProfile() {
           *,
           academia_modalidades (
             modalidade:modalidades (
+              id,
               nome
             )
           )
@@ -48,7 +30,7 @@ export function GymProfile() {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as Gym;
     },
   });
 
@@ -95,7 +77,6 @@ export function GymProfile() {
         Voltar
       </Button>
 
-      {/* Carrossel de Fotos */}
       {gym.fotos && gym.fotos.length > 0 && (
         <Carousel className="w-full max-w-3xl mx-auto">
           <CarouselContent>
@@ -116,7 +97,6 @@ export function GymProfile() {
         </Carousel>
       )}
 
-      {/* Informações da Academia */}
       <Card>
         <CardContent className="p-6 space-y-4">
           <h1 className="text-2xl font-bold">{gym.nome}</h1>

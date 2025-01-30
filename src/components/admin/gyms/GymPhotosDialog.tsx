@@ -52,12 +52,6 @@ export function GymPhotosDialog({
             .upload(filePath, compressedFile, {
               cacheControl: '3600',
               upsert: false,
-              onUploadProgress: (progress) => {
-                setUploadProgress(prev => ({
-                  ...prev,
-                  [fileName]: Math.round((progress.loaded / progress.total) * 100),
-                }));
-              },
             });
 
           if (uploadError) throw uploadError;
