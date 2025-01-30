@@ -43,6 +43,8 @@ export interface Plan {
   validity_period?: string;
   auto_renewal: boolean;
   cancellation_rules: CancellationRules;
+  employee_limit?: number | null;
+  user_final_cost?: number | null;
 }
 
 export const planFormSchema = z.object({
@@ -55,10 +57,10 @@ export const planFormSchema = z.object({
   period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
   status: z.enum(["active", "inactive"]),
   rules: z.record(z.any()).default({}),
-  subsidy_amount: z.number().optional(),
-  final_user_cost: z.number().optional(),
-  base_price: z.number().optional(),
-  platform_fee: z.number().optional(),
+  subsidy_amount: z.number().nullable().optional(),
+  final_user_cost: z.number().nullable().optional(),
+  base_price: z.number().nullable().optional(),
+  platform_fee: z.number().nullable().optional(),
   renewal_type: z.enum(["automatic", "manual"]).default("automatic"),
   payment_rules: z.object({
     continue_without_use: z.boolean()
