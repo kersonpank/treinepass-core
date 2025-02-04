@@ -11,25 +11,27 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Eye, Edit2, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Eye, Edit2, Trash2, CheckCircle2, XCircle, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Business } from "./types/business";
 import { BusinessDetailsDialog } from "./BusinessDetailsDialog";
 import { BusinessEditDialog } from "./BusinessEditDialog";
+import { ManagePlanSubscriptionDialog } from "./ManagePlanSubscriptionDialog";
 
 export function BusinessManagement() {
   const { toast } = useToast();
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
   
   const { data: businesses, isLoading, refetch } = useQuery({
     queryKey: ["businesses"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("business_profiles")
-        .select("*")
+        .select("*, user_plan_subscriptions(status)")
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -113,6 +115,7 @@ export function BusinessManagement() {
                 <TableHead>Email</TableHead>
                 <TableHead>Funcionários</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Plano</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -136,6 +139,19 @@ export function BusinessManagement() {
                       }
                     >
                       {business.status === "active" ? "Ativo" : business.status === "inactive" ? "Inativo" : "Pendente"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        business.user_plan_subscriptions?.[0]?.status === "active"
+                          ? "default"
+                          : "outline"
+                      }
+                    >
+                      {business.user_plan_subscriptions?.[0]?.status === "active"
+                        ? "Ativo"
+                        : "Sem plano"}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -170,6 +186,17 @@ export function BusinessManagement() {
                           <CheckCircle2 className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setSelectedBusiness(business);
+                          setIsPlanDialogOpen(true);
+                        }}
+                      >
+                        <CreditCard className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -219,6 +246,13 @@ export function BusinessManagement() {
         business={selectedBusiness}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
+        onSuccess={refetch}
+      />
+
+      <ManagePlanSubscriptionDialog
+        business={selectedBusiness}
+        open={isPlanDialogOpen}
+        onOpenChange={setIsPlanDialogOpen}
         onSuccess={refetch}
       />
     </Card>
