@@ -1,3 +1,4 @@
+import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Business } from "./types/business";
 import { useForm } from "react-hook-form";
@@ -115,7 +116,7 @@ export function BusinessEditDialog({ business, open, onOpenChange, onSuccess }: 
               <Label htmlFor="status">Status</Label>
               <Select 
                 defaultValue={business.status}
-                onValueChange={(value) => register("status").onChange({ target: { value } })}
+                onValueChange={(value) => setValue("status", value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o status" />
