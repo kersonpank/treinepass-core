@@ -29,16 +29,32 @@ export function BusinessManagement() {
   const { data: businesses, isLoading, refetch } = useQuery({
     queryKey: ["businesses"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Primeiro, buscar todas as empresas
+      const { data: businessData, error: businessError } = await supabase
         .from("business_profiles")
-        .select("*, user_plan_subscriptions(status)")
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching businesses:", error);
-        throw error;
-      }
-      return data as Business[];
+      if (businessError) throw businessError;
+
+      // Para cada empresa, buscar a assinatura de plano mais recente do usuário
+      const businessesWithPlans = await Promise.all(
+        businessData.map(async (business) => {
+          const { data: subscriptions } = await supabase
+            .from("user_plan_subscriptions")
+            .select("status")
+            .eq("user_id", business.user_id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          return {
+            ...business,
+            user_plan_subscriptions: subscriptions || []
+          };
+        })
+      );
+
+      return businessesWithPlans as Business[];
     },
   });
 
