@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut } from "lucide-react";
+import { LogOut, Edit2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -19,18 +19,21 @@ import { BenefitPlans } from "@/components/dashboard/BenefitPlans";
 import { UsageReports } from "@/components/dashboard/UsageReports";
 import { CostAnalysis } from "@/components/dashboard/CostAnalysis";
 import { Overview } from "@/components/dashboard/Overview";
+import { BusinessEditDialog } from "@/components/admin/business/BusinessEditDialog";
 
 export default function DashboardEmpresa() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // Fetch business profile
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile, isLoading, refetch } = useQuery({
     queryKey: ["businessProfile"],
     queryFn: async () => {
       const { data: profile, error } = await supabase
         .from("business_profiles")
         .select("*")
+        .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
         .single();
 
       if (error) {
@@ -78,9 +81,18 @@ export default function DashboardEmpresa() {
   return (
     <div className="flex min-h-screen flex-col space-y-6 p-8">
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">
-          Bem-vindo, {profile?.company_name}
-        </h2>
+        <div className="flex items-center space-x-4">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Bem-vindo, {profile?.company_name}
+          </h2>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsEditDialogOpen(true)}
+          >
+            <Edit2 className="h-4 w-4" />
+          </Button>
+        </div>
         <Button variant="outline" onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           Sair
@@ -116,6 +128,13 @@ export default function DashboardEmpresa() {
           <CostAnalysis />
         </TabsContent>
       </Tabs>
+
+      <BusinessEditDialog
+        business={profile}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSuccess={refetch}
+      />
     </div>
   );
 }

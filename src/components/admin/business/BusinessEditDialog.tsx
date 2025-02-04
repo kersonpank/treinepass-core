@@ -17,9 +17,21 @@ interface BusinessEditDialogProps {
 
 export function BusinessEditDialog({ business, open, onOpenChange, onSuccess }: BusinessEditDialogProps) {
   const { toast } = useToast();
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm<Business>({
-    defaultValues: business || undefined
-  });
+  const { register, handleSubmit, formState: { isSubmitting }, setValue } = useForm<Business>();
+
+  // Set form values when business data changes
+  React.useEffect(() => {
+    if (business) {
+      setValue("company_name", business.company_name);
+      setValue("email", business.email);
+      setValue("phone", business.phone);
+      setValue("address", business.address);
+      setValue("number_of_employees", business.number_of_employees);
+      setValue("contact_person", business.contact_person);
+      setValue("contact_position", business.contact_position);
+      setValue("status", business.status);
+    }
+  }, [business, setValue]);
 
   const onSubmit = async (data: Business) => {
     try {
