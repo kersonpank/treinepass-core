@@ -29,6 +29,7 @@ export function ManagePlanSubscriptionDialog({
       const { data, error } = await supabase
         .from("benefit_plans")
         .select("*")
+        .in("plan_type", ["corporate", "corporate_subsidized"])
         .eq("status", "active");
 
       if (error) throw error;
@@ -88,7 +89,7 @@ export function ManagePlanSubscriptionDialog({
               <SelectContent>
                 {plans?.map((plan) => (
                   <SelectItem key={plan.id} value={plan.id}>
-                    {plan.name}
+                    {plan.name} ({plan.plan_type === "corporate" ? "Corporativo" : "Corporativo Subsidiado"})
                   </SelectItem>
                 ))}
               </SelectContent>
