@@ -12,12 +12,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Eye, Trash2, CheckCircle2, XCircle } from "lucide-react";
+import { Edit2, Eye, Trash2, CheckCircle2, XCircle, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ManageUserPlanDialog } from "./ManageUserPlanDialog";
 
 interface UserType {
   type: string;
@@ -38,18 +39,17 @@ export function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
 
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      // Primeiro buscar todos os perfis de usuário
       const { data: profiles, error: profilesError } = await supabase
         .from("user_profiles")
         .select("*");
 
       if (profilesError) throw profilesError;
 
-      // Depois buscar os tipos de cada usuário
       const usersWithTypes = await Promise.all(
         profiles.map(async (profile) => {
           const { data: types, error: typesError } = await supabase
@@ -150,6 +150,11 @@ export function UserManagement() {
     }
   };
 
+  const handleManagePlan = (user: User) => {
+    setSelectedUser(user);
+    setIsPlanDialogOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -218,7 +223,6 @@ export function UserManagement() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
                         onClick={() => {
                           setSelectedUser(user);
                           setIsEditDialogOpen(true);
@@ -229,7 +233,6 @@ export function UserManagement() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
                         onClick={() => {
                           setSelectedUser(user);
                           setIsViewDialogOpen(true);
@@ -244,6 +247,14 @@ export function UserManagement() {
                         className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
                       >
                         <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleManagePlan(user)}
+                        className="h-8 w-8"
+                      >
+                        <CreditCard className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -374,6 +385,16 @@ export function UserManagement() {
           </Dialog>
         </>
       )}
+
+      <ManageUserPlanDialog
+        user={selectedUser}
+        open={isPlanDialogOpen}
+        onOpenChange={setIsPlanDialogOpen}
+        onSuccess={() => {
+          refetch();
+          setIsPlanDialogOpen(false);
+        }}
+      />
     </Card>
   );
 }

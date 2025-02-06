@@ -77,6 +77,7 @@ export type Database = {
       }
       academias: {
         Row: {
+          automatic_checkin: boolean | null
           categoria_id: string | null
           cnpj: string
           created_at: string | null
@@ -94,6 +95,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          automatic_checkin?: boolean | null
           categoria_id?: string | null
           cnpj: string
           created_at?: string | null
@@ -111,6 +113,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          automatic_checkin?: boolean | null
           categoria_id?: string | null
           cnpj?: string
           created_at?: string | null
@@ -445,6 +448,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "check_in_codes_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      check_ins: {
+        Row: {
+          academia_id: string | null
+          check_in_time: string | null
+          check_out_time: string | null
+          created_at: string | null
+          id: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          academia_id?: string | null
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          academia_id?: string | null
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_academia_id_fkey"
             columns: ["academia_id"]
             isOneToOne: false
             referencedRelation: "academias"
@@ -1097,6 +1138,12 @@ export type Database = {
           message: string
         }[]
       }
+      get_date_from_timestamp: {
+        Args: {
+          ts: string
+        }
+        Returns: string
+      }
       get_user_access_types: {
         Args: {
           p_user_id: string
@@ -1148,19 +1195,34 @@ export type Database = {
           message: string
         }[]
       }
-      validate_check_in_code: {
+      validate_check_in: {
         Args: {
-          p_code: string
+          p_user_id: string
           p_academia_id: string
         }
-        Returns: {
-          is_valid: boolean
-          message: string
-          id: string
-          user_id: string
-          user_name: string
-        }[]
+        Returns: boolean
       }
+      validate_check_in_code:
+        | {
+            Args: {
+              p_code: string
+              p_academia_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_code: string
+              p_academia_id: string
+            }
+            Returns: {
+              is_valid: boolean
+              message: string
+              id: string
+              user_id: string
+              user_name: string
+            }[]
+          }
     }
     Enums: {
       check_in_validation_method: "qr_code" | "manual_code"
