@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { QrScanner } from "@yudiel/react-qr-scanner";
+import { Scanner } from "@yudiel/react-qr-scanner";
 
 interface ManualCheckInProps {
   academiaId: string;
@@ -86,7 +86,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
       <CardContent className="space-y-4">
         {showScanner ? (
           <div className="space-y-4">
-            <QrScanner
+            <Scanner
               onDecode={handleScanResult}
               onError={(error) => {
                 console.error(error);
