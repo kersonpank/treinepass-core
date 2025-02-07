@@ -312,13 +312,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "benefit_usage_check_in_code_id_fkey"
-            columns: ["check_in_code_id"]
-            isOneToOne: false
-            referencedRelation: "check_in_codes"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "benefit_usage_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
@@ -411,88 +404,6 @@ export type Database = {
         }
         Relationships: []
       }
-      check_in_codes: {
-        Row: {
-          academia_id: string
-          code: string
-          created_at: string
-          expires_at: string
-          id: string
-          qr_data: Json
-          status: string
-          used_at: string | null
-          user_id: string
-        }
-        Insert: {
-          academia_id: string
-          code: string
-          created_at?: string
-          expires_at: string
-          id?: string
-          qr_data: Json
-          status?: string
-          used_at?: string | null
-          user_id: string
-        }
-        Update: {
-          academia_id?: string
-          code?: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-          qr_data?: Json
-          status?: string
-          used_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "check_in_codes_academia_id_fkey"
-            columns: ["academia_id"]
-            isOneToOne: false
-            referencedRelation: "academias"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      check_ins: {
-        Row: {
-          academia_id: string | null
-          check_in_time: string | null
-          check_out_time: string | null
-          created_at: string | null
-          id: string
-          status: string
-          user_id: string | null
-        }
-        Insert: {
-          academia_id?: string | null
-          check_in_time?: string | null
-          check_out_time?: string | null
-          created_at?: string | null
-          id?: string
-          status?: string
-          user_id?: string | null
-        }
-        Update: {
-          academia_id?: string | null
-          check_in_time?: string | null
-          check_out_time?: string | null
-          created_at?: string | null
-          id?: string
-          status?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "check_ins_academia_id_fkey"
-            columns: ["academia_id"]
-            isOneToOne: false
-            referencedRelation: "academias"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       employee_benefits: {
         Row: {
           created_at: string
@@ -584,6 +495,95 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_check_ins: {
+        Row: {
+          academia_id: string
+          check_in_time: string | null
+          check_out_time: string | null
+          created_at: string | null
+          id: string
+          qr_code_id: string | null
+          status: string
+          user_id: string
+          validation_method: string
+          valor_repasse: number | null
+        }
+        Insert: {
+          academia_id: string
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          id?: string
+          qr_code_id?: string | null
+          status?: string
+          user_id: string
+          validation_method: string
+          valor_repasse?: number | null
+        }
+        Update: {
+          academia_id?: string
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          id?: string
+          qr_code_id?: string | null
+          status?: string
+          user_id?: string
+          validation_method?: string
+          valor_repasse?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_check_ins_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_check_ins_qr_code_id_fkey"
+            columns: ["qr_code_id"]
+            isOneToOne: false
+            referencedRelation: "gym_qr_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_qr_codes: {
+        Row: {
+          academia_id: string
+          code: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          status: string
+        }
+        Insert: {
+          academia_id: string
+          code: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          academia_id?: string
+          code?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_qr_codes_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
             referencedColumns: ["id"]
           },
         ]
@@ -1232,6 +1232,18 @@ export type Database = {
               user_name: string
             }[]
           }
+      validate_gym_check_in: {
+        Args: {
+          p_user_id: string
+          p_academia_id: string
+          p_qr_code: string
+        }
+        Returns: {
+          success: boolean
+          message: string
+          check_in_id: string
+        }[]
+      }
     }
     Enums: {
       check_in_validation_method: "qr_code" | "manual_code" | "qr_scan"

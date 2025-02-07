@@ -1,200 +1,146 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { QRCodeSVG } from "qrcode.react";
-import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { differenceInSeconds } from "date-fns";
-import { CheckInCode } from "@/types/gym";
+import { supabase } from "@/integrations/supabase/client";
+import { QrScanner } from "@yudiel/react-qr-scanner";
 
 interface ManualCheckInProps {
   academiaId: string;
 }
 
 export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
-  const [code, setCode] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
-  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [code, setCode] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const generateCode = async () => {
+  const handleCheckIn = async (qrCode: string) => {
+    setIsProcessing(true);
+    try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Verificar se o usuário pode fazer check-in
-      const { data: validationResult, error: validationError } = await supabase
-        .rpc('can_user_check_in', {
-          p_user_id: user.id,
-          p_academia_id: academiaId
-        });
-
-      if (validationError || !validationResult?.[0]?.can_check_in) {
+      if (!user) {
         toast({
           variant: "destructive",
-          title: "Check-in não permitido",
-          description: validationResult?.[0]?.message || "Não foi possível validar o check-in",
+          title: "Erro",
+          description: "Você precisa estar logado para fazer check-in",
         });
         return;
       }
 
-      // Expire any existing active codes for this user and academia
-      const { error: updateError } = await supabase
-        .from("check_in_codes")
-        .update({ status: 'expired' })
-        .eq('user_id', user.id)
-        .eq('academia_id', academiaId)
-        .eq('status', 'active');
+      const { data, error } = await supabase.rpc('validate_gym_check_in', {
+        p_user_id: user.id,
+        p_academia_id: academiaId,
+        p_qr_code: qrCode
+      });
 
-      if (updateError) {
-        console.error('Error expiring existing codes:', updateError);
-        return;
-      }
+      if (error) throw error;
 
-      const qrCode = {
-        code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        academia_id: academiaId,
-      };
-
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      const { error } = await supabase
-        .from("check_in_codes")
-        .insert({
-          user_id: user.id,
-          academia_id: academiaId,
-          code: qrCode.code,
-          qr_data: qrCode,
-          expires_at: expiresAt.toISOString(),
-          status: "active",
+      const result = data[0];
+      
+      if (result.success) {
+        toast({
+          title: "Check-in realizado!",
+          description: result.message,
         });
-
-      if (error) {
-        console.error('Error generating new code:', error);
+        setShowScanner(false);
+        setCode("");
+      } else {
         toast({
           variant: "destructive",
-          title: "Erro ao gerar código",
-          description: "Não foi possível gerar o código de check-in",
+          title: "Erro no check-in",
+          description: result.message,
         });
-        return;
       }
-
-      setCode(qrCode.code);
-    };
-
-    // Only generate new codes if check-in is not confirmed
-    if (!isConfirmed) {
-      generateCode();
-      const interval = setInterval(generateCode, 5 * 60 * 1000); // Regenerate every 5 minutes
-      return () => clearInterval(interval);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao realizar check-in",
+        description: error.message,
+      });
+    } finally {
+      setIsProcessing(false);
     }
-  }, [academiaId, toast, isConfirmed]);
+  };
 
-  useEffect(() => {
-    if (!code || isConfirmed) return;
+  const handleScanResult = (result: string) => {
+    if (result && !isProcessing) {
+      handleCheckIn(result);
+    }
+  };
 
-    const checkStatus = async () => {
-      const { data: checkInCode } = await supabase
-        .from("check_in_codes")
-        .select("status, expires_at")
-        .eq("code", code)
-        .single();
-
-      if (checkInCode?.status === "used") {
-        setIsConfirmed(true);
-        toast({
-          title: "Check-in confirmado",
-          description: "Seu check-in foi confirmado com sucesso!",
-        });
-        return;
-      }
-
-      if (checkInCode) {
-        const secondsLeft = differenceInSeconds(
-          new Date(checkInCode.expires_at),
-          new Date()
-        );
-        
-        if (secondsLeft <= 0) {
-          setTimeLeft(0);
-        } else {
-          setTimeLeft(secondsLeft);
-        }
-      }
-    };
-
-    const timer = setInterval(checkStatus, 1000);
-    return () => clearInterval(timer);
-  }, [code, toast, isConfirmed]);
-
-  // If check-in is confirmed, show success message
-  if (isConfirmed) {
-    return (
-      <Card className="w-full">
-        <CardContent className="pt-6">
-          <div className="text-center space-y-2">
-            <div className="text-xl font-medium text-green-600">
-              Check-in confirmado com sucesso!
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const formatTimeLeft = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code) {
+      handleCheckIn(code);
+    }
   };
 
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Check-in Manual</CardTitle>
+        <CardTitle>Check-in</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="code" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="code">Código</TabsTrigger>
-            <TabsTrigger value="qr">QR Code</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="code" className="space-y-4">
-            <div className="text-center space-y-2">
-              <div className="text-3xl font-bold tracking-widest">
-                {code || "------"}
+      <CardContent className="space-y-4">
+        {showScanner ? (
+          <div className="space-y-4">
+            <QrScanner
+              onDecode={handleScanResult}
+              onError={(error) => {
+                console.error(error);
+                toast({
+                  variant: "destructive",
+                  title: "Erro no scanner",
+                  description: "Não foi possível acessar a câmera",
+                });
+              }}
+            />
+            <Button 
+              className="w-full" 
+              variant="outline" 
+              onClick={() => setShowScanner(false)}
+            >
+              Cancelar Scanner
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Button 
+              className="w-full" 
+              onClick={() => setShowScanner(true)}
+              disabled={isProcessing}
+            >
+              Escanear QR Code
+            </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
               </div>
-              <p className="text-sm text-muted-foreground">
-                Apresente este código na recepção
-              </p>
-              <p className="text-sm font-medium">
-                Novo código em: {formatTimeLeft(timeLeft)}
-              </p>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  ou digite o código
+                </span>
+              </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="qr" className="space-y-4">
-            <div className="flex justify-center">
-              {code && (
-                <QRCodeSVG
-                  value={JSON.stringify({
-                    code,
-                    academia_id: academiaId,
-                  })}
-                  size={200}
-                  level="H"
-                  includeMargin
-                  className="border-8 border-white rounded-lg shadow-lg"
-                />
-              )}
-            </div>
-            <p className="text-center text-sm text-muted-foreground">
-              Apresente este QR Code na recepção
-            </p>
-          </TabsContent>
-        </Tabs>
+            <form onSubmit={handleManualSubmit} className="space-y-4">
+              <Input
+                placeholder="Digite o código de check-in"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                maxLength={6}
+              />
+              <Button 
+                type="submit" 
+                className="w-full"
+                disabled={!code || isProcessing}
+              >
+                Validar Código
+              </Button>
+            </form>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

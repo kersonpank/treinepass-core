@@ -1,15 +1,16 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, QrCode, XCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { QRCodeSVG } from "qrcode.react";
 
 export function ValidateCheckIn() {
-  const [code, setCode] = useState("");
-  const [isValidating, setIsValidating] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     success: boolean;
     message: string;
@@ -17,69 +18,44 @@ export function ValidateCheckIn() {
   } | null>(null);
   const { toast } = useToast();
 
-  const validateCheckIn = async () => {
-    if (!code) {
-      toast({
-        variant: "destructive",
-        title: "Código inválido",
-        description: "Por favor, insira um código de check-in.",
-      });
-      return;
-    }
-
-    setIsValidating(true);
+  const generateQRCode = async () => {
+    setIsGenerating(true);
     try {
-      const { data, error } = await supabase.rpc('validate_check_in_code', {
-        p_code: code,
-        p_academia_id: "ACADEMIA_ID" // Você precisa obter o ID da academia do contexto ou props
-      });
+      // Generate random code
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      const { error } = await supabase
+        .from("gym_qr_codes")
+        .insert({
+          code,
+          academia_id: "ACADEMIA_ID", // Você precisa obter o ID da academia do contexto ou props
+          expires_at: expiresAt.toISOString(),
+        });
 
       if (error) throw error;
 
-      if (data[0].is_valid) {
-        // Registrar o check-in usando o ID do usuário retornado
-        const { data: checkInResult, error: checkInError } = await supabase.rpc(
-          'register_check_in',
-          {
-            p_check_in_code_id: data[0].id,
-            p_validation_method: 'manual_code'
-          }
-        );
+      setQrCode(code);
+      toast({
+        title: "QR Code gerado",
+        description: "Novo QR Code gerado com sucesso!",
+      });
 
-        if (checkInError) throw checkInError;
+      // Auto-expire after 5 minutes
+      setTimeout(() => {
+        setQrCode(null);
+        setValidationResult(null);
+      }, 5 * 60 * 1000);
 
-        setValidationResult({
-          success: true,
-          message: "Check-in confirmado com sucesso!",
-          userName: data[0].user_name
-        });
-
-        toast({
-          title: "Check-in confirmado",
-          description: `Check-in confirmado para ${data[0].user_name}`,
-        });
-      } else {
-        setValidationResult({
-          success: false,
-          message: data[0].message
-        });
-
-        toast({
-          variant: "destructive",
-          title: "Código inválido",
-          description: data[0].message,
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao validar check-in:", error);
+    } catch (error: any) {
+      console.error("Erro ao gerar QR code:", error);
       toast({
         variant: "destructive",
-        title: "Erro ao validar check-in",
-        description: "Não foi possível validar o check-in. Tente novamente.",
+        title: "Erro ao gerar QR Code",
+        description: "Não foi possível gerar o QR Code. Tente novamente.",
       });
     } finally {
-      setIsValidating(false);
-      setCode("");
+      setIsGenerating(false);
     }
   };
 
@@ -87,21 +63,39 @@ export function ValidateCheckIn() {
     <div className="space-y-4">
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Digite o código de check-in"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              maxLength={6}
-              className="flex-1"
-            />
-            <Button 
-              onClick={validateCheckIn} 
-              disabled={isValidating || !code}
-            >
-              Validar
-            </Button>
-          </div>
+          {qrCode ? (
+            <div className="flex flex-col items-center gap-4">
+              <QRCodeSVG
+                value={qrCode}
+                size={200}
+                level="H"
+                includeMargin
+                className="border-8 border-white rounded-lg shadow-lg"
+              />
+              <p className="text-lg font-semibold">Código: {qrCode}</p>
+              <p className="text-sm text-muted-foreground">
+                Este QR Code expira em 5 minutos
+              </p>
+              <Button
+                onClick={generateQRCode}
+                disabled={isGenerating}
+                variant="outline"
+              >
+                Gerar Novo QR Code
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <Button
+                onClick={generateQRCode}
+                disabled={isGenerating}
+                className="w-full md:w-auto"
+              >
+                <QrCode className="mr-2 h-4 w-4" />
+                Gerar QR Code para Check-in
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
