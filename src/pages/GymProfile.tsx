@@ -3,7 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { 
+  Carousel, 
+  CarouselContent, 
+  CarouselItem, 
+  CarouselNext, 
+  CarouselPrevious 
+} from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +31,7 @@ export function GymProfile() {
         .select(`
           *,
           academia_modalidades (
-            modalidade (
+            modalidade:modalidades (
               id,
               nome
             )
@@ -35,7 +41,9 @@ export function GymProfile() {
         .single();
 
       if (error) throw error;
-      return data as Gym;
+      
+      // Type assertion para garantir a estrutura correta
+      return data as unknown as Gym;
     },
   });
 

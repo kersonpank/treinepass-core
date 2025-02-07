@@ -43,19 +43,18 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
         return;
       }
 
-      // Verificar se o usuário tem plano ativo
-      const { data: subscription } = await supabase
-        .from("user_plan_subscriptions")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .maybeSingle();
+      // Verificar se o usuário pode fazer check-in
+      const { data: { can_check_in, message } } = await supabase
+        .rpc('can_user_check_in', {
+          p_user_id: user.id,
+          p_academia_id: academiaId
+        });
 
-      if (!subscription) {
+      if (!can_check_in) {
         toast({
           variant: "destructive",
-          title: "Plano Inativo",
-          description: "Você precisa ter um plano ativo para realizar o check-in",
+          title: "Check-in não permitido",
+          description: message,
         });
         return;
       }

@@ -6,6 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { differenceInSeconds } from "date-fns";
+import { CheckInCode } from "@/types/gym";
 
 interface ManualCheckInProps {
   academiaId: string;
@@ -21,24 +22,20 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Gerar código alfanumérico de 6 caracteres
-      const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      const qrData = {
-        user_id: user.id,
+      const qrCode = {
+        code: Math.random().toString(36).substring(2, 8).toUpperCase(),
         academia_id: academiaId,
-        generated_at: new Date().toISOString(),
-        code: newCode,
       };
+
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
       const { error } = await supabase
         .from("check_in_codes")
         .insert({
           user_id: user.id,
           academia_id: academiaId,
-          code: newCode,
-          qr_data: qrData,
+          code: qrCode.code,
+          qr_data: qrCode,
           expires_at: expiresAt.toISOString(),
           status: "active",
         });
@@ -52,7 +49,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         return;
       }
 
-      setCode(newCode);
+      setCode(qrCode.code);
     };
 
     generateCode();
@@ -69,7 +66,8 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         .from("check_in_codes")
         .select("expires_at")
         .eq("code", code)
-        .single();
+        .eq("status", "active")
+        .maybeSingle();
 
       if (checkInCode) {
         const secondsLeft = differenceInSeconds(
@@ -79,6 +77,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         
         if (secondsLeft <= 0) {
           setTimeLeft(0);
+          setCode(null);
         } else {
           setTimeLeft(secondsLeft);
         }

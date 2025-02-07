@@ -31,3 +31,23 @@ export interface GymCategory {
   descricao: string | null;
   active: boolean;
 }
+
+export interface CheckInCode {
+  id: string;
+  code: string;
+  user_id: string;
+  academia_id: string;
+  status: 'active' | 'used' | 'expired';
+  expires_at: string;
+  used_at?: string | null;
+  qr_data: {
+    code: string;
+    academia_id: string;
+  };
+}
+
+export interface AuthLayoutProps {
+  children: React.ReactNode;
+  title: string;
+  subtitle?: string;
+}
