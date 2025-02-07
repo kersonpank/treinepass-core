@@ -1,4 +1,3 @@
-
 import { Json } from "@/integrations/supabase/types";
 
 export interface Gym {
@@ -50,4 +49,14 @@ export interface AuthLayoutProps {
   children: React.ReactNode;
   title: string;
   subtitle?: string;
+}
+
+export interface CheckInValidation {
+  can_check_in: boolean;
+  message: string;
+}
+
+export interface CheckInResponse {
+  success: boolean;
+  message: string;
 }

@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CheckInValidation } from "@/types/gym";
 
 interface CheckInButtonProps {
   academiaId: string;
@@ -44,17 +45,19 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
       }
 
       // Verificar se o usuário pode fazer check-in
-      const { data: { can_check_in, message } } = await supabase
+      const { data: validationResult, error: validationError } = await supabase
         .rpc('can_user_check_in', {
           p_user_id: user.id,
           p_academia_id: academiaId
         });
 
-      if (!can_check_in) {
+      const validation = validationResult?.[0] as CheckInValidation;
+      
+      if (validationError || !validation.can_check_in) {
         toast({
           variant: "destructive",
           title: "Check-in não permitido",
-          description: message,
+          description: validation?.message || "Não foi possível validar o check-in",
         });
         return;
       }
@@ -65,6 +68,7 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
         .insert({
           user_id: user.id,
           academia_id: academiaId,
+          check_in_time: new Date().toISOString(),
           status: "active",
         });
 

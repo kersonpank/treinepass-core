@@ -22,6 +22,22 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Verificar se o usuário pode fazer check-in
+      const { data: validationResult, error: validationError } = await supabase
+        .rpc('can_user_check_in', {
+          p_user_id: user.id,
+          p_academia_id: academiaId
+        });
+
+      if (validationError || !validationResult?.[0]?.can_check_in) {
+        toast({
+          variant: "destructive",
+          title: "Check-in não permitido",
+          description: validationResult?.[0]?.message || "Não foi possível validar o check-in",
+        });
+        return;
+      }
+
       const qrCode = {
         code: Math.random().toString(36).substring(2, 8).toUpperCase(),
         academia_id: academiaId,
