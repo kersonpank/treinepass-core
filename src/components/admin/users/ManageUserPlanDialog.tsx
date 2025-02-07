@@ -25,7 +25,7 @@ export function ManageUserPlanDialog({
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<string>("");
 
-  const { data: plans } = useQuery({
+  const { data: plans = [], isLoading } = useQuery({
     queryKey: ["individualPlans"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -43,6 +43,24 @@ export function ManageUserPlanDialog({
     if (!selectedPlan || !user) return;
 
     try {
+      // Primeiro verifica se já existe uma assinatura ativa
+      const { data: existingSubscription } = await supabase
+        .from("user_plan_subscriptions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+      if (existingSubscription) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Usuário já possui um plano ativo",
+        });
+        return;
+      }
+
+      // Cria a nova assinatura
       const { error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
@@ -54,7 +72,7 @@ export function ManageUserPlanDialog({
 
       if (subscriptionError) throw subscriptionError;
 
-      // Update user profile active status
+      // Atualiza o status do usuário
       const { error: profileError } = await supabase
         .from("user_profiles")
         .update({ active: true })
@@ -78,6 +96,18 @@ export function ManageUserPlanDialog({
     }
   };
 
+  if (isLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <div className="flex items-center justify-center p-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -87,7 +117,8 @@ export function ManageUserPlanDialog({
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium">Usuário</label>
-            <p className="text-sm text-muted-foreground">{user?.full_name}</p>
+            <p className="text-sm text-muted-foreground">{user?.full_name || 'N/A'}</p>
+            <p className="text-xs text-muted-foreground">{user?.email || 'N/A'}</p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Selecione o Plano</label>
@@ -98,7 +129,7 @@ export function ManageUserPlanDialog({
               <SelectContent>
                 {plans?.map((plan) => (
                   <SelectItem key={plan.id} value={plan.id}>
-                    {plan.name} (Individual)
+                    {plan.name} ({plan.monthly_cost} R$)
                   </SelectItem>
                 ))}
               </SelectContent>
