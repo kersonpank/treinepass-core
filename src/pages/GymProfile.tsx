@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ export function GymProfile() {
         .select(`
           *,
           academia_modalidades (
-            modalidade:modalidades (
+            modalidade (
               id,
               nome
             )

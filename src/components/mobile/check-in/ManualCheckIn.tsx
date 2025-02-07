@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -63,8 +64,8 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   useEffect(() => {
     if (!code) return;
 
-    const updateTimer = () => {
-      const { data: checkInCode } = supabase
+    const updateTimer = async () => {
+      const { data: checkInCode } = await supabase
         .from("check_in_codes")
         .select("expires_at")
         .eq("code", code)

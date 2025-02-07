@@ -1,3 +1,4 @@
+
 import { Json } from "@/integrations/supabase/types";
 
 export interface Gym {
@@ -15,6 +16,7 @@ export interface Gym {
   categoria_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  automatic_checkin?: boolean;
   academia_modalidades?: {
     modalidade: {
       id: string;
@@ -28,24 +30,4 @@ export interface GymCategory {
   nome: string;
   descricao: string | null;
   active: boolean;
-}
-
-export interface RepassRule {
-  id: string;
-  checkins_minimos: number;
-  checkins_maximos?: number | null;
-  valor_repasse: number;
-}
-
-export interface User {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  cpf: string;
-  birth_date: string | null;
-  created_at: string;
-  updated_at: string;
-  user_types: {
-    type: "individual" | "business" | "gym" | "gym_owner" | "admin" | "app_user";
-  }[];
 }
