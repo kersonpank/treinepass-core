@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User } from "./types/user";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/utils";
 
 interface ManageUserPlanDialogProps {
   user: User | null;
@@ -24,8 +26,9 @@ export function ManageUserPlanDialog({
 }: ManageUserPlanDialogProps) {
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: plans = [], isLoading } = useQuery({
+  const { data: plans = [], isLoading: isLoadingPlans } = useQuery({
     queryKey: ["individualPlans"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -39,26 +42,44 @@ export function ManageUserPlanDialog({
     },
   });
 
+  const { data: activePlan, isLoading: isLoadingActivePlan } = useQuery({
+    queryKey: ["activePlan", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+
+      const { data, error } = await supabase
+        .from("user_plan_subscriptions")
+        .select(`
+          *,
+          benefit_plans (*)
+        `)
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
   const handleActivatePlan = async () => {
     if (!selectedPlan || !user) return;
 
     try {
-      // Verifica se já existe uma assinatura ativa
-      const { data: activeSubscriptions, error: subscriptionError } = await supabase
-        .from("user_plan_subscriptions")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "active");
+      setIsSubmitting(true);
 
-      if (subscriptionError) throw subscriptionError;
+      // Se existe um plano ativo, desativa-o primeiro
+      if (activePlan) {
+        const { error: deactivationError } = await supabase
+          .from("user_plan_subscriptions")
+          .update({ 
+            status: "cancelled",
+            end_date: new Date().toISOString()
+          })
+          .eq("id", activePlan.id);
 
-      if (activeSubscriptions && activeSubscriptions.length > 0) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Usuário já possui um plano ativo",
-        });
-        return;
+        if (deactivationError) throw deactivationError;
       }
 
       // Cria a nova assinatura
@@ -83,7 +104,9 @@ export function ManageUserPlanDialog({
 
       toast({
         title: "Sucesso",
-        description: "Plano ativado com sucesso",
+        description: activePlan 
+          ? "Plano alterado com sucesso" 
+          : "Plano ativado com sucesso",
       });
 
       onSuccess?.();
@@ -94,8 +117,12 @@ export function ManageUserPlanDialog({
         title: "Erro",
         description: error.message,
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const isLoading = isLoadingPlans || isLoadingActivePlan;
 
   if (isLoading) {
     return (
@@ -113,7 +140,7 @@ export function ManageUserPlanDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Ativar Plano para Usuário</DialogTitle>
+          <DialogTitle>Gerenciar Plano do Usuário</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
@@ -121,8 +148,32 @@ export function ManageUserPlanDialog({
             <p className="text-sm text-muted-foreground">{user?.full_name || 'N/A'}</p>
             <p className="text-xs text-muted-foreground">{user?.email || 'N/A'}</p>
           </div>
+
+          {activePlan && (
+            <div className="p-4 border rounded-lg bg-muted">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Plano Atual</span>
+                <Badge>{activePlan.status}</Badge>
+              </div>
+              <p className="text-sm">{activePlan.benefit_plans.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatCurrency(activePlan.benefit_plans.monthly_cost)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Início: {new Date(activePlan.start_date).toLocaleDateString()}
+              </p>
+              {activePlan.end_date && (
+                <p className="text-xs text-muted-foreground">
+                  Término: {new Date(activePlan.end_date).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
-            <label className="text-sm font-medium">Selecione o Plano</label>
+            <label className="text-sm font-medium">
+              {activePlan ? "Selecione o Novo Plano" : "Selecione o Plano"}
+            </label>
             <Select value={selectedPlan} onValueChange={setSelectedPlan}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um plano" />
@@ -130,7 +181,7 @@ export function ManageUserPlanDialog({
               <SelectContent>
                 {plans?.map((plan) => (
                   <SelectItem key={plan.id} value={plan.id}>
-                    {plan.name} ({plan.monthly_cost} R$)
+                    {plan.name} ({formatCurrency(plan.monthly_cost)})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -140,8 +191,17 @@ export function ManageUserPlanDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleActivatePlan} disabled={!selectedPlan}>
-              Ativar Plano
+            <Button 
+              onClick={handleActivatePlan} 
+              disabled={!selectedPlan || isSubmitting}
+            >
+              {isSubmitting ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : activePlan ? (
+                "Alterar Plano"
+              ) : (
+                "Ativar Plano"
+              )}
             </Button>
           </div>
         </div>
