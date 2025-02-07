@@ -6,15 +6,15 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
+  AlertDialogCancel,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -29,7 +29,6 @@ interface CheckInLimits {
 }
 
 export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showCheckInDialog, setShowCheckInDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
@@ -177,7 +176,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         <CardContent className="space-y-4">
           <Button 
             className="w-full" 
-            onClick={() => setShowConfirmDialog(true)}
+            onClick={() => setShowCheckInDialog(true)}
             disabled={isProcessing}
           >
             Realizar Check-in
@@ -186,33 +185,21 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         </CardContent>
       </Card>
 
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você deseja realizar o check-in nesta academia?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              setShowConfirmDialog(false);
-              setShowCheckInDialog(true);
-            }}>
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <AlertDialog open={showCheckInDialog} onOpenChange={setShowCheckInDialog}>
         <AlertDialogContent className="max-w-md">
-          <AlertDialogHeader>
+          <AlertDialogHeader className="relative">
             <AlertDialogTitle>Check-in</AlertDialogTitle>
             <AlertDialogDescription>
               Escolha como deseja realizar o check-in
             </AlertDialogDescription>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0"
+              onClick={() => setShowCheckInDialog(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </AlertDialogHeader>
           <Tabs defaultValue="qrcode" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -222,7 +209,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             <TabsContent value="qrcode" className="mt-4">
               <div className="py-2">
                 <Scanner
-                  onResult={handleScanResult}
+                  onDecode={handleScanResult}
                   onError={(error) => {
                     console.error(error);
                     toast({
@@ -232,6 +219,9 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
                     });
                   }}
                 />
+                <p className="text-sm text-center text-muted-foreground mt-2">
+                  Aponte a câmera para o QR Code da academia
+                </p>
               </div>
             </TabsContent>
             <TabsContent value="token" className="mt-4">
