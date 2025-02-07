@@ -43,15 +43,16 @@ export function ManageUserPlanDialog({
     if (!selectedPlan || !user) return;
 
     try {
-      // Primeiro verifica se já existe uma assinatura ativa
-      const { data: existingSubscription } = await supabase
+      // Verifica se já existe uma assinatura ativa
+      const { data: activeSubscriptions, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .select("*")
         .eq("user_id", user.id)
-        .eq("status", "active")
-        .single();
+        .eq("status", "active");
 
-      if (existingSubscription) {
+      if (subscriptionError) throw subscriptionError;
+
+      if (activeSubscriptions && activeSubscriptions.length > 0) {
         toast({
           variant: "destructive",
           title: "Erro",
@@ -61,7 +62,7 @@ export function ManageUserPlanDialog({
       }
 
       // Cria a nova assinatura
-      const { error: subscriptionError } = await supabase
+      const { error: newSubscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
           user_id: user.id,
@@ -70,7 +71,7 @@ export function ManageUserPlanDialog({
           status: "active",
         });
 
-      if (subscriptionError) throw subscriptionError;
+      if (newSubscriptionError) throw newSubscriptionError;
 
       // Atualiza o status do usuário
       const { error: profileError } = await supabase
