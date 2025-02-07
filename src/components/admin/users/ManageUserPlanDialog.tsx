@@ -54,6 +54,14 @@ export function ManageUserPlanDialog({
 
       if (subscriptionError) throw subscriptionError;
 
+      // Update user profile active status
+      const { error: profileError } = await supabase
+        .from("user_profiles")
+        .update({ active: true })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
       toast({
         title: "Sucesso",
         description: "Plano ativado com sucesso",
