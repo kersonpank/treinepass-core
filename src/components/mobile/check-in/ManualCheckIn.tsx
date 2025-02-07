@@ -6,7 +6,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, AlertCircle, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -15,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogDescription,
+  AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -30,11 +32,13 @@ interface CheckInLimits {
 
 export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   const [showCheckInDialog, setShowCheckInDialog] = useState(false);
+  const [showNoPlanDialog, setShowNoPlanDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
   const [accessCode, setAccessCode] = useState("");
   const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes in seconds
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Access code generation and refresh
   useEffect(() => {
@@ -88,11 +92,8 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
 
       if (limitsData?.[0]) {
         if (!limitsData[0].can_check_in) {
-          toast({
-            variant: "destructive",
-            title: "Erro no check-in",
-            description: limitsData[0].message,
-          });
+          setShowCheckInDialog(false);
+          setShowNoPlanDialog(true);
           return;
         }
 
@@ -147,11 +148,16 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           });
           setShowCheckInDialog(false);
         } else {
-          toast({
-            variant: "destructive",
-            title: "Erro no check-in",
-            description: checkInResult.message,
-          });
+          if (checkInResult.message.includes("plano ativo")) {
+            setShowCheckInDialog(false);
+            setShowNoPlanDialog(true);
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Erro no check-in",
+              description: checkInResult.message,
+            });
+          }
         }
       } catch (error: any) {
         toast({
@@ -162,6 +168,37 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
       } finally {
         setIsProcessing(false);
       }
+    }
+  };
+
+  const handleCheckInClick = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Você precisa estar logado para fazer check-in",
+        });
+        return;
+      }
+
+      const { data: limitsData } = await supabase.rpc('validate_check_in_rules', {
+        p_user_id: user.id,
+        p_academia_id: academiaId
+      });
+
+      if (limitsData?.[0] && !limitsData[0].can_check_in) {
+        setShowNoPlanDialog(true);
+      } else {
+        setShowCheckInDialog(true);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível verificar seu plano",
+      });
     }
   };
 
@@ -201,7 +238,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         <CardContent className="space-y-4">
           <Button 
             className="w-full" 
-            onClick={() => setShowCheckInDialog(true)}
+            onClick={handleCheckInClick}
             disabled={isProcessing}
           >
             Realizar Check-in
@@ -269,6 +306,34 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             <AlertDialogCancel onClick={() => setShowCheckInDialog(false)}>
               Fechar
             </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showNoPlanDialog} onOpenChange={setShowNoPlanDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              Plano Necessário
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Você precisa ter um plano ativo para realizar check-in. 
+              Que tal conhecer nossos planos disponíveis?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowNoPlanDialog(false);
+                navigate('/app/plans');
+              }}
+              className="flex items-center gap-2"
+            >
+              Ver Planos
+              <ArrowRight className="h-4 w-4" />
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
