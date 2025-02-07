@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,8 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { QRCodeSVG } from "qrcode.react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useParams } from "react-router-dom";
 
 export function ValidateCheckIn() {
+  const { id: academiaId } = useParams();
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [accessToken, setAccessToken] = useState("");
@@ -22,7 +24,43 @@ export function ValidateCheckIn() {
   } | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Subscribe to real-time check-ins
+    const channel = supabase
+      .channel('public:gym_check_ins')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'gym_check_ins',
+          filter: `academia_id=eq.${academiaId}`
+        },
+        (payload) => {
+          // Show a toast for new check-ins
+          toast({
+            title: "Novo check-in registrado",
+            description: "Um novo check-in foi registrado com sucesso!",
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [academiaId, toast]);
+
   const generateQRCode = async () => {
+    if (!academiaId) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "ID da academia não encontrado",
+      });
+      return;
+    }
+
     setIsGenerating(true);
     try {
       // Generate random code
@@ -33,7 +71,7 @@ export function ValidateCheckIn() {
         .from("gym_qr_codes")
         .insert({
           code,
-          academia_id: "ACADEMIA_ID", // Você precisa obter o ID da academia do contexto ou props
+          academia_id: academiaId,
           expires_at: expiresAt.toISOString(),
         });
 
@@ -64,6 +102,15 @@ export function ValidateCheckIn() {
   };
 
   const validateAccessToken = async () => {
+    if (!academiaId) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "ID da academia não encontrado",
+      });
+      return;
+    }
+
     if (!accessToken.trim()) {
       toast({
         variant: "destructive",
@@ -77,7 +124,7 @@ export function ValidateCheckIn() {
     try {
       const { data, error } = await supabase.rpc('validate_check_in_code', {
         p_code: accessToken,
-        p_academia_id: "ACADEMIA_ID" // Você precisa obter o ID da academia do contexto ou props
+        p_academia_id: academiaId
       });
 
       if (error) throw error;
@@ -209,3 +256,4 @@ export function ValidateCheckIn() {
     </div>
   );
 }
+
