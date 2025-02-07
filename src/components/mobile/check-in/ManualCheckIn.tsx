@@ -33,16 +33,40 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
   const [accessCode, setAccessCode] = useState("");
+  const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes in seconds
   const { toast } = useToast();
 
   // Access code generation and refresh
   useEffect(() => {
     if (showCheckInDialog) {
       generateAccessCode();
+      setTimeLeft(1200); // Reset timer when dialog opens
       const interval = setInterval(generateAccessCode, 1200000); // 20 minutes
       return () => clearInterval(interval);
     }
   }, [showCheckInDialog]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (showCheckInDialog && timeLeft > 0) {
+      const timer = setInterval(() => {
+        setTimeLeft((prevTime) => {
+          if (prevTime <= 1) {
+            generateAccessCode();
+            return 1200;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [showCheckInDialog, timeLeft]);
+
+  const formatTimeLeft = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+  };
 
   const generateAccessCode = async () => {
     try {
@@ -81,6 +105,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         // Generate a random 6-digit code
         const code = Math.random().toString(36).substring(2, 8).toUpperCase();
         setAccessCode(code);
+        setTimeLeft(1200); // Reset timer when new code is generated
       }
     } catch (error: any) {
       toast({
@@ -209,7 +234,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             <TabsContent value="qrcode" className="mt-4">
               <div className="py-2">
                 <Scanner
-                  onDecode={handleScanResult}
+                  onResult={handleScanResult}
                   onError={(error) => {
                     console.error(error);
                     toast({
@@ -233,8 +258,8 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
                   <div className="text-3xl font-mono font-bold tracking-wider bg-muted p-4 rounded-lg">
                     {accessCode}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Este código será atualizado a cada 20 minutos
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Este código expira em: {formatTimeLeft(timeLeft)}
                   </p>
                 </div>
               </div>
