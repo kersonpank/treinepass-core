@@ -77,6 +77,7 @@ export type Database = {
       }
       academias: {
         Row: {
+          automatic_checkin: boolean | null
           categoria_id: string | null
           cnpj: string
           created_at: string | null
@@ -94,6 +95,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          automatic_checkin?: boolean | null
           categoria_id?: string | null
           cnpj: string
           created_at?: string | null
@@ -111,6 +113,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          automatic_checkin?: boolean | null
           categoria_id?: string | null
           cnpj?: string
           created_at?: string | null
@@ -309,13 +312,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "benefit_usage_check_in_code_id_fkey"
-            columns: ["check_in_code_id"]
-            isOneToOne: false
-            referencedRelation: "check_in_codes"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "benefit_usage_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
@@ -408,50 +404,6 @@ export type Database = {
         }
         Relationships: []
       }
-      check_in_codes: {
-        Row: {
-          academia_id: string
-          code: string
-          created_at: string
-          expires_at: string
-          id: string
-          qr_data: Json
-          status: string
-          used_at: string | null
-          user_id: string
-        }
-        Insert: {
-          academia_id: string
-          code: string
-          created_at?: string
-          expires_at: string
-          id?: string
-          qr_data: Json
-          status?: string
-          used_at?: string | null
-          user_id: string
-        }
-        Update: {
-          academia_id?: string
-          code?: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-          qr_data?: Json
-          status?: string
-          used_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "check_in_codes_academia_id_fkey"
-            columns: ["academia_id"]
-            isOneToOne: false
-            referencedRelation: "academias"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       employee_benefits: {
         Row: {
           created_at: string
@@ -543,6 +495,102 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_check_ins: {
+        Row: {
+          academia_id: string
+          check_in_time: string | null
+          check_out_time: string | null
+          created_at: string | null
+          id: string
+          qr_code_id: string | null
+          status: string
+          user_id: string
+          validation_method: string
+          valor_repasse: number | null
+        }
+        Insert: {
+          academia_id: string
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          id?: string
+          qr_code_id?: string | null
+          status?: string
+          user_id: string
+          validation_method: string
+          valor_repasse?: number | null
+        }
+        Update: {
+          academia_id?: string
+          check_in_time?: string | null
+          check_out_time?: string | null
+          created_at?: string | null
+          id?: string
+          qr_code_id?: string | null
+          status?: string
+          user_id?: string
+          validation_method?: string
+          valor_repasse?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_user_profiles"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_check_ins_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_check_ins_qr_code_id_fkey"
+            columns: ["qr_code_id"]
+            isOneToOne: false
+            referencedRelation: "gym_qr_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_qr_codes: {
+        Row: {
+          academia_id: string
+          code: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          status: string
+        }
+        Insert: {
+          academia_id: string
+          code: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          academia_id?: string
+          code?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_qr_codes_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
             referencedColumns: ["id"]
           },
         ]
@@ -1004,6 +1052,7 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          active: boolean
           birth_date: string | null
           cpf: string
           created_at: string
@@ -1013,6 +1062,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          active?: boolean
           birth_date?: string | null
           cpf: string
           created_at?: string
@@ -1022,6 +1072,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          active?: boolean
           birth_date?: string | null
           cpf?: string
           created_at?: string
@@ -1097,6 +1148,12 @@ export type Database = {
           message: string
         }[]
       }
+      get_date_from_timestamp: {
+        Args: {
+          ts: string
+        }
+        Returns: string
+      }
       get_user_access_types: {
         Args: {
           p_user_id: string
@@ -1148,22 +1205,68 @@ export type Database = {
           message: string
         }[]
       }
-      validate_check_in_code: {
+      validate_check_in: {
         Args: {
-          p_code: string
+          p_user_id: string
+          p_academia_id: string
+        }
+        Returns: boolean
+      }
+      validate_check_in_code:
+        | {
+            Args: {
+              p_code: string
+              p_academia_id: string
+            }
+            Returns: {
+              is_valid: boolean
+              message: string
+              id: string
+              user_id: string
+              user_name: string
+            }[]
+          }
+        | {
+            Args: {
+              p_code: string
+              p_academia_id: string
+            }
+            Returns: {
+              is_valid: boolean
+              message: string
+              id: string
+              user_id: string
+              user_name: string
+            }[]
+          }
+      validate_check_in_rules: {
+        Args: {
+          p_user_id: string
           p_academia_id: string
         }
         Returns: {
-          is_valid: boolean
+          can_check_in: boolean
           message: string
-          id: string
-          user_id: string
-          user_name: string
+          remaining_daily: number
+          remaining_weekly: number
+          remaining_monthly: number
+        }[]
+      }
+      validate_gym_check_in: {
+        Args: {
+          p_user_id: string
+          p_academia_id: string
+          p_qr_code: string
+        }
+        Returns: {
+          success: boolean
+          message: string
+          check_in_id: string
         }[]
       }
     }
     Enums: {
-      check_in_validation_method: "qr_code" | "manual_code"
+      check_in_validation_method: "qr_code" | "manual_code" | "qr_scan"
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
       plan_subscription_status: "active" | "pending" | "expired" | "cancelled"
       user_role_type:

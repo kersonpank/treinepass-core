@@ -15,6 +15,7 @@ export interface Gym {
   categoria_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  automatic_checkin?: boolean;
   academia_modalidades?: {
     modalidade: {
       id: string;
@@ -30,22 +31,32 @@ export interface GymCategory {
   active: boolean;
 }
 
-export interface RepassRule {
+export interface CheckInCode {
   id: string;
-  checkins_minimos: number;
-  checkins_maximos?: number | null;
-  valor_repasse: number;
+  code: string;
+  user_id: string;
+  academia_id: string;
+  status: 'active' | 'used' | 'expired';
+  expires_at: string;
+  used_at?: string | null;
+  qr_data: {
+    code: string;
+    academia_id: string;
+  };
 }
 
-export interface User {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  cpf: string;
-  birth_date: string | null;
-  created_at: string;
-  updated_at: string;
-  user_types: {
-    type: "individual" | "business" | "gym" | "gym_owner" | "admin" | "app_user";
-  }[];
+export interface AuthLayoutProps {
+  children: React.ReactNode;
+  title: string;
+  subtitle?: string;
+}
+
+export interface CheckInValidation {
+  can_check_in: boolean;
+  message: string;
+}
+
+export interface CheckInResponse {
+  success: boolean;
+  message: string;
 }

@@ -1,84 +1,122 @@
+
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CheckInButtonProps {
   academiaId: string;
-  userId: string;
-  onSuccess: (checkInCode: any) => void;
-  disabled?: boolean;
+  automatic: boolean;
+  onManualCheckIn: () => void;
 }
 
-export function CheckInButton({ academiaId, userId, onSuccess, disabled }: CheckInButtonProps) {
+export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckInButtonProps) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const generateCheckInCode = async () => {
-    try {
-      // Verify if academia exists
-      const { data: academia, error: academiaError } = await supabase
-        .from("academias")
-        .select("id, nome")
-        .eq("id", academiaId)
-        .single();
+  const handleCheckIn = async () => {
+    if (!automatic) {
+      onManualCheckIn();
+      return;
+    }
 
-      if (academiaError || !academia) {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         toast({
           variant: "destructive",
-          title: "Erro ao gerar check-in",
-          description: "Academia não encontrada ou indisponível.",
+          title: "Erro",
+          description: "Você precisa estar logado para fazer check-in",
         });
         return;
       }
 
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-      const generatedAt = new Date().toISOString();
+      // Verificar se o usuário pode fazer check-in
+      const { data: validationResult, error: validationError } = await supabase
+        .rpc('validate_check_in_rules', {
+          p_user_id: user.id,
+          p_academia_id: academiaId
+        });
 
-      const qrData = {
-        user_id: userId,
-        academia_id: academiaId,
-        generated_at: generatedAt,
-        code,
-      };
+      const validation = validationResult?.[0];
+      
+      if (validationError || !validation?.can_check_in) {
+        toast({
+          variant: "destructive",
+          title: "Check-in não permitido",
+          description: validation?.message || "Não foi possível validar o check-in",
+        });
+        return;
+      }
 
-      const { data: checkInCode, error } = await supabase
-        .from("check_in_codes")
+      // Registrar check-in
+      const { error: checkInError } = await supabase
+        .from("gym_check_ins")
         .insert({
-          user_id: userId,
+          user_id: user.id,
           academia_id: academiaId,
-          code,
-          qr_data: qrData,
-          expires_at: expiresAt.toISOString(),
+          check_in_time: new Date().toISOString(),
           status: "active",
-        })
-        .select()
-        .single();
+          validation_method: "automatic"
+        });
 
-      if (error) throw error;
+      if (checkInError) throw checkInError;
 
       toast({
-        title: "Check-in gerado com sucesso!",
-        description: `Apresente o QR Code ou informe o código: ${code}`,
+        title: "Check-in realizado!",
+        description: "Check-in realizado com sucesso. Boas atividades!",
       });
-
-      onSuccess(checkInCode);
-    } catch (error) {
-      console.error("Error generating check-in:", error);
+    } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Erro ao gerar check-in",
-        description: "Não foi possível gerar o check-in. Tente novamente.",
+        title: "Erro ao realizar check-in",
+        description: error.message,
       });
+    } finally {
+      setIsLoading(false);
+      setShowConfirm(false);
     }
   };
 
   return (
-    <Button
-      onClick={generateCheckInCode}
-      disabled={disabled}
-      className="w-full"
-    >
-      Gerar Check-in
-    </Button>
+    <>
+      <Button
+        className="w-full"
+        size="lg"
+        onClick={() => setShowConfirm(true)}
+        disabled={isLoading}
+      >
+        Fazer Check-in
+      </Button>
+
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você confirma o check-in nesta academia?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCheckIn} disabled={isLoading}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
