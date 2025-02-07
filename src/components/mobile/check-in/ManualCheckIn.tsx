@@ -7,6 +7,16 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Scanner } from "@yudiel/react-qr-scanner";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ManualCheckInProps {
   academiaId: string;
@@ -19,14 +29,15 @@ interface CheckInLimits {
 }
 
 export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-  const [code, setCode] = useState("");
+  const [showCodeDisplay, setShowCodeDisplay] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
   const { toast } = useToast();
 
-  const handleCheckIn = async (qrCode: string) => {
-    setIsProcessing(true);
+  const generateAccessCode = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -38,65 +49,88 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         return;
       }
 
-      const { data, error } = await supabase.rpc('validate_gym_check_in', {
+      // Get updated check-in limits
+      const { data: limitsData } = await supabase.rpc('validate_check_in_rules', {
         p_user_id: user.id,
-        p_academia_id: academiaId,
-        p_qr_code: qrCode
+        p_academia_id: academiaId
       });
 
-      if (error) throw error;
-
-      const result = data[0];
-      
-      if (result.success) {
-        // Get updated check-in limits after successful check-in
-        const { data: limitsData } = await supabase.rpc('validate_check_in_rules', {
-          p_user_id: user.id,
-          p_academia_id: academiaId
-        });
-
-        if (limitsData?.[0]) {
-          setCheckInLimits({
-            remainingDaily: limitsData[0].remaining_daily,
-            remainingWeekly: limitsData[0].remaining_weekly,
-            remainingMonthly: limitsData[0].remaining_monthly
+      if (limitsData?.[0]) {
+        if (!limitsData[0].can_check_in) {
+          toast({
+            variant: "destructive",
+            title: "Erro no check-in",
+            description: limitsData[0].message,
           });
+          return;
         }
 
-        toast({
-          title: "Check-in realizado!",
-          description: result.message,
+        setCheckInLimits({
+          remainingDaily: limitsData[0].remaining_daily,
+          remainingWeekly: limitsData[0].remaining_weekly,
+          remainingMonthly: limitsData[0].remaining_monthly
         });
-        setShowScanner(false);
-        setCode("");
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Erro no check-in",
-          description: result.message,
-        });
+
+        // Generate a random 6-digit code
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        setAccessCode(code);
+        setShowCodeDisplay(true);
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Erro ao realizar check-in",
+        title: "Erro ao gerar código",
         description: error.message,
       });
-    } finally {
-      setIsProcessing(false);
     }
   };
 
-  const handleScanResult = (result: string) => {
+  const handleScanResult = async (result: string) => {
     if (result && !isProcessing) {
-      handleCheckIn(result);
-    }
-  };
+      setIsProcessing(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Você precisa estar logado para fazer check-in",
+          });
+          return;
+        }
 
-  const handleManualSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (code) {
-      handleCheckIn(code);
+        const { data, error } = await supabase.rpc('validate_gym_check_in', {
+          p_user_id: user.id,
+          p_academia_id: academiaId,
+          p_qr_code: result
+        });
+
+        if (error) throw error;
+
+        const checkInResult = data[0];
+        
+        if (checkInResult.success) {
+          toast({
+            title: "Check-in realizado!",
+            description: checkInResult.message,
+          });
+          setShowScanner(false);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Erro no check-in",
+            description: checkInResult.message,
+          });
+        }
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao realizar check-in",
+          description: error.message,
+        });
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -128,15 +162,79 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Check-in</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {showScanner ? (
-          <div className="space-y-4">
+    <>
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Check-in</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button 
+            className="w-full" 
+            onClick={() => setShowConfirmDialog(true)}
+            disabled={isProcessing}
+          >
+            Realizar Check-in
+          </Button>
+          {renderLimits()}
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você deseja realizar o check-in nesta academia?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowConfirmDialog(false);
+              if (showCodeDisplay) {
+                generateAccessCode();
+              } else {
+                setShowScanner(true);
+              }
+            }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showCodeDisplay} onOpenChange={setShowCodeDisplay}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Seu Código de Acesso</AlertDialogTitle>
+            <AlertDialogDescription>
+              Forneça este código para a academia:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-6">
+            <div className="text-center text-3xl font-mono font-bold tracking-wider">
+              {accessCode}
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowCodeDisplay(false)}>
+              Fechar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showScanner} onOpenChange={setShowScanner}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Escaneie o QR Code</AlertDialogTitle>
+            <AlertDialogDescription>
+              Posicione a câmera em frente ao QR Code da academia
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-6">
             <Scanner
-              onDecode={handleScanResult}
+              onResult={handleScanResult}
               onError={(error) => {
                 console.error(error);
                 toast({
@@ -146,52 +244,14 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
                 });
               }}
             />
-            <Button 
-              className="w-full" 
-              variant="outline" 
-              onClick={() => setShowScanner(false)}
-            >
-              Cancelar Scanner
-            </Button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <Button 
-              className="w-full" 
-              onClick={() => setShowScanner(true)}
-              disabled={isProcessing}
-            >
-              Escanear QR Code
-            </Button>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  ou digite o código
-                </span>
-              </div>
-            </div>
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <Input
-                placeholder="Digite o código de check-in"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                maxLength={6}
-              />
-              <Button 
-                type="submit" 
-                className="w-full"
-                disabled={!code || isProcessing}
-              >
-                Validar Código
-              </Button>
-            </form>
-          </div>
-        )}
-        {renderLimits()}
-      </CardContent>
-    </Card>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowScanner(false)}>
+              Cancelar
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
