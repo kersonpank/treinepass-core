@@ -241,7 +241,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             onClick={handleCheckInClick}
             disabled={isProcessing}
           >
-            Realizar Check-in
+            Fazer Check-in
           </Button>
           {renderLimits()}
         </CardContent>
@@ -271,7 +271,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             <TabsContent value="qrcode" className="mt-4">
               <div className="py-2">
                 <Scanner
-                  onResult={handleScanResult}
+                  onResult={(result) => handleScanResult(result)}
                   onError={(error) => {
                     console.error(error);
                     toast({
