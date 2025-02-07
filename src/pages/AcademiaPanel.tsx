@@ -1,8 +1,9 @@
+
 import { useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +12,7 @@ import { GymSettingsForm } from "@/components/gym/GymSettingsForm";
 import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
 import { StaffPanel } from "@/components/gym/panels/StaffPanel";
 import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
+import { AutoCheckInToggle } from "@/components/gym/AutoCheckInToggle";
 
 export default function AcademiaPanel() {
   const { id } = useParams<{ id: string }>();
@@ -108,13 +110,14 @@ export default function AcademiaPanel() {
           <h1 className="text-3xl font-bold">{academia.nome}</h1>
           <p className="text-gray-500">{academia.endereco}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link to="/gym/profile" className="flex items-center">
-              <Settings className="mr-2 h-4 w-4" />
-              Editar Perfil
-            </Link>
-          </Button>
+        <div className="flex gap-2 items-center">
+          <AutoCheckInToggle
+            academiaId={academia.id}
+            initialValue={academia.automatic_checkin || false}
+            onToggle={() => {
+              queryClient.invalidateQueries({ queryKey: ["academia", id] });
+            }}
+          />
           <Button variant="outline" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             Sair
