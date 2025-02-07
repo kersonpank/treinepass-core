@@ -7,20 +7,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Gym } from "@/types/gym";
-
-interface Modalidade {
-  nome: string;
-}
-
-interface AcademiaModalidade {
-  modalidade: Modalidade;
-}
+import { CheckInButton } from "@/components/mobile/check-in/CheckInButton";
+import { ManualCheckIn } from "@/components/mobile/check-in/ManualCheckIn";
+import { useState } from "react";
 
 export function GymProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [showManualCheckIn, setShowManualCheckIn] = useState(false);
 
-  const { data: gym, isLoading } = useQuery<Gym>({
+  const { data: gym, isLoading } = useQuery({
     queryKey: ["gym", id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -149,9 +145,15 @@ export function GymProfile() {
         </CardContent>
       </Card>
 
-      <Button className="w-full" size="lg" onClick={() => navigate(`/app/digital-card/${gym.id}`)}>
-        Fazer Check-in
-      </Button>
+      {showManualCheckIn ? (
+        <ManualCheckIn academiaId={gym.id} />
+      ) : (
+        <CheckInButton
+          academiaId={gym.id}
+          automatic={gym.automatic_checkin || false}
+          onManualCheckIn={() => setShowManualCheckIn(true)}
+        />
+      )}
     </div>
   );
 }

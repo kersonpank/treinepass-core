@@ -1208,7 +1208,13 @@ export type Database = {
               p_code: string
               p_academia_id: string
             }
-            Returns: boolean
+            Returns: {
+              is_valid: boolean
+              message: string
+              id: string
+              user_id: string
+              user_name: string
+            }[]
           }
         | {
             Args: {
@@ -1225,7 +1231,7 @@ export type Database = {
           }
     }
     Enums: {
-      check_in_validation_method: "qr_code" | "manual_code"
+      check_in_validation_method: "qr_code" | "manual_code" | "qr_scan"
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
       plan_subscription_status: "active" | "pending" | "expired" | "cancelled"
       user_role_type:
