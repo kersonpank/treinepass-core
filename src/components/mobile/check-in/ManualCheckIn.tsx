@@ -1,8 +1,7 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Scanner } from "@yudiel/react-qr-scanner";
@@ -17,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ManualCheckInProps {
   academiaId: string;
@@ -30,12 +30,20 @@ interface CheckInLimits {
 
 export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
-  const [showCodeDisplay, setShowCodeDisplay] = useState(false);
-  const [accessCode, setAccessCode] = useState("");
+  const [showCheckInDialog, setShowCheckInDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
+  const [accessCode, setAccessCode] = useState("");
   const { toast } = useToast();
+
+  // Access code generation and refresh
+  useEffect(() => {
+    if (showCheckInDialog) {
+      generateAccessCode();
+      const interval = setInterval(generateAccessCode, 1200000); // 20 minutes
+      return () => clearInterval(interval);
+    }
+  }, [showCheckInDialog]);
 
   const generateAccessCode = async () => {
     try {
@@ -74,7 +82,6 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         // Generate a random 6-digit code
         const code = Math.random().toString(36).substring(2, 8).toUpperCase();
         setAccessCode(code);
-        setShowCodeDisplay(true);
       }
     } catch (error: any) {
       toast({
@@ -114,7 +121,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             title: "Check-in realizado!",
             description: checkInResult.message,
           });
-          setShowScanner(false);
+          setShowCheckInDialog(false);
         } else {
           toast({
             variant: "destructive",
@@ -191,11 +198,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => {
               setShowConfirmDialog(false);
-              if (showCodeDisplay) {
-                generateAccessCode();
-              } else {
-                setShowScanner(true);
-              }
+              setShowCheckInDialog(true);
             }}>
               Confirmar
             </AlertDialogAction>
@@ -203,51 +206,53 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showCodeDisplay} onOpenChange={setShowCodeDisplay}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Seu Código de Acesso</AlertDialogTitle>
-            <AlertDialogDescription>
-              Forneça este código para a academia:
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-6">
-            <div className="text-center text-3xl font-mono font-bold tracking-wider">
-              {accessCode}
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowCodeDisplay(false)}>
-              Fechar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={showScanner} onOpenChange={setShowScanner}>
+      <AlertDialog open={showCheckInDialog} onOpenChange={setShowCheckInDialog}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Escaneie o QR Code</AlertDialogTitle>
+            <AlertDialogTitle>Check-in</AlertDialogTitle>
             <AlertDialogDescription>
-              Posicione a câmera em frente ao QR Code da academia
+              Escolha como deseja realizar o check-in
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="py-6">
-            <Scanner
-              onResult={handleScanResult}
-              onError={(error) => {
-                console.error(error);
-                toast({
-                  variant: "destructive",
-                  title: "Erro no scanner",
-                  description: "Não foi possível acessar a câmera",
-                });
-              }}
-            />
-          </div>
+          <Tabs defaultValue="qrcode" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="qrcode">QR Code</TabsTrigger>
+              <TabsTrigger value="token">Token de Acesso</TabsTrigger>
+            </TabsList>
+            <TabsContent value="qrcode" className="mt-4">
+              <div className="py-2">
+                <Scanner
+                  onResult={handleScanResult}
+                  onError={(error) => {
+                    console.error(error);
+                    toast({
+                      variant: "destructive",
+                      title: "Erro no scanner",
+                      description: "Não foi possível acessar a câmera",
+                    });
+                  }}
+                />
+              </div>
+            </TabsContent>
+            <TabsContent value="token" className="mt-4">
+              <div className="py-4 space-y-4">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Forneça este código para a academia:
+                  </p>
+                  <div className="text-3xl font-mono font-bold tracking-wider bg-muted p-4 rounded-lg">
+                    {accessCode}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Este código será atualizado a cada 20 minutos
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setShowScanner(false)}>
-              Cancelar
+            <AlertDialogCancel onClick={() => setShowCheckInDialog(false)}>
+              Fechar
             </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
