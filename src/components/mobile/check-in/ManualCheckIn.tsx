@@ -6,15 +6,23 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Scanner } from "@yudiel/react-qr-scanner";
+import { Badge } from "@/components/ui/badge";
 
 interface ManualCheckInProps {
   academiaId: string;
+}
+
+interface CheckInLimits {
+  remainingDaily: number | null;
+  remainingWeekly: number | null;
+  remainingMonthly: number | null;
 }
 
 export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   const [showScanner, setShowScanner] = useState(false);
   const [code, setCode] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
   const { toast } = useToast();
 
   const handleCheckIn = async (qrCode: string) => {
@@ -41,6 +49,20 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
       const result = data[0];
       
       if (result.success) {
+        // Get updated check-in limits after successful check-in
+        const { data: limitsData } = await supabase.rpc('validate_check_in_rules', {
+          p_user_id: user.id,
+          p_academia_id: academiaId
+        });
+
+        if (limitsData?.[0]) {
+          setCheckInLimits({
+            remainingDaily: limitsData[0].remaining_daily,
+            remainingWeekly: limitsData[0].remaining_weekly,
+            remainingMonthly: limitsData[0].remaining_monthly
+          });
+        }
+
         toast({
           title: "Check-in realizado!",
           description: result.message,
@@ -76,6 +98,33 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
     if (code) {
       handleCheckIn(code);
     }
+  };
+
+  const renderLimits = () => {
+    if (!checkInLimits) return null;
+
+    return (
+      <div className="space-y-2 mt-4">
+        {checkInLimits.remainingDaily !== null && (
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Restantes hoje:</span>
+            <Badge variant="secondary">{checkInLimits.remainingDaily}</Badge>
+          </div>
+        )}
+        {checkInLimits.remainingWeekly !== null && (
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Restantes na semana:</span>
+            <Badge variant="secondary">{checkInLimits.remainingWeekly}</Badge>
+          </div>
+        )}
+        {checkInLimits.remainingMonthly !== null && (
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Restantes no mês:</span>
+            <Badge variant="secondary">{checkInLimits.remainingMonthly}</Badge>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -141,6 +190,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             </form>
           </div>
         )}
+        {renderLimits()}
       </CardContent>
     </Card>
   );

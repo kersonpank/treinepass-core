@@ -538,6 +538,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_user_profiles"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "gym_check_ins_academia_id_fkey"
             columns: ["academia_id"]
             isOneToOne: false
@@ -1232,6 +1239,19 @@ export type Database = {
               user_name: string
             }[]
           }
+      validate_check_in_rules: {
+        Args: {
+          p_user_id: string
+          p_academia_id: string
+        }
+        Returns: {
+          can_check_in: boolean
+          message: string
+          remaining_daily: number
+          remaining_weekly: number
+          remaining_monthly: number
+        }[]
+      }
       validate_gym_check_in: {
         Args: {
           p_user_id: string

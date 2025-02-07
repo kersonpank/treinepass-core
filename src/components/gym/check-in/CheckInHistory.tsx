@@ -22,8 +22,10 @@ export function CheckInHistory() {
         .from("gym_check_ins")
         .select(`
           *,
-          user_profiles:user_id (
-            full_name
+          user:user_id (
+            full_name,
+            email,
+            cpf
           )
         `)
         .order("check_in_time", { ascending: false })
@@ -54,6 +56,7 @@ export function CheckInHistory() {
             <TableHeader>
               <TableRow>
                 <TableHead>Usuário</TableHead>
+                <TableHead>CPF</TableHead>
                 <TableHead>Data/Hora</TableHead>
                 <TableHead>Método</TableHead>
                 <TableHead>Status</TableHead>
@@ -64,8 +67,12 @@ export function CheckInHistory() {
               {checkIns?.map((checkIn) => (
                 <TableRow key={checkIn.id}>
                   <TableCell>
-                    {checkIn.user_profiles?.full_name || "Usuário não encontrado"}
+                    <div>
+                      <div className="font-medium">{checkIn.user?.full_name || "Usuário não encontrado"}</div>
+                      <div className="text-sm text-muted-foreground">{checkIn.user?.email}</div>
+                    </div>
                   </TableCell>
+                  <TableCell>{checkIn.user?.cpf}</TableCell>
                   <TableCell>
                     {format(new Date(checkIn.check_in_time), "PPpp", { locale: ptBR })}
                   </TableCell>
