@@ -15,6 +15,7 @@ interface ManualCheckInProps {
 export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   const [code, setCode] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  const [isConfirmed, setIsConfirmed] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -68,22 +69,32 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
       setCode(qrCode.code);
     };
 
-    generateCode();
-    const interval = setInterval(generateCode, 5 * 60 * 1000); // Regenerate every 5 minutes
-
-    return () => clearInterval(interval);
-  }, [academiaId, toast]);
+    // Only generate new codes if check-in is not confirmed
+    if (!isConfirmed) {
+      generateCode();
+      const interval = setInterval(generateCode, 5 * 60 * 1000); // Regenerate every 5 minutes
+      return () => clearInterval(interval);
+    }
+  }, [academiaId, toast, isConfirmed]);
 
   useEffect(() => {
-    if (!code) return;
+    if (!code || isConfirmed) return;
 
-    const updateTimer = async () => {
+    const checkStatus = async () => {
       const { data: checkInCode } = await supabase
         .from("check_in_codes")
-        .select("expires_at")
+        .select("status, expires_at")
         .eq("code", code)
-        .eq("status", "active")
-        .maybeSingle();
+        .single();
+
+      if (checkInCode?.status === "used") {
+        setIsConfirmed(true);
+        toast({
+          title: "Check-in confirmado",
+          description: "Seu check-in foi confirmado com sucesso!",
+        });
+        return;
+      }
 
       if (checkInCode) {
         const secondsLeft = differenceInSeconds(
@@ -93,16 +104,30 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         
         if (secondsLeft <= 0) {
           setTimeLeft(0);
-          setCode(null);
         } else {
           setTimeLeft(secondsLeft);
         }
       }
     };
 
-    const timer = setInterval(updateTimer, 1000);
+    const timer = setInterval(checkStatus, 1000);
     return () => clearInterval(timer);
-  }, [code]);
+  }, [code, toast, isConfirmed]);
+
+  // If check-in is confirmed, show success message
+  if (isConfirmed) {
+    return (
+      <Card className="w-full">
+        <CardContent className="pt-6">
+          <div className="text-center space-y-2">
+            <div className="text-xl font-medium text-green-600">
+              Check-in confirmado com sucesso!
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const formatTimeLeft = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -131,7 +156,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
                 Apresente este código na recepção
               </p>
               <p className="text-sm font-medium">
-                Expira em: {formatTimeLeft(timeLeft)}
+                Novo código em: {formatTimeLeft(timeLeft)}
               </p>
             </div>
           </TabsContent>
