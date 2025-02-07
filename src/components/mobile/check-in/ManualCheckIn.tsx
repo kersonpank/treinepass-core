@@ -39,6 +39,19 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         return;
       }
 
+      // Expire any existing active codes for this user and academia
+      const { error: updateError } = await supabase
+        .from("check_in_codes")
+        .update({ status: 'expired' })
+        .eq('user_id', user.id)
+        .eq('academia_id', academiaId)
+        .eq('status', 'active');
+
+      if (updateError) {
+        console.error('Error expiring existing codes:', updateError);
+        return;
+      }
+
       const qrCode = {
         code: Math.random().toString(36).substring(2, 8).toUpperCase(),
         academia_id: academiaId,
@@ -58,6 +71,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         });
 
       if (error) {
+        console.error('Error generating new code:', error);
         toast({
           variant: "destructive",
           title: "Erro ao gerar código",
