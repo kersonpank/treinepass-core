@@ -1241,18 +1241,32 @@ export type Database = {
           remaining_monthly: number
         }[]
       }
-      validate_gym_check_in: {
-        Args: {
-          p_user_id: string
-          p_academia_id: string
-          p_qr_code: string
-        }
-        Returns: {
-          success: boolean
-          message: string
-          check_in_id: string
-        }[]
-      }
+      validate_gym_check_in:
+        | {
+            Args: {
+              p_user_id: string
+              p_academia_id: string
+              p_qr_code: string
+            }
+            Returns: {
+              success: boolean
+              message: string
+              check_in_id: string
+            }[]
+          }
+        | {
+            Args: {
+              p_user_id: string
+              p_academia_id: string
+              p_qr_code: string
+              p_validation_method?: string
+            }
+            Returns: {
+              success: boolean
+              message: string
+              check_in_id: string
+            }[]
+          }
     }
     Enums: {
       check_in_validation_method: "qr_code" | "manual_code" | "qr_scan"
