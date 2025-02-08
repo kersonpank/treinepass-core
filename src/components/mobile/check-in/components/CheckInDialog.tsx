@@ -19,7 +19,7 @@ interface CheckInDialogProps {
   onOpenChange: (open: boolean) => void;
   accessCode: string;
   timeLeft: number;
-  onScan: (result: string) => void;
+  onScan: (result: string, method: 'qr_code' | 'token') => void;
 }
 
 export function CheckInDialog({ 

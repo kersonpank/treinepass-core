@@ -1215,33 +1215,19 @@ export type Database = {
         }
         Returns: boolean
       }
-      validate_check_in_code:
-        | {
-            Args: {
-              p_code: string
-              p_academia_id: string
-            }
-            Returns: {
-              is_valid: boolean
-              message: string
-              id: string
-              user_id: string
-              user_name: string
-            }[]
-          }
-        | {
-            Args: {
-              p_code: string
-              p_academia_id: string
-            }
-            Returns: {
-              is_valid: boolean
-              message: string
-              id: string
-              user_id: string
-              user_name: string
-            }[]
-          }
+      validate_check_in_code: {
+        Args: {
+          p_code: string
+          p_academia_id: string
+        }
+        Returns: {
+          is_valid: boolean
+          message: string
+          id: string
+          user_id: string
+          user_name: string
+        }[]
+      }
       validate_check_in_rules: {
         Args: {
           p_user_id: string

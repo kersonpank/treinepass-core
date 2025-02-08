@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,7 +95,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
     }
   };
 
-  const handleScanResult = async (result: string) => {
+  const handleScanResult = async (result: string, method: 'qr_code' | 'token') => {
     if (result && !isProcessing) {
       setIsProcessing(true);
       try {
@@ -113,11 +112,13 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         // Log for debugging
         console.log("Scan result:", result);
         console.log("Academia ID:", academiaId);
+        console.log("Validation method:", method);
 
         const { data, error } = await supabase.rpc('validate_gym_check_in', {
           p_user_id: user.id,
           p_academia_id: academiaId,
-          p_qr_code: result
+          p_qr_code: result,
+          p_validation_method: method
         });
 
         if (error) {

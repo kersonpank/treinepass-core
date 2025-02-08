@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { QrReader } from "react-qr-reader";
 
 interface QRCodeScannerProps {
-  onScan: (result: string) => void;
+  onScan: (result: string, method: 'qr_code' | 'token') => void;
 }
 
 export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
@@ -37,7 +37,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
         const audio = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Bt8Qg==");
         audio.play().catch(e => console.log("Audio play failed:", e));
 
-        onScan(cleanCode);
+        onScan(cleanCode, 'qr_code');
       } catch (e) {
         console.error("Error processing QR code:", e);
         toast({
@@ -58,7 +58,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
       });
       return;
     }
-    onScan(manualCode.trim());
+    onScan(manualCode.trim(), 'token');
   };
 
   if (hasError) {
@@ -90,7 +90,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
             facingMode: "environment"
           }}
           videoId="qr-video"
-          scanDelay={200} // Reduzido para 200ms para escaneamento mais rápido
+          scanDelay={200}
           className="w-full aspect-square"
           ViewFinder={() => (
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 pointer-events-none">
