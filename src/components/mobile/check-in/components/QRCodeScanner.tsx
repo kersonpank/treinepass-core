@@ -64,8 +64,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     <div className="space-y-4">
       <div className="space-y-2">
         <Scanner
-          scanDelay={500}
-          onDecode={handleScan}
+          onResult={(result) => handleScan(result.getText())}
           onError={(error) => {
             console.error("Scanner error:", error);
             setHasError(true);
