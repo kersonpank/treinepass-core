@@ -12,9 +12,11 @@ interface QRCodeScannerProps {
 export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   const { toast } = useToast();
   const [manualCode, setManualCode] = useState("");
+  const [hasError, setHasError] = useState(false);
 
   const handleScan = (result: string) => {
     try {
+      console.log("QR Code scan result:", result);
       // Try to parse the QR code data if it's JSON
       const data = JSON.parse(result);
       if (data.code) {
@@ -25,6 +27,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
       }
     } catch (e) {
       // If JSON parsing fails, use the raw string
+      console.log("Using raw QR code string:", result);
       onScan(result);
     }
   };
@@ -41,13 +44,34 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     onScan(manualCode.trim());
   };
 
+  if (hasError) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-center text-destructive">
+          Não foi possível acessar a câmera. Por favor, insira o código manualmente.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Digite o código manualmente"
+            value={manualCode}
+            onChange={(e) => setManualCode(e.target.value)}
+          />
+          <Button onClick={handleManualSubmit}>
+            Validar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <Scanner
-          onResult={(result) => handleScan(result)}
+          onResult={(result) => handleScan(result.getText())}
           onError={(error) => {
             console.error("Scanner error:", error);
+            setHasError(true);
             toast({
               variant: "destructive",
               title: "Erro no scanner",
