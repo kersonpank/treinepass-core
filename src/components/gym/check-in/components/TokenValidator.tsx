@@ -50,13 +50,16 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         academiaId: academiaId
       });
 
-      // Primeiro, verificar token de acesso direto no gym_check_ins
-      const { data: accessTokenData, error: accessTokenError } = await supabase
+      // Verificar token de acesso
+      const { data: checkInData, error: checkInError } = await supabase
         .from('gym_check_ins')
         .select(`
           id,
           user_id,
-          user_profiles!inner (
+          status,
+          expires_at,
+          check_in_time,
+          user_profiles (
             full_name
           )
         `)
@@ -64,88 +67,42 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         .eq('academia_id', academiaId)
         .eq('validation_method', 'access_token')
         .eq('status', 'active')
-        .maybeSingle();
+        .gt('expires_at', new Date().toISOString())
+        .single();
 
-      console.log("Resultado da validação do token de acesso:", { accessTokenData, accessTokenError });
+      console.log("Resultado da validação:", { checkInData, checkInError });
 
-      if (accessTokenError) throw accessTokenError;
+      if (checkInError) throw checkInError;
 
-      if (accessTokenData) {
-        const userName = accessTokenData.user_profiles?.full_name || 'usuário';
+      if (!checkInData) {
         setValidationResult({
-          success: true,
-          message: "Check-in validado com sucesso",
-          userName: userName
-        });
-
-        toast({
-          title: "Check-in válido",
-          description: `Check-in confirmado para ${userName}`,
+          success: false,
+          message: "Token inválido ou expirado"
         });
         return;
       }
 
-      // Se não encontrou como token de acesso, verificar QR code
-      const { data: qrCodeData, error: qrCodeError } = await supabase
-        .from('gym_qr_codes')
-        .select(`
-          id,
-          code,
-          academia_id,
-          expires_at,
-          status
-        `)
-        .eq('code', accessToken.toUpperCase())
-        .eq('academia_id', academiaId)
-        .eq('status', 'active')
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle();
+      // Se o token é válido, atualizar o status e registrar o check-in
+      const { error: updateError } = await supabase
+        .from('gym_check_ins')
+        .update({
+          status: 'used',
+          check_in_time: new Date().toISOString()
+        })
+        .eq('id', checkInData.id);
 
-      console.log("Resultado da validação do QR Code:", { qrCodeData, qrCodeError });
+      if (updateError) throw updateError;
 
-      if (qrCodeError) throw qrCodeError;
-
-      if (qrCodeData) {
-        const { data: checkInData, error: checkInError } = await supabase
-          .from('gym_check_ins')
-          .select(`
-            id,
-            user_id,
-            user_profiles!inner (
-              full_name
-            )
-          `)
-          .eq('qr_code_id', qrCodeData.id)
-          .maybeSingle();
-
-        if (checkInError) throw checkInError;
-
-        if (checkInData) {
-          const userName = checkInData.user_profiles?.full_name || 'usuário';
-          setValidationResult({
-            success: true,
-            message: "Check-in validado com sucesso",
-            userName: userName
-          });
-
-          toast({
-            title: "Check-in válido",
-            description: `Check-in confirmado para ${userName}`,
-          });
-          return;
-        }
-      }
-
-      // Se não encontrou nenhum token válido
+      const userName = checkInData.user_profiles?.full_name || 'usuário';
       setValidationResult({
-        success: false,
-        message: "Token inválido ou expirado"
+        success: true,
+        message: "Check-in validado com sucesso",
+        userName: userName
       });
 
       toast({
-        variant: "destructive",
-        title: "Token inválido",
-        description: "Token inválido ou expirado",
+        title: "Check-in válido",
+        description: `Check-in confirmado para ${userName}`,
       });
 
     } catch (error: any) {
@@ -154,6 +111,10 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         variant: "destructive",
         title: "Erro na validação",
         description: "Não foi possível validar o token. Tente novamente.",
+      });
+      setValidationResult({
+        success: false,
+        message: "Erro ao validar token"
       });
     } finally {
       setIsValidating(false);
