@@ -78,12 +78,29 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         return;
       }
 
+      // Calcular o valor de repasse baseado no número de check-ins do mês
+      const { data: monthlyCheckins } = await supabase
+        .from('gym_check_ins')
+        .select('id')
+        .eq('academia_id', academiaId)
+        .gte('check_in_time', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+        .lte('check_in_time', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString());
+
+      const { data: repasseData } = await supabase
+        .rpc('get_valor_repasse_academia', {
+          p_academia_id: academiaId,
+          p_num_checkins: (monthlyCheckins?.length || 0)
+        });
+
+      const valorRepasse = repasseData?.[0]?.valor_repasse || 0;
+
       // Atualizar o status do check-in para usado
       const { error: updateError } = await supabase
         .from('gym_check_ins')
         .update({
           status: 'used',
-          check_in_time: new Date().toISOString()
+          check_in_time: new Date().toISOString(),
+          valor_repasse: valorRepasse
         })
         .eq('id', checkIn.id)
         .eq('status', 'active'); // Garantir que ainda está ativo
