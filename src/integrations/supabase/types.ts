@@ -509,6 +509,7 @@ export type Database = {
           check_out_time: string | null
           code: string | null
           created_at: string | null
+          expires_at: string | null
           id: string
           qr_code_id: string | null
           status: string
@@ -522,6 +523,7 @@ export type Database = {
           check_out_time?: string | null
           code?: string | null
           created_at?: string | null
+          expires_at?: string | null
           id?: string
           qr_code_id?: string | null
           status?: string
@@ -535,6 +537,7 @@ export type Database = {
           check_out_time?: string | null
           code?: string | null
           created_at?: string | null
+          expires_at?: string | null
           id?: string
           qr_code_id?: string | null
           status?: string
