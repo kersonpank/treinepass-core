@@ -505,6 +505,7 @@ export type Database = {
       gym_check_ins: {
         Row: {
           academia_id: string
+          access_token: string | null
           check_in_time: string | null
           check_out_time: string | null
           code: string | null
@@ -513,12 +514,14 @@ export type Database = {
           id: string
           qr_code_id: string | null
           status: string
+          token_expires_at: string | null
           user_id: string
           validation_method: string
           valor_repasse: number | null
         }
         Insert: {
           academia_id: string
+          access_token?: string | null
           check_in_time?: string | null
           check_out_time?: string | null
           code?: string | null
@@ -527,12 +530,14 @@ export type Database = {
           id?: string
           qr_code_id?: string | null
           status?: string
+          token_expires_at?: string | null
           user_id: string
           validation_method: string
           valor_repasse?: number | null
         }
         Update: {
           academia_id?: string
+          access_token?: string | null
           check_in_time?: string | null
           check_out_time?: string | null
           code?: string | null
@@ -541,6 +546,7 @@ export type Database = {
           id?: string
           qr_code_id?: string | null
           status?: string
+          token_expires_at?: string | null
           user_id?: string
           validation_method?: string
           valor_repasse?: number | null

@@ -46,26 +46,34 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
     setIsValidating(true);
     try {
       console.log("Validando token:", {
-        code: accessToken,
+        token: accessToken,
         academiaId: academiaId
       });
 
-      // Simplificando a query para verificar apenas o token ativo
-      const { data: checkInData, error: checkInError } = await supabase
+      // Verificar se existe um check-in com este token
+      const { data: checkIn, error: checkInError } = await supabase
         .from('gym_check_ins')
-        .select('*, user_profiles:user_id(full_name)')
-        .eq('code', accessToken.toUpperCase())
+        .select(`
+          id,
+          user_id,
+          access_token,
+          token_expires_at,
+          user_profiles:user_id (
+            full_name
+          )
+        `)
+        .eq('access_token', accessToken.toUpperCase())
         .eq('academia_id', academiaId)
-        .eq('validation_method', 'access_token')
         .eq('status', 'active')
-        .gt('expires_at', new Date().toISOString())
+        .eq('validation_method', 'access_token')
+        .gt('token_expires_at', new Date().toISOString())
         .maybeSingle();
 
-      console.log("Resultado da validação:", { checkInData, checkInError });
+      console.log("Resultado da busca:", { checkIn, checkInError });
 
       if (checkInError) throw checkInError;
 
-      if (!checkInData) {
+      if (!checkIn) {
         setValidationResult({
           success: false,
           message: "Token inválido ou expirado"
@@ -73,18 +81,18 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         return;
       }
 
-      // Se o token é válido, atualizar o status
+      // Atualizar o status do check-in para usado
       const { error: updateError } = await supabase
         .from('gym_check_ins')
         .update({
           status: 'used',
           check_in_time: new Date().toISOString()
         })
-        .eq('id', checkInData.id);
+        .eq('id', checkIn.id);
 
       if (updateError) throw updateError;
 
-      const userName = checkInData.user_profiles?.full_name || 'usuário';
+      const userName = checkIn.user_profiles?.full_name || 'usuário';
       setValidationResult({
         success: true,
         message: "Check-in validado com sucesso",
