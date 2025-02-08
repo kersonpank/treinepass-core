@@ -86,7 +86,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
             facingMode: "environment"
           }}
           videoId="qr-video"
-          scanDelay={500}
+          scanDelay={300} // Reduzido de 500ms para 300ms para escaneamento mais rápido
           className="w-full aspect-square"
           ViewFinder={() => (
             <div className="border-2 border-primary rounded-lg absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48" />
