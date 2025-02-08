@@ -50,30 +50,27 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         academiaId: academiaId
       });
 
-      // Buscar check-in correspondente ao token do usuário
-      const { data: checkInData, error: checkInError } = await supabase
-        .from('gym_check_ins')
+      // Buscar QR code correspondente ao token
+      const { data: qrCodeData, error: qrCodeError } = await supabase
+        .from('gym_qr_codes')
         .select(`
           id,
-          user_id,
-          academia_id,
-          check_in_time,
           code,
-          user_profiles!inner (
-            full_name
-          )
+          academia_id,
+          expires_at,
+          status
         `)
         .eq('code', accessToken.toUpperCase())
         .eq('academia_id', academiaId)
         .eq('status', 'active')
-        .gt('check_in_time', new Date(Date.now() - 20 * 60 * 1000).toISOString()) // 20 minutos atrás
+        .gt('expires_at', new Date().toISOString())
         .maybeSingle();
 
-      console.log("Resultado da validação:", { checkInData, checkInError });
+      console.log("Resultado da validação do QR Code:", { qrCodeData, qrCodeError });
 
-      if (checkInError) throw checkInError;
+      if (qrCodeError) throw qrCodeError;
 
-      if (!checkInData) {
+      if (!qrCodeData) {
         setValidationResult({
           success: false,
           message: "Token inválido ou expirado"
@@ -87,19 +84,24 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         return;
       }
 
-      // Se encontrou o check-in, validar
-      const { data: validationData, error: validationError } = await supabase.rpc('validate_gym_check_in', {
-        p_user_id: checkInData.user_id,
-        p_academia_id: academiaId,
-        p_qr_code: accessToken.toUpperCase(),
-        p_validation_method: 'token'
-      });
+      // Buscar check-in associado ao QR code para obter informações do usuário
+      const { data: checkInData, error: checkInError } = await supabase
+        .from('gym_check_ins')
+        .select(`
+          id,
+          user_id,
+          user_profiles!inner (
+            full_name
+          )
+        `)
+        .eq('qr_code_id', qrCodeData.id)
+        .maybeSingle();
 
-      console.log("Resultado do check-in:", { validationData, validationError });
+      console.log("Dados do check-in:", { checkInData, checkInError });
 
-      if (validationError) throw validationError;
+      if (checkInError) throw checkInError;
 
-      const userName = checkInData.user_profiles?.full_name || 'usuário';
+      const userName = checkInData?.user_profiles?.full_name || 'usuário';
 
       setValidationResult({
         success: true,
