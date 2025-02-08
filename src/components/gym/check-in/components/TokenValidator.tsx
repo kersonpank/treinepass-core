@@ -50,19 +50,10 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         academiaId: academiaId
       });
 
-      // Verificar token de acesso
+      // Simplificando a query para verificar apenas o token ativo
       const { data: checkInData, error: checkInError } = await supabase
         .from('gym_check_ins')
-        .select(`
-          id,
-          user_id,
-          status,
-          expires_at,
-          check_in_time,
-          user_profiles (
-            full_name
-          )
-        `)
+        .select('*, user_profiles:user_id(full_name)')
         .eq('code', accessToken.toUpperCase())
         .eq('academia_id', academiaId)
         .eq('validation_method', 'access_token')
@@ -82,7 +73,7 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         return;
       }
 
-      // Se o token é válido, atualizar o status e registrar o check-in
+      // Se o token é válido, atualizar o status
       const { error: updateError } = await supabase
         .from('gym_check_ins')
         .update({
