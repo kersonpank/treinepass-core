@@ -33,6 +33,10 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
           throw new Error("Código QR vazio");
         }
 
+        // Tocar um som de sucesso quando o QR code for reconhecido
+        const audio = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Bt8Qg==");
+        audio.play().catch(e => console.log("Audio play failed:", e));
+
         onScan(cleanCode);
       } catch (e) {
         console.error("Error processing QR code:", e);
@@ -79,17 +83,23 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
+      <div className="space-y-2 relative">
         <QrReader
           onResult={handleScan}
           constraints={{
             facingMode: "environment"
           }}
           videoId="qr-video"
-          scanDelay={300} // Reduzido de 500ms para 300ms para escaneamento mais rápido
+          scanDelay={200} // Reduzido para 200ms para escaneamento mais rápido
           className="w-full aspect-square"
           ViewFinder={() => (
-            <div className="border-2 border-primary rounded-lg absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48" />
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 pointer-events-none">
+              <div className="w-full h-full border-2 border-primary rounded-lg" />
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br" />
+            </div>
           )}
         />
         <p className="text-sm text-center text-muted-foreground">
