@@ -45,38 +45,54 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
 
     setIsValidating(true);
     try {
-      console.log("Validating token:", {
+      console.log("Validating mobile token:", {
         code: accessToken,
         academiaId: academiaId
       });
 
-      // First, validate the code
-      const { data: validationData, error: validationError } = await supabase.rpc('validate_check_in_code', {
-        p_code: accessToken.toUpperCase(),
-        p_academia_id: academiaId
-      });
+      // First, check if this is a valid mobile code
+      const { data: codeData, error: codeError } = await supabase
+        .from('gym_qr_codes')
+        .select(`
+          id,
+          code,
+          academia_id,
+          status,
+          expires_at,
+          gym_check_ins (
+            user_id,
+            user_profiles (
+              full_name
+            )
+          )
+        `)
+        .eq('code', accessToken.toUpperCase())
+        .eq('academia_id', academiaId)
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
 
-      console.log("Code validation result:", { validationData, validationError });
+      console.log("Code validation result:", { codeData, codeError });
 
-      if (validationError) throw validationError;
+      if (codeError) throw codeError;
 
-      if (!validationData?.[0]?.is_valid) {
+      if (!codeData) {
         setValidationResult({
           success: false,
-          message: validationData?.[0]?.message || "Token inválido ou expirado"
+          message: "Token inválido ou expirado"
         });
 
         toast({
           variant: "destructive",
           title: "Token inválido",
-          description: validationData?.[0]?.message || "Token inválido ou expirado",
+          description: "Token inválido ou expirado",
         });
         return;
       }
 
-      // If validation was successful, register the check-in
+      // Get the user from check-in data
       const { data: checkInData, error: checkInError } = await supabase.rpc('validate_gym_check_in', {
-        p_user_id: validationData[0].user_id,
+        p_user_id: codeData.gym_check_ins?.[0]?.user_id,
         p_academia_id: academiaId,
         p_qr_code: accessToken.toUpperCase(),
         p_validation_method: 'token'
@@ -86,15 +102,17 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
 
       if (checkInError) throw checkInError;
 
+      const userName = codeData.gym_check_ins?.[0]?.user_profiles?.full_name || 'usuário';
+
       setValidationResult({
         success: true,
         message: "Check-in validado com sucesso",
-        userName: validationData[0].user_name
+        userName: userName
       });
 
       toast({
         title: "Check-in válido",
-        description: `Check-in confirmado para ${validationData[0].user_name || 'usuário'}`,
+        description: `Check-in confirmado para ${userName}`,
       });
 
     } catch (error: any) {
