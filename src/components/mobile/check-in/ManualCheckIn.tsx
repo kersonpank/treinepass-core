@@ -110,14 +110,22 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           return;
         }
 
+        // Log for debugging
+        console.log("Scan result:", result);
+        console.log("Academia ID:", academiaId);
+
         const { data, error } = await supabase.rpc('validate_gym_check_in', {
           p_user_id: user.id,
           p_academia_id: academiaId,
           p_qr_code: result
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error("Check-in validation error:", error);
+          throw error;
+        }
 
+        console.log("Check-in validation result:", data);
         const checkInResult = data[0];
         
         if (checkInResult.success) {
@@ -139,6 +147,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           }
         }
       } catch (error: any) {
+        console.error("Check-in error:", error);
         toast({
           variant: "destructive",
           title: "Erro ao realizar check-in",

@@ -1,6 +1,9 @@
 
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Scanner } from "@yudiel/react-qr-scanner";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface QRCodeScannerProps {
   onScan: (result: string) => void;
@@ -8,23 +11,68 @@ interface QRCodeScannerProps {
 
 export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   const { toast } = useToast();
+  const [manualCode, setManualCode] = useState("");
+
+  const handleScan = (result: string) => {
+    try {
+      // Try to parse the QR code data if it's JSON
+      const data = JSON.parse(result);
+      if (data.code) {
+        onScan(data.code);
+      } else {
+        // If no code property, try using the raw string
+        onScan(result);
+      }
+    } catch (e) {
+      // If JSON parsing fails, use the raw string
+      onScan(result);
+    }
+  };
+
+  const handleManualSubmit = () => {
+    if (!manualCode.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Código inválido",
+        description: "Por favor, insira um código válido",
+      });
+      return;
+    }
+    onScan(manualCode.trim());
+  };
 
   return (
-    <div className="py-2">
-      <Scanner
-        onResult={(result) => onScan(result)}
-        onError={(error) => {
-          console.error(error);
-          toast({
-            variant: "destructive",
-            title: "Erro no scanner",
-            description: "Não foi possível acessar a câmera",
-          });
-        }}
-      />
-      <p className="text-sm text-center text-muted-foreground mt-2">
-        Aponte a câmera para o QR Code da academia
-      </p>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Scanner
+          onResult={(result) => handleScan(result)}
+          onError={(error) => {
+            console.error("Scanner error:", error);
+            toast({
+              variant: "destructive",
+              title: "Erro no scanner",
+              description: "Não foi possível acessar a câmera",
+            });
+          }}
+        />
+        <p className="text-sm text-center text-muted-foreground">
+          Aponte a câmera para o QR Code da academia
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm text-center font-medium">ou</p>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Digite o código manualmente"
+            value={manualCode}
+            onChange={(e) => setManualCode(e.target.value)}
+          />
+          <Button onClick={handleManualSubmit}>
+            Validar
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
