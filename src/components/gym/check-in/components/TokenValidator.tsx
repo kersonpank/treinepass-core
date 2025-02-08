@@ -45,38 +45,34 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
 
     setIsValidating(true);
     try {
-      console.log("Validating mobile token:", {
+      console.log("Validando token do usuário:", {
         code: accessToken,
         academiaId: academiaId
       });
 
-      // First, check if this is a valid mobile code
-      const { data: codeData, error: codeError } = await supabase
-        .from('gym_qr_codes')
+      // Buscar check-in correspondente ao token do usuário
+      const { data: checkInData, error: checkInError } = await supabase
+        .from('gym_check_ins')
         .select(`
           id,
-          code,
+          user_id,
           academia_id,
-          status,
-          expires_at,
-          gym_check_ins (
-            user_id,
-            user_profiles (
-              full_name
-            )
+          check_in_time,
+          user_profiles!inner (
+            full_name
           )
         `)
         .eq('code', accessToken.toUpperCase())
         .eq('academia_id', academiaId)
         .eq('status', 'active')
-        .gt('expires_at', new Date().toISOString())
+        .gt('check_in_time', new Date(Date.now() - 20 * 60 * 1000).toISOString()) // 20 minutos atrás
         .maybeSingle();
 
-      console.log("Code validation result:", { codeData, codeError });
+      console.log("Resultado da validação:", { checkInData, checkInError });
 
-      if (codeError) throw codeError;
+      if (checkInError) throw checkInError;
 
-      if (!codeData) {
+      if (!checkInData) {
         setValidationResult({
           success: false,
           message: "Token inválido ou expirado"
@@ -90,19 +86,19 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         return;
       }
 
-      // Get the user from check-in data
-      const { data: checkInData, error: checkInError } = await supabase.rpc('validate_gym_check_in', {
-        p_user_id: codeData.gym_check_ins?.[0]?.user_id,
+      // Se encontrou o check-in, validar
+      const { data: validationData, error: validationError } = await supabase.rpc('validate_gym_check_in', {
+        p_user_id: checkInData.user_id,
         p_academia_id: academiaId,
         p_qr_code: accessToken.toUpperCase(),
         p_validation_method: 'token'
       });
 
-      console.log("Check-in result:", { checkInData, checkInError });
+      console.log("Resultado do check-in:", { validationData, validationError });
 
-      if (checkInError) throw checkInError;
+      if (validationError) throw validationError;
 
-      const userName = codeData.gym_check_ins?.[0]?.user_profiles?.full_name || 'usuário';
+      const userName = checkInData.user_profiles?.full_name || 'usuário';
 
       setValidationResult({
         success: true,
