@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { QRCodeScanner } from "./QRCodeScanner";
 import { AccessTokenDisplay } from "./AccessTokenDisplay";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface CheckInDialogProps {
   open: boolean;
@@ -29,6 +32,37 @@ export function CheckInDialog({
   timeLeft, 
   onScan 
 }: CheckInDialogProps) {
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Subscribe to check-in status changes
+    const channel = supabase
+      .channel('public:gym_check_ins')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'gym_check_ins',
+          filter: `access_token=eq.${accessCode}`
+        },
+        (payload) => {
+          if (payload.new.status === 'used') {
+            toast({
+              title: "Check-in confirmado!",
+              description: "Seu check-in foi validado com sucesso.",
+            });
+            onOpenChange(false); // Fechar o diálogo
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [accessCode, onOpenChange, toast]);
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-md">
