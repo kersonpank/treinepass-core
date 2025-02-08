@@ -64,7 +64,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     <div className="space-y-4">
       <div className="space-y-2">
         <Scanner
-          onResult={(result) => handleScan(result.getText())}
+          onDecodeResult={(result) => handleScan(result.getText())}
           onError={(error) => {
             console.error("Scanner error:", error);
             setHasError(true);
@@ -74,6 +74,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
               description: "Não foi possível acessar a câmera",
             });
           }}
+          scanDelay={1000}
         />
         <p className="text-sm text-center text-muted-foreground">
           Aponte a câmera para o QR Code da academia
