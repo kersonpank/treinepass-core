@@ -36,9 +36,11 @@ export function CheckInHistory() {
   });
 
   useEffect(() => {
+    if (!academiaId) return;
+
     // Subscribe to real-time updates for check-ins
     const channel = supabase
-      .channel('public:gym_check_ins')
+      .channel('gym_check_ins')
       .on(
         'postgres_changes',
         {
@@ -47,15 +49,15 @@ export function CheckInHistory() {
           table: 'gym_check_ins',
           filter: `academia_id=eq.${academiaId}`
         },
-        () => {
-          // Invalidate and refetch the check-ins query
+        (payload) => {
+          // Invalidate and refetch when new data arrives
           queryClient.invalidateQueries({ queryKey: ["check-ins-history", academiaId] });
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      channel.unsubscribe();
     };
   }, [academiaId, queryClient]);
 
