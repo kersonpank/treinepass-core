@@ -53,41 +53,52 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
 
       if (validationError) throw validationError;
 
-      if (validationData && validationData[0].is_valid) {
-        // Se o código é válido, registra o check-in
-        const { data: checkInData, error: checkInError } = await supabase
-          .from('gym_check_ins')
-          .insert({
-            user_id: validationData[0].user_id,
-            academia_id: academiaId,
-            validation_method: 'token',
-            check_in_time: new Date().toISOString()
-          })
-          .select()
-          .single();
+      const checkInResult = validationData[0];
+
+      // Se o código é válido, procede com o check-in
+      if (checkInResult.is_valid) {
+        const { data: checkInData, error: checkInError } = await supabase.rpc('validate_gym_check_in', {
+          p_user_id: checkInResult.user_id,
+          p_academia_id: academiaId,
+          p_qr_code: accessToken,
+          p_validation_method: 'token'
+        });
 
         if (checkInError) throw checkInError;
 
-        setValidationResult({
-          success: true,
-          message: "Check-in realizado com sucesso",
-          userName: validationData[0].user_name
-        });
+        if (checkInData[0].success) {
+          setValidationResult({
+            success: true,
+            message: "Check-in realizado com sucesso",
+            userName: checkInResult.user_name
+          });
 
-        toast({
-          title: "Check-in válido",
-          description: `Check-in confirmado para ${validationData[0].user_name}`,
-        });
+          toast({
+            title: "Check-in válido",
+            description: `Check-in confirmado para ${checkInResult.user_name || 'usuário'}`,
+          });
+        } else {
+          setValidationResult({
+            success: false,
+            message: checkInData[0].message
+          });
+
+          toast({
+            variant: "destructive",
+            title: "Check-in inválido",
+            description: checkInData[0].message,
+          });
+        }
       } else {
         setValidationResult({
           success: false,
-          message: validationData[0].message || "Token inválido"
+          message: checkInResult.message
         });
 
         toast({
           variant: "destructive",
-          title: "Check-in inválido",
-          description: validationData[0].message || "Token inválido",
+          title: "Token inválido",
+          description: checkInResult.message,
         });
       }
     } catch (error: any) {
