@@ -78,30 +78,16 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         return;
       }
 
-      // Now get check-in associated with this code
-      const { data: checkInData, error: checkInError } = await supabase
-        .from('gym_check_ins')
-        .select('user_id, users:user_id (full_name)')
-        .eq('qr_code_id', qrCodeData.id)
-        .maybeSingle();
+      // Now get user data associated with this code
+      const { data: userData, error: userError } = await supabase
+        .from('user_profiles')
+        .select('full_name')
+        .eq('id', qrCodeData.user_id)
+        .single();
 
-      console.log("Check-in lookup result:", { checkInData, checkInError });
+      console.log("User data lookup result:", { userData, userError });
 
-      if (checkInError) throw checkInError;
-
-      if (!checkInData?.user_id) {
-        setValidationResult({
-          success: false,
-          message: "Nenhum check-in encontrado para este token"
-        });
-
-        toast({
-          variant: "destructive",
-          title: "Check-in não encontrado",
-          description: "Nenhum check-in encontrado para este token",
-        });
-        return;
-      }
+      if (userError) throw userError;
 
       // Update QR code status to used
       const { error: updateError } = await supabase
@@ -111,15 +97,27 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
 
       if (updateError) throw updateError;
 
+      // Register check-in
+      const { data: checkInData, error: checkInError } = await supabase.rpc('validate_gym_check_in', {
+        p_user_id: qrCodeData.user_id,
+        p_academia_id: academiaId,
+        p_qr_code: accessToken.toUpperCase(),
+        p_validation_method: 'token'
+      });
+
+      console.log("Check-in result:", { checkInData, checkInError });
+
+      if (checkInError) throw checkInError;
+
       setValidationResult({
         success: true,
         message: "Check-in validado com sucesso",
-        userName: checkInData.users?.full_name
+        userName: userData?.full_name
       });
 
       toast({
         title: "Check-in válido",
-        description: `Check-in confirmado para ${checkInData.users?.full_name || 'usuário'}`,
+        description: `Check-in confirmado para ${userData?.full_name || 'usuário'}`,
       });
 
     } catch (error: any) {
