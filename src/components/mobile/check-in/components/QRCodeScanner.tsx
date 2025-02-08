@@ -16,8 +16,18 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
 
   const handleScan = (result: string) => {
     try {
-      console.log("QR Code scan result:", result);
-      onScan(result.trim());
+      // Add debug logs
+      console.log("Raw QR Code scan result:", result);
+      
+      // Remove any whitespace and validate
+      const cleanCode = result.trim();
+      console.log("Cleaned QR code:", cleanCode);
+      
+      if (!cleanCode) {
+        throw new Error("Código QR vazio");
+      }
+
+      onScan(cleanCode);
     } catch (e) {
       console.error("Error processing QR code:", e);
       toast({
@@ -64,7 +74,10 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     <div className="space-y-4">
       <div className="space-y-2">
         <Scanner
-          onDecodeResult={(result) => handleScan(result.getText())}
+          onResult={(result) => {
+            console.log("Scanner raw result:", result);
+            handleScan(result.getText());
+          }}
           onError={(error) => {
             console.error("Scanner error:", error);
             setHasError(true);
@@ -74,7 +87,10 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
               description: "Não foi possível acessar a câmera",
             });
           }}
-          scanDelay={1000}
+          scanDelay={500}
+          constraints={{
+            facingMode: "environment"
+          }}
         />
         <p className="text-sm text-center text-muted-foreground">
           Aponte a câmera para o QR Code da academia
