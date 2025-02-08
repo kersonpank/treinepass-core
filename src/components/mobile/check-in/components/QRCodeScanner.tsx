@@ -1,9 +1,9 @@
 
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Scanner } from "@yudiel/react-qr-scanner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { QrReader } from "react-qr-reader";
 
 interface QRCodeScannerProps {
   onScan: (result: string) => void;
@@ -14,28 +14,40 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   const [manualCode, setManualCode] = useState("");
   const [hasError, setHasError] = useState(false);
 
-  const handleScan = (result: string) => {
-    try {
-      // Add debug logs
-      console.log("Raw QR Code scan result:", result);
-      
-      // Remove any whitespace and validate
-      const cleanCode = result.trim();
-      console.log("Cleaned QR code:", cleanCode);
-      
-      if (!cleanCode) {
-        throw new Error("Código QR vazio");
-      }
+  const handleScan = (result: any) => {
+    if (result?.text) {
+      try {
+        // Add debug logs
+        console.log("Raw QR Code scan result:", result.text);
+        
+        // Remove any whitespace and validate
+        const cleanCode = result.text.trim();
+        console.log("Cleaned QR code:", cleanCode);
+        
+        if (!cleanCode) {
+          throw new Error("Código QR vazio");
+        }
 
-      onScan(cleanCode);
-    } catch (e) {
-      console.error("Error processing QR code:", e);
-      toast({
-        variant: "destructive",
-        title: "Erro ao ler QR Code",
-        description: "Formato inválido, tente novamente ou insira o código manualmente",
-      });
+        onScan(cleanCode);
+      } catch (e) {
+        console.error("Error processing QR code:", e);
+        toast({
+          variant: "destructive",
+          title: "Erro ao ler QR Code",
+          description: "Formato inválido, tente novamente ou insira o código manualmente",
+        });
+      }
     }
+  };
+
+  const handleError = (error: any) => {
+    console.error("Scanner error:", error);
+    setHasError(true);
+    toast({
+      variant: "destructive",
+      title: "Erro no scanner",
+      description: "Não foi possível acessar a câmera",
+    });
   };
 
   const handleManualSubmit = () => {
@@ -73,24 +85,13 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Scanner
-          onDecode={(result) => {
-            console.log("Scanner result:", result);
-            handleScan(result);
-          }}
-          onError={(error) => {
-            console.error("Scanner error:", error);
-            setHasError(true);
-            toast({
-              variant: "destructive",
-              title: "Erro no scanner",
-              description: "Não foi possível acessar a câmera",
-            });
-          }}
-          scanDelay={500}
+        <QrReader
+          onResult={handleScan}
+          onError={handleError}
           constraints={{
             facingMode: "environment"
           }}
+          className="w-full aspect-square"
         />
         <p className="text-sm text-center text-muted-foreground">
           Aponte a câmera para o QR Code da academia
