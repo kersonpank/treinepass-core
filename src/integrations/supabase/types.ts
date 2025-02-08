@@ -507,6 +507,7 @@ export type Database = {
           academia_id: string
           check_in_time: string | null
           check_out_time: string | null
+          code: string | null
           created_at: string | null
           id: string
           qr_code_id: string | null
@@ -519,6 +520,7 @@ export type Database = {
           academia_id: string
           check_in_time?: string | null
           check_out_time?: string | null
+          code?: string | null
           created_at?: string | null
           id?: string
           qr_code_id?: string | null
@@ -531,6 +533,7 @@ export type Database = {
           academia_id?: string
           check_in_time?: string | null
           check_out_time?: string | null
+          code?: string | null
           created_at?: string | null
           id?: string
           qr_code_id?: string | null

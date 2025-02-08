@@ -58,6 +58,7 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
           user_id,
           academia_id,
           check_in_time,
+          code,
           user_profiles!inner (
             full_name
           )
