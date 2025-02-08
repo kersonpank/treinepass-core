@@ -50,7 +50,7 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         academiaId: academiaId
       });
 
-      // Primeiro vamos buscar o check-in ativo com este token
+      // Buscar o check-in ativo com este token
       const { data: checkIn, error: checkInError } = await supabase
         .from('gym_check_ins')
         .select(`
@@ -65,6 +65,7 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         .eq('status', 'active')
         .eq('validation_method', 'access_token')
         .gt('token_expires_at', new Date().toISOString())
+        .limit(1)
         .single();
 
       console.log("Resultado da busca:", { checkIn, checkInError });
@@ -102,14 +103,14 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
 
     } catch (error: any) {
       console.error("Erro ao validar token:", error);
+      setValidationResult({
+        success: false,
+        message: "Erro ao validar token"
+      });
       toast({
         variant: "destructive",
         title: "Erro na validação",
         description: "Não foi possível validar o token. Tente novamente.",
-      });
-      setValidationResult({
-        success: false,
-        message: "Erro ao validar token"
       });
     } finally {
       setIsValidating(false);

@@ -27,32 +27,6 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes in seconds
   const { toast } = useToast();
 
-  // Access code generation and refresh
-  useEffect(() => {
-    if (showCheckInDialog) {
-      generateAccessCode();
-      setTimeLeft(1200); // Reset timer when dialog opens
-      const interval = setInterval(generateAccessCode, 1200000); // 20 minutes
-      return () => clearInterval(interval);
-    }
-  }, [showCheckInDialog]);
-
-  // Timer countdown
-  useEffect(() => {
-    if (showCheckInDialog && timeLeft > 0) {
-      const timer = setInterval(() => {
-        setTimeLeft((prevTime) => {
-          if (prevTime <= 1) {
-            generateAccessCode();
-            return 1200;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [showCheckInDialog, timeLeft]);
-
   const generateAccessCode = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -83,11 +57,31 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           remainingMonthly: limitsData[0].remaining_monthly
         });
 
-        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        setAccessCode(code);
+        // Gerar novo token e armazenar no banco
+        const newToken = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const expiresAt = new Date(Date.now() + 1200000); // 20 minutes
+
+        const { error: insertError } = await supabase
+          .from('gym_check_ins')
+          .insert({
+            user_id: user.id,
+            academia_id: academiaId,
+            validation_method: 'access_token',
+            access_token: newToken,
+            token_expires_at: expiresAt.toISOString(),
+            status: 'active'
+          });
+
+        if (insertError) {
+          throw insertError;
+        }
+
+        setAccessCode(newToken);
         setTimeLeft(1200);
+        console.log("Novo token gerado:", newToken);
       }
     } catch (error: any) {
+      console.error("Erro ao gerar token:", error);
       toast({
         variant: "destructive",
         title: "Erro ao gerar código",
@@ -96,70 +90,30 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
     }
   };
 
-  const handleScanResult = async (result: string, method: 'qr_code' | 'token') => {
-    if (result && !isProcessing) {
-      setIsProcessing(true);
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Você precisa estar logado para fazer check-in",
-          });
-          return;
-        }
-
-        // Log for debugging
-        console.log("Scan result:", result);
-        console.log("Academia ID:", academiaId);
-        console.log("Validation method:", method);
-
-        const { data, error } = await supabase.rpc('validate_gym_check_in', {
-          p_user_id: user.id,
-          p_academia_id: academiaId,
-          p_qr_code: result,
-          p_validation_method: method
-        });
-
-        if (error) {
-          console.error("Check-in validation error:", error);
-          throw error;
-        }
-
-        console.log("Check-in validation result:", data);
-        const checkInResult = data[0];
-        
-        if (checkInResult.success) {
-          toast({
-            title: "Check-in realizado!",
-            description: checkInResult.message,
-          });
-          setShowCheckInDialog(false);
-        } else {
-          if (checkInResult.message.includes("plano ativo")) {
-            setShowCheckInDialog(false);
-            setShowNoPlanDialog(true);
-          } else {
-            toast({
-              variant: "destructive",
-              title: "Erro no check-in",
-              description: checkInResult.message,
-            });
-          }
-        }
-      } catch (error: any) {
-        console.error("Check-in error:", error);
-        toast({
-          variant: "destructive",
-          title: "Erro ao realizar check-in",
-          description: error.message,
-        });
-      } finally {
-        setIsProcessing(false);
-      }
+  // Access code generation and refresh
+  useEffect(() => {
+    if (showCheckInDialog) {
+      generateAccessCode();
+      const interval = setInterval(generateAccessCode, 1200000); // 20 minutes
+      return () => clearInterval(interval);
     }
-  };
+  }, [showCheckInDialog]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (showCheckInDialog && timeLeft > 0) {
+      const timer = setInterval(() => {
+        setTimeLeft((prevTime) => {
+          if (prevTime <= 1) {
+            generateAccessCode();
+            return 1200;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [showCheckInDialog, timeLeft]);
 
   const handleCheckInClick = async () => {
     try {
@@ -215,7 +169,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         onOpenChange={setShowCheckInDialog}
         accessCode={accessCode}
         timeLeft={timeLeft}
-        onScan={handleScanResult}
+        onScan={() => {}}
       />
 
       <NoPlanDialog
