@@ -61,6 +61,22 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
         return;
       }
 
+      // Calcular o valor de repasse baseado no número de check-ins do mês
+      const { data: monthlyCheckins } = await supabase
+        .from('gym_check_ins')
+        .select('id')
+        .eq('academia_id', academiaId)
+        .gte('check_in_time', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+        .lte('check_in_time', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString());
+
+      const { data: repasseData } = await supabase
+        .rpc('get_valor_repasse_academia', {
+          p_academia_id: academiaId,
+          p_num_checkins: (monthlyCheckins?.length || 0)
+        });
+
+      const valorRepasse = repasseData?.[0]?.valor_repasse || 0;
+
       // Registrar check-in
       const { error: checkInError } = await supabase
         .from("gym_check_ins")
@@ -69,7 +85,8 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
           academia_id: academiaId,
           check_in_time: new Date().toISOString(),
           status: "active",
-          validation_method: "automatic"
+          validation_method: "automatic",
+          valor_repasse: valorRepasse
         });
 
       if (checkInError) throw checkInError;
