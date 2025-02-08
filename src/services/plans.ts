@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Plan, PlanFormValues } from "@/components/admin/plans/types/plan";
 
@@ -12,8 +13,6 @@ export async function updatePlan(planId: string, data: PlanFormValues) {
       period_type: data.period_type,
       status: data.status,
       rules: data.rules,
-      subsidy_amount: data.subsidy_amount,
-      final_user_cost: data.final_user_cost,
       base_price: data.base_price,
       platform_fee: data.platform_fee,
       renewal_type: data.renewal_type,
