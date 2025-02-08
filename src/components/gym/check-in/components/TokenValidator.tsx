@@ -45,62 +45,83 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
 
     setIsValidating(true);
     try {
-      // Primeiro, valida o código
-      const { data: validationData, error: validationError } = await supabase.rpc('validate_check_in_code', {
-        p_code: accessToken,
-        p_academia_id: academiaId
+      console.log("Validating token:", {
+        code: accessToken,
+        academiaId: academiaId
       });
 
-      if (validationError) throw validationError;
+      // First, get the QR code from the database
+      const { data: qrCodeData, error: qrCodeError } = await supabase
+        .from('gym_qr_codes')
+        .select('*')
+        .eq('code', accessToken.toUpperCase())
+        .eq('academia_id', academiaId)
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
+        .maybeSingle();
 
-      const checkInResult = validationData[0];
+      console.log("QR code lookup result:", { qrCodeData, qrCodeError });
 
-      // Se o código é válido, procede com o check-in
-      if (checkInResult.is_valid) {
-        const { data: checkInData, error: checkInError } = await supabase.rpc('validate_gym_check_in', {
-          p_user_id: checkInResult.user_id,
-          p_academia_id: academiaId,
-          p_qr_code: accessToken,
-          p_validation_method: 'token'
-        });
+      if (qrCodeError) throw qrCodeError;
 
-        if (checkInError) throw checkInError;
-
-        if (checkInData[0].success) {
-          setValidationResult({
-            success: true,
-            message: "Check-in realizado com sucesso",
-            userName: checkInResult.user_name
-          });
-
-          toast({
-            title: "Check-in válido",
-            description: `Check-in confirmado para ${checkInResult.user_name || 'usuário'}`,
-          });
-        } else {
-          setValidationResult({
-            success: false,
-            message: checkInData[0].message
-          });
-
-          toast({
-            variant: "destructive",
-            title: "Check-in inválido",
-            description: checkInData[0].message,
-          });
-        }
-      } else {
+      if (!qrCodeData) {
         setValidationResult({
           success: false,
-          message: checkInResult.message
+          message: "Token inválido ou expirado"
         });
 
         toast({
           variant: "destructive",
           title: "Token inválido",
-          description: checkInResult.message,
+          description: "Token inválido ou expirado",
         });
+        return;
       }
+
+      // Now get check-in associated with this code
+      const { data: checkInData, error: checkInError } = await supabase
+        .from('gym_check_ins')
+        .select('user_id, users:user_id (full_name)')
+        .eq('qr_code_id', qrCodeData.id)
+        .maybeSingle();
+
+      console.log("Check-in lookup result:", { checkInData, checkInError });
+
+      if (checkInError) throw checkInError;
+
+      if (!checkInData?.user_id) {
+        setValidationResult({
+          success: false,
+          message: "Nenhum check-in encontrado para este token"
+        });
+
+        toast({
+          variant: "destructive",
+          title: "Check-in não encontrado",
+          description: "Nenhum check-in encontrado para este token",
+        });
+        return;
+      }
+
+      // Update QR code status to used
+      const { error: updateError } = await supabase
+        .from('gym_qr_codes')
+        .update({ status: 'used' })
+        .eq('id', qrCodeData.id);
+
+      if (updateError) throw updateError;
+
+      setValidationResult({
+        success: true,
+        message: "Check-in validado com sucesso",
+        userName: checkInData.users?.full_name
+      });
+
+      toast({
+        title: "Check-in válido",
+        description: `Check-in confirmado para ${checkInData.users?.full_name || 'usuário'}`,
+      });
+
     } catch (error: any) {
       console.error("Erro ao validar token:", error);
       toast({
