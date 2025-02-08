@@ -74,7 +74,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     <div className="space-y-4">
       <div className="space-y-2">
         <Scanner
-          onResult={(result) => {
+          onDecode={(result) => {
             console.log("Scanner result:", result);
             handleScan(result);
           }}
