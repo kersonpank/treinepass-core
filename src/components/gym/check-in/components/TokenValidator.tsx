@@ -50,56 +50,33 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         academiaId: academiaId
       });
 
-      // First, get the QR code from the database
-      const { data: qrCodeData, error: qrCodeError } = await supabase
-        .from('gym_qr_codes')
-        .select('*')
-        .eq('code', accessToken.toUpperCase())
-        .eq('academia_id', academiaId)
-        .eq('status', 'active')
-        .gt('expires_at', new Date().toISOString())
-        .maybeSingle();
+      // First, validate the code
+      const { data: validationData, error: validationError } = await supabase.rpc('validate_check_in_code', {
+        p_code: accessToken.toUpperCase(),
+        p_academia_id: academiaId
+      });
 
-      console.log("QR code lookup result:", { qrCodeData, qrCodeError });
+      console.log("Code validation result:", { validationData, validationError });
 
-      if (qrCodeError) throw qrCodeError;
+      if (validationError) throw validationError;
 
-      if (!qrCodeData) {
+      if (!validationData?.[0]?.is_valid) {
         setValidationResult({
           success: false,
-          message: "Token inválido ou expirado"
+          message: validationData?.[0]?.message || "Token inválido ou expirado"
         });
 
         toast({
           variant: "destructive",
           title: "Token inválido",
-          description: "Token inválido ou expirado",
+          description: validationData?.[0]?.message || "Token inválido ou expirado",
         });
         return;
       }
 
-      // Now get user data associated with this code
-      const { data: userData, error: userError } = await supabase
-        .from('user_profiles')
-        .select('full_name')
-        .eq('id', qrCodeData.user_id)
-        .single();
-
-      console.log("User data lookup result:", { userData, userError });
-
-      if (userError) throw userError;
-
-      // Update QR code status to used
-      const { error: updateError } = await supabase
-        .from('gym_qr_codes')
-        .update({ status: 'used' })
-        .eq('id', qrCodeData.id);
-
-      if (updateError) throw updateError;
-
-      // Register check-in
+      // If validation was successful, register the check-in
       const { data: checkInData, error: checkInError } = await supabase.rpc('validate_gym_check_in', {
-        p_user_id: qrCodeData.user_id,
+        p_user_id: validationData[0].user_id,
         p_academia_id: academiaId,
         p_qr_code: accessToken.toUpperCase(),
         p_validation_method: 'token'
@@ -112,12 +89,12 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
       setValidationResult({
         success: true,
         message: "Check-in validado com sucesso",
-        userName: userData?.full_name
+        userName: validationData[0].user_name
       });
 
       toast({
         title: "Check-in válido",
-        description: `Check-in confirmado para ${userData?.full_name || 'usuário'}`,
+        description: `Check-in confirmado para ${validationData[0].user_name || 'usuário'}`,
       });
 
     } catch (error: any) {
