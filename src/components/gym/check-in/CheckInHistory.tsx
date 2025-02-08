@@ -8,10 +8,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CheckInSummary } from "./components/CheckInSummary";
 import { CheckInsTable } from "./components/CheckInsTable";
 import { CheckInHistoryItem } from "@/types/check-in";
+import { useToast } from "@/hooks/use-toast";
 
 export function CheckInHistory() {
   const { id: academiaId } = useParams();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: checkIns, isLoading } = useQuery<CheckInHistoryItem[]>({
     queryKey: ["check-ins-history", academiaId],
@@ -20,7 +22,7 @@ export function CheckInHistory() {
         .from("gym_check_ins")
         .select(`
           *,
-          user:user_id (
+          user:user_profiles (
             full_name,
             email,
             cpf
@@ -49,9 +51,13 @@ export function CheckInHistory() {
           table: 'gym_check_ins',
           filter: `academia_id=eq.${academiaId}`
         },
-        (payload) => {
-          // Invalidate and refetch when new data arrives
+        () => {
+          // Invalidate and refetch the check-ins query
           queryClient.invalidateQueries({ queryKey: ["check-ins-history", academiaId] });
+          toast({
+            title: "Novo check-in",
+            description: "Um novo check-in foi registrado!",
+          });
         }
       )
       .subscribe();
@@ -59,7 +65,7 @@ export function CheckInHistory() {
     return () => {
       channel.unsubscribe();
     };
-  }, [academiaId, queryClient]);
+  }, [academiaId, queryClient, toast]);
 
   if (isLoading) {
     return <div>Carregando histórico...</div>;

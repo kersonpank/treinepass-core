@@ -45,33 +45,50 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
 
     setIsValidating(true);
     try {
-      const { data, error } = await supabase.rpc('validate_check_in_code', {
+      // Primeiro, valida o código
+      const { data: validationData, error: validationError } = await supabase.rpc('validate_check_in_code', {
         p_code: accessToken,
         p_academia_id: academiaId
       });
 
-      if (error) throw error;
+      if (validationError) throw validationError;
 
-      if (data) {
-        const { is_valid, message, user_name } = data[0];
+      if (validationData && validationData[0].is_valid) {
+        // Se o código é válido, registra o check-in
+        const { data: checkInData, error: checkInError } = await supabase
+          .from('gym_check_ins')
+          .insert({
+            user_id: validationData[0].user_id,
+            academia_id: academiaId,
+            validation_method: 'token',
+            check_in_time: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (checkInError) throw checkInError;
+
         setValidationResult({
-          success: is_valid,
-          message,
-          userName: user_name
+          success: true,
+          message: "Check-in realizado com sucesso",
+          userName: validationData[0].user_name
         });
 
-        if (is_valid) {
-          toast({
-            title: "Check-in válido",
-            description: `Check-in confirmado para ${user_name}`,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Check-in inválido",
-            description: message,
-          });
-        }
+        toast({
+          title: "Check-in válido",
+          description: `Check-in confirmado para ${validationData[0].user_name}`,
+        });
+      } else {
+        setValidationResult({
+          success: false,
+          message: validationData[0].message || "Token inválido"
+        });
+
+        toast({
+          variant: "destructive",
+          title: "Check-in inválido",
+          description: validationData[0].message || "Token inválido",
+        });
       }
     } catch (error: any) {
       console.error("Erro ao validar token:", error);
