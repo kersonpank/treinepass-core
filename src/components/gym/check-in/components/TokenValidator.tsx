@@ -68,7 +68,7 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         .eq('validation_method', 'access_token')
         .eq('status', 'active')
         .gt('expires_at', new Date().toISOString())
-        .single();
+        .maybeSingle();
 
       console.log("Resultado da validação:", { checkInData, checkInError });
 
