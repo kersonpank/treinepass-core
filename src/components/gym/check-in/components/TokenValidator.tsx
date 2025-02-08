@@ -50,15 +50,13 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         academiaId: academiaId
       });
 
-      // Verificar se existe um check-in com este token
+      // Primeiro vamos buscar o check-in ativo com este token
       const { data: checkIn, error: checkInError } = await supabase
         .from('gym_check_ins')
         .select(`
           id,
           user_id,
-          access_token,
-          token_expires_at,
-          user_profiles:user_id (
+          user_profiles!inner (
             full_name
           )
         `)
@@ -67,13 +65,11 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
         .eq('status', 'active')
         .eq('validation_method', 'access_token')
         .gt('token_expires_at', new Date().toISOString())
-        .maybeSingle();
+        .single();
 
       console.log("Resultado da busca:", { checkIn, checkInError });
 
-      if (checkInError) throw checkInError;
-
-      if (!checkIn) {
+      if (checkInError || !checkIn) {
         setValidationResult({
           success: false,
           message: "Token inválido ou expirado"
