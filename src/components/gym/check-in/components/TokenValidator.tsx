@@ -85,9 +85,13 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
           status: 'used',
           check_in_time: new Date().toISOString()
         })
-        .eq('id', checkIn.id);
+        .eq('id', checkIn.id)
+        .eq('status', 'active'); // Garantir que ainda está ativo
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Erro ao atualizar status:", updateError);
+        throw updateError;
+      }
 
       const userName = checkIn.user_profiles?.full_name || 'usuário';
       setValidationResult({
@@ -105,7 +109,7 @@ export function TokenValidator({ academiaId }: TokenValidatorProps) {
       console.error("Erro ao validar token:", error);
       setValidationResult({
         success: false,
-        message: "Erro ao validar token"
+        message: error.message || "Erro ao validar token"
       });
       toast({
         variant: "destructive",
