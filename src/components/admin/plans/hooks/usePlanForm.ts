@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,28 +22,21 @@ export function usePlanForm(planId: string, onSuccess?: () => void) {
       period_type: "monthly",
       status: "active",
       rules: {},
+      financing_rules: {
+        type: "company_paid",
+        contribution_type: "fixed",
+        company_contribution: 0,
+        employee_contribution: 0
+      },
+      employee_limit: null
     },
   });
 
   const onSubmit = async (data: PlanFormValues) => {
     setIsSubmitting(true);
     try {
-      const { data: newVersion, error: versionError } = await supabase
-        .from("plan_versions")
-        .insert({
-          plan_id: planId,
-          name: data.name,
-          description: data.description,
-          monthly_cost: Number(data.monthly_cost),
-          rules: data.rules,
-          version: 1,
-        })
-        .select()
-        .single();
-
-      if (versionError) throw versionError;
-
-      const updateData = {
+      // Criar plano principal
+      const planData = {
         name: data.name,
         description: data.description,
         monthly_cost: Number(data.monthly_cost),
@@ -50,41 +44,86 @@ export function usePlanForm(planId: string, onSuccess?: () => void) {
         period_type: data.period_type,
         status: data.status,
         rules: data.rules,
-        subsidy_amount: data.subsidy_amount ? Number(data.subsidy_amount) : null,
-        final_user_cost: data.final_user_cost ? Number(data.final_user_cost) : null,
+        financing_rules: data.financing_rules,
+        employee_limit: data.employee_limit,
+        base_price: data.base_price,
+        platform_fee: data.platform_fee,
+        renewal_type: data.renewal_type,
+        payment_rules: data.payment_rules,
+        payment_methods: data.payment_methods,
+        check_in_rules: data.check_in_rules,
+        auto_renewal: data.auto_renewal,
+        cancellation_rules: data.cancellation_rules
       };
 
-      const { error: updateError } = await supabase
+      const { data: mainPlan, error: mainPlanError } = await supabase
         .from("benefit_plans")
-        .update(updateData)
-        .eq("id", planId);
+        .insert(planData)
+        .select()
+        .single();
 
-      if (updateError) throw updateError;
+      if (mainPlanError) throw mainPlanError;
 
-      const { error: historyError } = await supabase
-        .from("plan_change_history")
+      // Se for cofinanciado, criar plano vinculado para o funcionário
+      if (data.financing_rules.type === "co_financed") {
+        const employeePlanData = {
+          ...planData,
+          name: `${data.name} (Funcionário)`,
+          linked_plan_id: mainPlan.id,
+          monthly_cost: data.financing_rules.contribution_type === "fixed"
+            ? data.financing_rules.employee_contribution
+            : (Number(data.monthly_cost) * data.financing_rules.employee_contribution) / 100
+        };
+
+        const { error: employeePlanError } = await supabase
+          .from("benefit_plans")
+          .insert(employeePlanData);
+
+        if (employeePlanError) throw employeePlanError;
+      }
+
+      // Criar relacionamentos com categorias
+      if (data.category_ids.length > 0) {
+        const planCategories = data.category_ids.map(categoryId => ({
+          plan_id: mainPlan.id,
+          category_id: categoryId
+        }));
+
+        const { error: categoriesError } = await supabase
+          .from("plan_categories")
+          .insert(planCategories);
+
+        if (categoriesError) throw categoriesError;
+      }
+
+      // Criar primeira versão do plano
+      const { error: versionError } = await supabase
+        .from("plan_versions")
         .insert({
-          plan_id: planId,
-          version_id: newVersion.id,
-          changes: updateData,
+          plan_id: mainPlan.id,
+          name: data.name,
+          description: data.description,
+          monthly_cost: Number(data.monthly_cost),
+          rules: data.rules,
+          version: 1,
         });
 
-      if (historyError) throw historyError;
+      if (versionError) throw versionError;
 
       toast({
-        title: "Plano atualizado com sucesso!",
-        description: "As alterações foram salvas e versionadas.",
+        title: "Plano criado com sucesso!",
+        description: "O novo plano foi adicionado ao sistema.",
       });
 
       queryClient.invalidateQueries({ queryKey: ["plans"] });
-      queryClient.invalidateQueries({ queryKey: ["plan", planId] });
+      form.reset();
       onSuccess?.();
     } catch (error) {
-      console.error("Error updating plan:", error);
+      console.error("Error creating plan:", error);
       toast({
         variant: "destructive",
-        title: "Erro ao atualizar plano",
-        description: "Não foi possível atualizar o plano. Tente novamente.",
+        title: "Erro ao criar plano",
+        description: "Não foi possível criar o plano. Tente novamente.",
       });
     } finally {
       setIsSubmitting(false);

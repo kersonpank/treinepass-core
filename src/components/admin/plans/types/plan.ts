@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type PlanType = "corporate" | "individual" | "corporate_subsidized";
@@ -5,6 +6,15 @@ export type PeriodType = "monthly" | "quarterly" | "semiannual" | "annual";
 export type PlanStatus = "active" | "inactive";
 export type RenewalType = "automatic" | "manual";
 export type PaymentMethod = "credit_card" | "pix" | "boleto";
+export type FinancingType = "company_paid" | "employee_paid" | "co_financed";
+export type ContributionType = "fixed" | "percentage";
+
+export interface FinancingRules {
+  type: FinancingType;
+  contribution_type: ContributionType;
+  company_contribution: number;
+  employee_contribution: number;
+}
 
 export interface CheckInRules {
   daily_limit: number | null;
@@ -29,8 +39,8 @@ export interface Plan {
   period_type: PeriodType;
   status: PlanStatus;
   rules: Record<string, any>;
-  subsidy_amount?: number | null;
-  final_user_cost?: number | null;
+  financing_rules: FinancingRules;
+  linked_plan_id?: string | null;
   base_price?: number | null;
   platform_fee?: number | null;
   renewal_type: RenewalType;
@@ -44,8 +54,14 @@ export interface Plan {
   auto_renewal: boolean;
   cancellation_rules: CancellationRules;
   employee_limit?: number | null;
-  user_final_cost?: number | null;
 }
+
+export const financingRulesSchema = z.object({
+  type: z.enum(["company_paid", "employee_paid", "co_financed"]),
+  contribution_type: z.enum(["fixed", "percentage"]),
+  company_contribution: z.number().min(0),
+  employee_contribution: z.number().min(0)
+});
 
 export const planFormSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -57,8 +73,13 @@ export const planFormSchema = z.object({
   period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
   status: z.enum(["active", "inactive"]),
   rules: z.record(z.any()).default({}),
-  subsidy_amount: z.number().nullable().optional(),
-  final_user_cost: z.number().nullable().optional(),
+  financing_rules: financingRulesSchema.default({
+    type: "company_paid",
+    contribution_type: "fixed",
+    company_contribution: 0,
+    employee_contribution: 0
+  }),
+  linked_plan_id: z.string().uuid().nullable().optional(),
   base_price: z.number().nullable().optional(),
   platform_fee: z.number().nullable().optional(),
   renewal_type: z.enum(["automatic", "manual"]).default("automatic"),
@@ -91,8 +112,7 @@ export const planFormSchema = z.object({
     user_can_cancel: true,
     notice_period_days: 30
   }),
-  employee_limit: z.number().nullable().optional(),
-  user_final_cost: z.number().nullable().optional()
+  employee_limit: z.number().nullable().optional()
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;

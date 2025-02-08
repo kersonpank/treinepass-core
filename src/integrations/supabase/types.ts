@@ -182,7 +182,9 @@ export type Database = {
           description: string | null
           employee_limit: number | null
           final_user_cost: number | null
+          financing_rules: Json | null
           id: string
+          linked_plan_id: string | null
           monthly_cost: number
           name: string
           payment_methods: Json | null
@@ -209,7 +211,9 @@ export type Database = {
           description?: string | null
           employee_limit?: number | null
           final_user_cost?: number | null
+          financing_rules?: Json | null
           id?: string
+          linked_plan_id?: string | null
           monthly_cost: number
           name: string
           payment_methods?: Json | null
@@ -236,7 +240,9 @@ export type Database = {
           description?: string | null
           employee_limit?: number | null
           final_user_cost?: number | null
+          financing_rules?: Json | null
           id?: string
+          linked_plan_id?: string | null
           monthly_cost?: number
           name?: string
           payment_methods?: Json | null
@@ -265,6 +271,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "academia_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "benefit_plans_linked_plan_id_fkey"
+            columns: ["linked_plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
             referencedColumns: ["id"]
           },
         ]
