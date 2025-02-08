@@ -17,6 +17,19 @@ interface CheckInsTableProps {
 }
 
 export function CheckInsTable({ checkIns }: CheckInsTableProps) {
+  const getValidationMethodLabel = (method: string) => {
+    switch (method) {
+      case 'qr_code':
+        return 'QR Code';
+      case 'access_token':
+        return 'Código Manual';
+      case 'automatic':
+        return 'Automático';
+      default:
+        return method;
+    }
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -51,9 +64,7 @@ export function CheckInsTable({ checkIns }: CheckInsTableProps) {
               </TableCell>
               <TableCell>
                 <Badge variant="outline">
-                  {checkIn.validation_method === "qr_code"
-                    ? "QR Code"
-                    : "Código Manual"}
+                  {getValidationMethodLabel(checkIn.validation_method)}
                 </Badge>
               </TableCell>
               <TableCell>
