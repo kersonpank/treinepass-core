@@ -17,18 +17,14 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   const handleScan = (result: string) => {
     try {
       console.log("QR Code scan result:", result);
-      // Try to parse the QR code data if it's JSON
-      const data = JSON.parse(result);
-      if (data.code) {
-        onScan(data.code);
-      } else {
-        // If no code property, try using the raw string
-        onScan(result);
-      }
+      onScan(result.trim());
     } catch (e) {
-      // If JSON parsing fails, use the raw string
-      console.log("Using raw QR code string:", result);
-      onScan(result);
+      console.error("Error processing QR code:", e);
+      toast({
+        variant: "destructive",
+        title: "Erro ao ler QR Code",
+        description: "Formato inválido, tente novamente ou insira o código manualmente",
+      });
     }
   };
 
@@ -68,7 +64,8 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     <div className="space-y-4">
       <div className="space-y-2">
         <Scanner
-          onResult={(result) => handleScan(result.getText())}
+          scanDelay={500}
+          onDecode={handleScan}
           onError={(error) => {
             console.error("Scanner error:", error);
             setHasError(true);
