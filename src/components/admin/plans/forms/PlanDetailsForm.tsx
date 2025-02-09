@@ -1,4 +1,3 @@
-
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -91,6 +90,37 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
             <FormControl>
               <Textarea {...field} />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name="rules.resources"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Recursos do Plano</FormLabel>
+            <FormControl>
+              <Textarea 
+                placeholder="Ex: Academia: Ilimitado&#10;Personal: 2x por semana&#10;Natação: 3x por semana"
+                {...field}
+                value={field.value || ""}
+                onChange={(e) => {
+                  const resources = e.target.value.split('\n').reduce((acc, line) => {
+                    const [key, value] = line.split(':').map(s => s.trim());
+                    if (key && value) {
+                      acc[key] = value;
+                    }
+                    return acc;
+                  }, {} as Record<string, string>);
+                  field.onChange(resources);
+                }}
+              />
+            </FormControl>
+            <FormDescription>
+              Digite um recurso por linha no formato "Nome: Valor"
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
