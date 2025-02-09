@@ -78,7 +78,7 @@ export function AvailablePlansDialog({
           <DialogTitle>Planos Disponíveis</DialogTitle>
         </DialogHeader>
         <div className="h-[80vh] overflow-y-auto">
-          <div className="space-y-4 pb-4">
+          <div className="space-y-2 pb-4">
             {availablePlans?.map((plan) => (
               <PricingCard
                 key={plan.id}
@@ -103,4 +103,3 @@ export function AvailablePlansDialog({
     </Dialog>
   );
 }
-
