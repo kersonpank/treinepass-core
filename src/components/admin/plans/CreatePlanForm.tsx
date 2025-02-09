@@ -26,54 +26,58 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="details">Detalhes</TabsTrigger>
-            <TabsTrigger value="checkin">Check-in</TabsTrigger>
-            <TabsTrigger value="payment">Pagamento</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
+            <TabsTrigger value="details" className="text-sm">Detalhes</TabsTrigger>
+            <TabsTrigger value="checkin" className="text-sm">Check-in</TabsTrigger>
+            <TabsTrigger value="payment" className="text-sm">Pagamento</TabsTrigger>
             {isCoFinanced && (
-              <TabsTrigger value="financing">Financiamento</TabsTrigger>
+              <TabsTrigger value="financing" className="text-sm">Financiamento</TabsTrigger>
             )}
           </TabsList>
 
-          <TabsContent value="details" className="space-y-4">
-            <Card>
-              <CardContent className="pt-6">
-                <PlanDetailsForm form={form} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="checkin" className="space-y-4">
-            <Card>
-              <CardContent className="pt-6">
-                <CheckInRulesForm />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="payment" className="space-y-4">
-            <Card>
-              <CardContent className="pt-6">
-                <CancellationRulesForm />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {isCoFinanced && (
-            <TabsContent value="financing" className="space-y-4">
+          <div className="mt-4 space-y-4">
+            <TabsContent value="details">
               <Card>
-                <CardContent className="pt-6">
-                  <FinancingRulesForm />
+                <CardContent className="pt-6 space-y-4">
+                  <PlanDetailsForm form={form} />
                 </CardContent>
               </Card>
             </TabsContent>
-          )}
+
+            <TabsContent value="checkin">
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <CheckInRulesForm form={form} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="payment">
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <CancellationRulesForm form={form} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {isCoFinanced && (
+              <TabsContent value="financing">
+                <Card>
+                  <CardContent className="pt-6 space-y-4">
+                    <FinancingRulesForm form={form} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+          </div>
         </Tabs>
 
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Criar Plano
-        </Button>
+        <div className="flex justify-end pt-4">
+          <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto">
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Criar Plano
+          </Button>
+        </div>
       </form>
     </Form>
   );
