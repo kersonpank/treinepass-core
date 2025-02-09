@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { planFormSchema, type PlanFormValues } from "../types/plan";
 
-export function usePlanForm(planId: string, onSuccess?: () => void) {
+export function usePlanForm(mode: "new" | "edit", onSuccess?: () => void) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -35,7 +35,7 @@ export function usePlanForm(planId: string, onSuccess?: () => void) {
   const onSubmit = async (data: PlanFormValues) => {
     setIsSubmitting(true);
     try {
-      // Criar plano principal
+      // Create main plan
       const planData = {
         name: data.name,
         description: data.description,
@@ -64,15 +64,24 @@ export function usePlanForm(planId: string, onSuccess?: () => void) {
 
       if (mainPlanError) throw mainPlanError;
 
-      // Se for cofinanciado, criar plano vinculado para o funcionário
-      if (data.financing_rules.type === "co_financed") {
+      // If co-financed, create linked plan for employee
+      if (data.plan_type === "corporate_subsidized") {
         const employeePlanData = {
           ...planData,
           name: `${data.name} (Funcionário)`,
           linked_plan_id: mainPlan.id,
           monthly_cost: data.financing_rules.contribution_type === "fixed"
             ? data.financing_rules.employee_contribution
-            : (Number(data.monthly_cost) * data.financing_rules.employee_contribution) / 100
+            : (Number(data.monthly_cost) * data.financing_rules.employee_contribution) / 100,
+          plan_type: "individual", // O plano vinculado é individual
+          financing_rules: {
+            type: "employee_paid",
+            contribution_type: "fixed",
+            company_contribution: 0,
+            employee_contribution: data.financing_rules.contribution_type === "fixed"
+              ? data.financing_rules.employee_contribution
+              : (Number(data.monthly_cost) * data.financing_rules.employee_contribution) / 100
+          }
         };
 
         const { error: employeePlanError } = await supabase
@@ -82,8 +91,8 @@ export function usePlanForm(planId: string, onSuccess?: () => void) {
         if (employeePlanError) throw employeePlanError;
       }
 
-      // Criar relacionamentos com categorias
-      if (data.category_ids.length > 0) {
+      // Create plan-category relationships
+      if (data.category_ids?.length > 0) {
         const planCategories = data.category_ids.map(categoryId => ({
           plan_id: mainPlan.id,
           category_id: categoryId
@@ -96,23 +105,11 @@ export function usePlanForm(planId: string, onSuccess?: () => void) {
         if (categoriesError) throw categoriesError;
       }
 
-      // Criar primeira versão do plano
-      const { error: versionError } = await supabase
-        .from("plan_versions")
-        .insert({
-          plan_id: mainPlan.id,
-          name: data.name,
-          description: data.description,
-          monthly_cost: Number(data.monthly_cost),
-          rules: data.rules,
-          version: 1,
-        });
-
-      if (versionError) throw versionError;
-
       toast({
         title: "Plano criado com sucesso!",
-        description: "O novo plano foi adicionado ao sistema.",
+        description: mode === "new" 
+          ? "O novo plano foi adicionado ao sistema."
+          : "O plano foi atualizado com sucesso.",
       });
 
       queryClient.invalidateQueries({ queryKey: ["plans"] });
