@@ -144,7 +144,7 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
         </div>
       )}
 
-      {!isSubsidized && isCorporate && (
+      {isCorporate && (
         <CorporatePlanFields form={form} isSubsidized={isSubsidized} />
       )}
 
