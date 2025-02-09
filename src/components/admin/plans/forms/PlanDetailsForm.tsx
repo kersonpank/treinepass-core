@@ -18,6 +18,7 @@ interface PlanDetailsFormProps {
 export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
   const planType = form.watch("plan_type");
   const isCorporate = planType === "corporate" || planType === "corporate_subsidized";
+  const isSubsidized = planType === "corporate_subsidized";
 
   // Query to fetch categories
   const { data: categories } = useQuery({
@@ -95,54 +96,56 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
         )}
       />
 
-      <div className="grid grid-cols-2 gap-4">
-        <FormField
-          control={form.control}
-          name="monthly_cost"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Custo Total</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="period_type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Periodicidade</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+      {!isSubsidized && (
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="monthly_cost"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Custo Total</FormLabel>
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a periodicidade" />
-                  </SelectTrigger>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    {...field}
+                  />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value="monthly">Mensal</SelectItem>
-                  <SelectItem value="quarterly">Trimestral</SelectItem>
-                  <SelectItem value="semiannual">Semestral</SelectItem>
-                  <SelectItem value="annual">Anual</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-      {isCorporate && (
-        <CorporatePlanFields form={form} isSubsidized={planType === "corporate_subsidized"} />
+          <FormField
+            control={form.control}
+            name="period_type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Periodicidade</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a periodicidade" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="monthly">Mensal</SelectItem>
+                    <SelectItem value="quarterly">Trimestral</SelectItem>
+                    <SelectItem value="semiannual">Semestral</SelectItem>
+                    <SelectItem value="annual">Anual</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+      )}
+
+      {!isSubsidized && isCorporate && (
+        <CorporatePlanFields form={form} isSubsidized={isSubsidized} />
       )}
 
       <FormField

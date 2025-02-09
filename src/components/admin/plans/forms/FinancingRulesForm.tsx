@@ -22,7 +22,10 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/com
 export function FinancingRulesForm() {
   const form = useFormContext<PlanFormValues>();
   const contributionType = form.watch("financing_rules.contribution_type");
+  const planType = form.watch("plan_type");
   const monthlyTotal = Number(form.watch("monthly_cost")) || 0;
+  const employeeLimit = Number(form.watch("employee_limit")) || 1;
+  const isSubsidized = planType === "corporate_subsidized";
 
   const handleCompanyContributionChange = (value: number) => {
     form.setValue("financing_rules.company_contribution", value);
@@ -50,6 +53,10 @@ export function FinancingRulesForm() {
     }
   };
 
+  const employeeCostPerMonth = contributionType === "fixed"
+    ? form.watch("financing_rules.employee_contribution") / employeeLimit
+    : (monthlyTotal * form.watch("financing_rules.employee_contribution") / 100) / employeeLimit;
+
   return (
     <div className="space-y-4">
       <Card>
@@ -60,6 +67,28 @@ export function FinancingRulesForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isSubsidized && (
+            <FormField
+              control={form.control}
+              name="monthly_cost"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Custo Total do Plano</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
           <FormField
             control={form.control}
             name="financing_rules.contribution_type"
@@ -142,6 +171,18 @@ export function FinancingRulesForm() {
               )}
             />
           </div>
+
+          {isSubsidized && (
+            <FormItem>
+              <FormLabel>Custo por Funcionário</FormLabel>
+              <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                R$ {employeeCostPerMonth.toFixed(2)} / funcionário
+              </div>
+              <FormDescription>
+                Valor que cada funcionário pagará mensalmente
+              </FormDescription>
+            </FormItem>
+          )}
 
           {contributionType === "fixed" && (
             <div className="text-sm text-muted-foreground">

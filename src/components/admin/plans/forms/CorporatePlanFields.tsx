@@ -9,7 +9,7 @@ interface CorporatePlanFieldsProps {
   isSubsidized: boolean;
 }
 
-export function CorporatePlanFields({ form }: CorporatePlanFieldsProps) {
+export function CorporatePlanFields({ form, isSubsidized }: CorporatePlanFieldsProps) {
   return (
     <FormField
       control={form.control}
