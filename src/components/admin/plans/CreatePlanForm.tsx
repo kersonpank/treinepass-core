@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { PlanDetailsForm } from "./forms/PlanDetailsForm";
 import { CheckInRulesForm } from "./forms/CheckInRulesForm";
 import { CancellationRulesForm } from "./forms/CancellationRulesForm";
@@ -38,8 +39,12 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
           <div className="mt-4 space-y-4">
             <TabsContent value="details">
               <Card>
-                <CardContent className="pt-6 space-y-4">
-                  <PlanDetailsForm form={form} />
+                <CardContent className="pt-6">
+                  <ScrollArea className="h-[70vh] pr-4">
+                    <div className="space-y-4">
+                      <PlanDetailsForm form={form} />
+                    </div>
+                  </ScrollArea>
                 </CardContent>
               </Card>
             </TabsContent>
