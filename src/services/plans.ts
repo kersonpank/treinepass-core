@@ -21,7 +21,9 @@ export async function updatePlan(planId: string, data: PlanFormValues) {
       check_in_rules: data.check_in_rules,
       validity_period: data.validity_period,
       auto_renewal: data.auto_renewal,
-      cancellation_rules: data.cancellation_rules
+      cancellation_rules: data.cancellation_rules,
+      financing_rules: data.financing_rules,
+      employee_limit: data.employee_limit
     })
     .eq("id", planId);
 
