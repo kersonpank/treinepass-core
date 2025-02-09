@@ -1,3 +1,4 @@
+
 import { FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +18,6 @@ interface PlanDetailsFormProps {
 export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
   const planType = form.watch("plan_type");
   const isCorporate = planType === "corporate" || planType === "corporate_subsidized";
-  const isSubsidized = planType === "corporate_subsidized";
 
   // Query to fetch categories
   const { data: categories } = useQuery({
@@ -44,6 +44,29 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
 
   return (
     <div className="space-y-4">
+      <FormField
+        control={form.control}
+        name="plan_type"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Tipo do Plano</FormLabel>
+            <Select onValueChange={field.onChange} value={field.value}>
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo do plano" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="corporate">Corporativo</SelectItem>
+                <SelectItem value="individual">Individual</SelectItem>
+                <SelectItem value="corporate_subsidized">Corporativo Subsidiado</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
       <FormField
         control={form.control}
         name="name"
@@ -118,57 +141,8 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
         />
       </div>
 
-      <FormField
-        control={form.control}
-        name="plan_type"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Tipo do Plano</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo do plano" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="corporate">Corporativo</SelectItem>
-                <SelectItem value="individual">Individual</SelectItem>
-                <SelectItem value="corporate_subsidized">Corporativo Subsidiado</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
       {isCorporate && (
-        <CorporatePlanFields form={form} isSubsidized={isSubsidized} />
-      )}
-
-      {isSubsidized && (
-        <FormField
-          control={form.control}
-          name="subsidy_amount"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Valor do Subsídio</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  {...field}
-                  onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                />
-              </FormControl>
-              <FormDescription>
-                Valor que será subsidiado pela empresa
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <CorporatePlanFields form={form} isSubsidized={planType === "corporate_subsidized"} />
       )}
 
       <FormField
@@ -187,49 +161,6 @@ export function PlanDetailsForm({ form }: PlanDetailsFormProps) {
             <FormDescription>
               As categorias definem quais academias este plano terá acesso
             </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="base_price"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Preço Base</FormLabel>
-            <FormControl>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                {...field}
-                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={form.control}
-        name="platform_fee"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Taxa da Plataforma (%)</FormLabel>
-            <FormControl>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                placeholder="0.00"
-                {...field}
-                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-              />
-            </FormControl>
             <FormMessage />
           </FormItem>
         )}
