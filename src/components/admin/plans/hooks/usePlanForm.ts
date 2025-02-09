@@ -33,15 +33,22 @@ export function usePlanForm(mode: "new" | "edit", onSuccess?: () => void) {
       },
       employee_limit: null,
       renewal_type: "automatic",
-      category_ids: []
+      category_ids: [],
+      check_in_rules: {
+        daily_limit: null,
+        weekly_limit: null,
+        monthly_limit: null,
+        allow_extra_checkins: false,
+        extra_checkin_cost: null
+      }
     },
   });
 
   const onSubmit = async (data: PlanFormValues) => {
     setIsSubmitting(true);
     try {
-      // Prepare plan data
-      const planData = {
+      // Prepare base plan data
+      const basePlanData = {
         name: data.name,
         description: data.description,
         monthly_cost: data.monthly_cost ? Number(data.monthly_cost) : 0,
@@ -54,18 +61,26 @@ export function usePlanForm(mode: "new" | "edit", onSuccess?: () => void) {
         payment_rules: data.payment_rules,
         check_in_rules: data.check_in_rules,
         renewal_type: data.renewal_type,
+        cancellation_rules: {
+          company_can_cancel: true,
+          user_can_cancel: true,
+          notice_period_days: 30
+        }
       };
 
-      // Create main plan
+      // Criar plano principal
       const { data: mainPlan, error: mainPlanError } = await supabase
         .from("benefit_plans")
-        .insert(planData)
+        .insert(basePlanData)
         .select()
         .single();
 
-      if (mainPlanError) throw mainPlanError;
+      if (mainPlanError) {
+        console.error("Erro ao criar plano principal:", mainPlanError);
+        throw mainPlanError;
+      }
 
-      // If categories are selected, create plan-category relationships
+      // Se houver categorias selecionadas, criar relacionamentos plano-categoria
       if (data.category_ids?.length > 0) {
         const planCategories = data.category_ids.map(categoryId => ({
           plan_id: mainPlan.id,
@@ -76,26 +91,29 @@ export function usePlanForm(mode: "new" | "edit", onSuccess?: () => void) {
           .from("plan_categories")
           .insert(planCategories);
 
-        if (categoriesError) throw categoriesError;
+        if (categoriesError) {
+          console.error("Erro ao criar categorias:", categoriesError);
+          throw categoriesError;
+        }
       }
 
-      // Create linked plan for employee if it's a subsidized plan
+      // Se for plano subsidiado, criar plano vinculado para o funcionário
       if (data.plan_type === "corporate_subsidized") {
+        const employeeCost = data.financing_rules.contribution_type === "fixed"
+          ? data.financing_rules.employee_contribution
+          : (Number(data.monthly_cost) * data.financing_rules.employee_contribution) / 100;
+
         const employeePlanData = {
-          ...planData,
+          ...basePlanData,
           name: `${data.name} (Funcionário)`,
           linked_plan_id: mainPlan.id,
-          monthly_cost: data.financing_rules.contribution_type === "fixed"
-            ? data.financing_rules.employee_contribution
-            : (Number(data.monthly_cost) * data.financing_rules.employee_contribution) / 100,
+          monthly_cost: employeeCost,
           plan_type: "individual",
           financing_rules: {
             type: "employee_paid",
             contribution_type: "fixed",
             company_contribution: 0,
-            employee_contribution: data.financing_rules.contribution_type === "fixed"
-              ? data.financing_rules.employee_contribution
-              : (Number(data.monthly_cost) * data.financing_rules.employee_contribution) / 100
+            employee_contribution: employeeCost
           }
         };
 
@@ -103,7 +121,10 @@ export function usePlanForm(mode: "new" | "edit", onSuccess?: () => void) {
           .from("benefit_plans")
           .insert(employeePlanData);
 
-        if (employeePlanError) throw employeePlanError;
+        if (employeePlanError) {
+          console.error("Erro ao criar plano do funcionário:", employeePlanError);
+          throw employeePlanError;
+        }
       }
 
       toast({
@@ -117,7 +138,7 @@ export function usePlanForm(mode: "new" | "edit", onSuccess?: () => void) {
       form.reset();
       onSuccess?.();
     } catch (error) {
-      console.error("Error creating plan:", error);
+      console.error("Erro ao criar plano:", error);
       toast({
         variant: "destructive",
         title: "Erro ao criar plano",
