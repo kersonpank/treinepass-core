@@ -80,7 +80,7 @@ export function AvailablePlansDialog({
         <div className="h-[80vh] overflow-y-auto">
           <div className="space-y-0">
             {availablePlans?.map((plan) => (
-              <div key={plan.id} className="-mt-12">
+              <div key={plan.id} className="-mt-24">
                 <PricingCard
                   title={plan.name}
                   description={plan.description || ""}
