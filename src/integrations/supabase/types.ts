@@ -516,6 +516,57 @@ export type Database = {
           },
         ]
       }
+      employee_invites: {
+        Row: {
+          accepted_at: string | null
+          business_id: string
+          created_at: string
+          email: string
+          id: string
+          invite_token: string | null
+          plan_id: string
+          status: Database["public"]["Enums"]["employee_invite_status"] | null
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          business_id: string
+          created_at?: string
+          email: string
+          id?: string
+          invite_token?: string | null
+          plan_id: string
+          status?: Database["public"]["Enums"]["employee_invite_status"] | null
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          business_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          invite_token?: string | null
+          plan_id?: string
+          status?: Database["public"]["Enums"]["employee_invite_status"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_invites_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_invites_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           business_id: string
@@ -1199,6 +1250,13 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      check_employee_limit: {
+        Args: {
+          business_id: string
+          plan_id: string
+        }
+        Returns: boolean
+      }
       check_user_by_cpf: {
         Args: {
           p_cpf: string
@@ -1343,6 +1401,7 @@ export type Database = {
     }
     Enums: {
       check_in_validation_method: "qr_code" | "manual_code" | "qr_scan"
+      employee_invite_status: "pending" | "accepted" | "rejected"
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
       plan_subscription_status: "active" | "pending" | "expired" | "cancelled"
       user_role_type:
