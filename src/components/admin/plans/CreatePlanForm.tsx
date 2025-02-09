@@ -26,56 +26,56 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <ScrollArea className="h-[calc(100vh-300px)]">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
-              <TabsTrigger value="details" className="text-sm">Detalhes</TabsTrigger>
-              <TabsTrigger value="checkin" className="text-sm">Check-in</TabsTrigger>
-              <TabsTrigger value="payment" className="text-sm">Pagamento</TabsTrigger>
-              {isCoFinanced && (
-                <TabsTrigger value="financing" className="text-sm">Financiamento</TabsTrigger>
-              )}
-            </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-1">
+            <TabsTrigger value="details" className="text-sm">Detalhes</TabsTrigger>
+            <TabsTrigger value="checkin" className="text-sm">Check-in</TabsTrigger>
+            <TabsTrigger value="payment" className="text-sm">Pagamento</TabsTrigger>
+            {isCoFinanced && (
+              <TabsTrigger value="financing" className="text-sm">Financiamento</TabsTrigger>
+            )}
+          </TabsList>
 
-            <div className="mt-4 space-y-4">
-              <TabsContent value="details">
-                <Card>
-                  <CardContent className="pt-6">
+          <div className="mt-4 space-y-4">
+            <TabsContent value="details">
+              <Card>
+                <CardContent className="pt-6">
+                  <ScrollArea className="h-[70vh] pr-4">
                     <div className="space-y-4">
                       <PlanDetailsForm form={form} />
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-              <TabsContent value="checkin">
+            <TabsContent value="checkin">
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <CheckInRulesForm form={form} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="payment">
+              <Card>
+                <CardContent className="pt-6 space-y-4">
+                  <CancellationRulesForm form={form} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {isCoFinanced && (
+              <TabsContent value="financing">
                 <Card>
                   <CardContent className="pt-6 space-y-4">
-                    <CheckInRulesForm form={form} />
+                    <FinancingRulesForm form={form} />
                   </CardContent>
                 </Card>
               </TabsContent>
-
-              <TabsContent value="payment">
-                <Card>
-                  <CardContent className="pt-6 space-y-4">
-                    <CancellationRulesForm form={form} />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {isCoFinanced && (
-                <TabsContent value="financing">
-                  <Card>
-                    <CardContent className="pt-6 space-y-4">
-                      <FinancingRulesForm form={form} />
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              )}
-            </div>
-          </Tabs>
-        </ScrollArea>
+            )}
+          </div>
+        </Tabs>
 
         <div className="flex justify-end pt-4">
           <Button type="submit" disabled={isSubmitting} className="w-full md:w-auto">
