@@ -80,58 +80,53 @@ export function PricingCard({
   };
 
   return (
-    <motion.section
+    <motion.div
       ref={containerRef}
-      className="container py-12 md:py-24"
+      className="w-full"
       initial="hidden"
       animate={hasAnimated ? "visible" : "hidden"}
       variants={containerVariants}
     >
-      <Card className="relative mx-auto w-full max-w-6xl overflow-hidden">
-        <div className="flex flex-col lg:flex-row">
+      <Card className="h-full overflow-hidden">
+        <div className="flex flex-col h-full">
           <motion.div
-            className="flex flex-col justify-between p-6 lg:w-2/5 lg:p-10"
+            className="flex flex-col justify-between p-6"
             variants={itemVariants}
           >
             <div>
               <CardHeader className="p-0">
                 <div className="flex items-start justify-between">
                   <div>
-                    <CardTitle className="text-3xl font-bold">{title}</CardTitle>
+                    <CardTitle className="text-2xl font-bold">{title}</CardTitle>
                     <CardDescription className="mt-2">{description}</CardDescription>
                   </div>
                 </div>
               </CardHeader>
               <motion.div className="mt-6 space-y-4" variants={itemVariants}>
                 <div className="flex items-baseline">
-                  <span className="text-5xl font-extrabold">${price}</span>
+                  <span className="text-4xl font-extrabold">${price}</span>
                   {originalPrice && (
-                    <span className="ml-2 text-xl text-muted-foreground line-through">
+                    <span className="ml-2 text-lg text-muted-foreground line-through">
                       ${originalPrice}
                     </span>
                   )}
                 </div>
                 <span className="block text-sm text-muted-foreground">
-                  one-time payment
+                  por mês
                 </span>
               </motion.div>
             </div>
-            <motion.div className="mt-8" variants={itemVariants}>
-              <Button className="w-full" size="lg" onClick={onButtonClick}>
-                {buttonText}
-              </Button>
-            </motion.div>
           </motion.div>
-          <Separator className="lg:my-6 lg:hidden" />
+          <Separator />
           <motion.div
-            className="bg-muted/50 p-6 lg:w-3/5 lg:p-10"
+            className="bg-muted/50 p-6 flex-1"
             variants={itemVariants}
           >
             <div className="space-y-6">
               {features.map((feature, featureIndex) => (
                 <div key={featureIndex}>
                   <h3 className="mb-4 text-lg font-semibold">{feature.title}:</h3>
-                  <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <ul className="space-y-3">
                     {feature.items.map((item, index) => (
                       <motion.li
                         key={index}
@@ -149,8 +144,13 @@ export function PricingCard({
               ))}
             </div>
           </motion.div>
+          <motion.div className="p-6" variants={itemVariants}>
+            <Button className="w-full" size="lg" onClick={onButtonClick}>
+              {buttonText}
+            </Button>
+          </motion.div>
         </div>
       </Card>
-    </motion.section>
+    </motion.div>
   );
 }
