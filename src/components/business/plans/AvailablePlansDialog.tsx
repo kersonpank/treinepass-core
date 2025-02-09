@@ -77,25 +77,27 @@ export function AvailablePlansDialog({
         <DialogHeader>
           <DialogTitle>Planos Disponíveis</DialogTitle>
         </DialogHeader>
-        <div className="space-y-6">
-          {availablePlans?.map((plan) => (
-            <PricingCard
-              key={plan.id}
-              title={plan.name}
-              description={plan.description || ""}
-              price={plan.monthly_cost}
-              features={[
-                {
-                  title: "Recursos",
-                  items: Object.entries(plan.rules || {}).map(([key, value]) => 
-                    `${key}: ${JSON.stringify(value)}`
-                  ),
-                },
-              ]}
-              buttonText="Contratar Plano"
-              onButtonClick={() => handleSubscribe(plan.id)}
-            />
-          ))}
+        <div className="max-h-[70vh] overflow-y-auto pr-4 -mr-4">
+          <div className="space-y-4">
+            {availablePlans?.map((plan) => (
+              <PricingCard
+                key={plan.id}
+                title={plan.name}
+                description={plan.description || ""}
+                price={plan.monthly_cost}
+                features={[
+                  {
+                    title: "Recursos",
+                    items: Object.entries(plan.rules || {}).map(([key, value]) => 
+                      `${key}: ${JSON.stringify(value)}`
+                    ),
+                  },
+                ]}
+                buttonText="Contratar Plano"
+                onButtonClick={() => handleSubscribe(plan.id)}
+              />
+            ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
