@@ -11,11 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { CPFInput } from "@/components/auth/form/CPFInput";
 
 const addEmployeeSchema = z.object({
   email: z.string().email("Email inválido"),
   planId: z.string().uuid("Selecione um plano"),
   name: z.string().min(1, "Nome é obrigatório"),
+  cpf: z.string().min(1, "CPF é obrigatório"),
   department: z.string().optional(),
   costCenter: z.string().optional()
 });
@@ -68,6 +70,7 @@ export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmploye
           business_id: businessId,
           email: data.email,
           full_name: data.name,
+          cpf: data.cpf,
           department: data.department || null,
           cost_center: data.costCenter || null,
           status: "active"
@@ -174,6 +177,34 @@ export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmploye
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input {...field} type="email" placeholder="colaborador@empresa.com" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="cpf"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>CPF</FormLabel>
+                  <FormControl>
+                    <Input 
+                      {...field}
+                      placeholder="000.000.000-00"
+                      onChange={(e) => {
+                        // Format CPF as user types
+                        const value = e.target.value
+                          .replace(/\D/g, "") // Remove non-digits
+                          .replace(/(\d{3})(\d)/, "$1.$2")
+                          .replace(/(\d{3})(\d)/, "$1.$2")
+                          .replace(/(\d{3})(\d{1,2})/, "$1-$2")
+                          .replace(/(-\d{2})\d+?$/, "$1");
+                        field.onChange(value);
+                      }}
+                      maxLength={14}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
