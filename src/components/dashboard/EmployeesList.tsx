@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
 import { AddEmployeeDialog } from "@/components/business/employees/AddEmployeeDialog";
+import { resendInvite } from "@/components/business/employees/employee.service";
+import { toast } from "@/components/ui/toast";
 
 export function EmployeesList() {
   const [search, setSearch] = useState("");
@@ -130,9 +131,33 @@ export function EmployeesList() {
                   ))}
                 </TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="sm">
-                    Editar
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          if (!businessProfile?.id) return;
+                          await resendInvite(employee.email, businessProfile.id);
+                          toast({
+                            title: "Convite reenviado",
+                            description: "Um novo email de convite foi enviado para o colaborador."
+                          });
+                        } catch (error: any) {
+                          toast({
+                            variant: "destructive",
+                            title: "Erro",
+                            description: error.message
+                          });
+                        }
+                      }}
+                    >
+                      Reenviar convite
+                    </Button>
+                    <Button variant="ghost" size="sm">
+                      Editar
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

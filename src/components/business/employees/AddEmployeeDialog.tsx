@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AddEmployeeForm } from "./AddEmployeeForm";
 import { addEmployeeSchema, type AddEmployeeForm as AddEmployeeFormType, type AddEmployeeDialogProps } from "./types";
-import { createEmployee, addEmployeeBenefit, checkExistingProfile, sendEmployeeInvite } from "./employee.service";
+import { createEmployee, addEmployeeBenefit, checkExistingProfile, sendEmployeeInvite, sendInviteEmail } from "./employee.service";
 
 export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmployeeDialogProps) {
   const { toast } = useToast();
@@ -40,6 +39,20 @@ export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmploye
     },
   });
 
+  const { data: businessProfile } = useQuery({
+    queryKey: ["businessProfile", businessId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("business_profiles")
+        .select("*")
+        .eq("id", businessId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const handleSubmit = async (data: AddEmployeeFormType) => {
     setIsSubmitting(true);
     try {
@@ -50,6 +63,16 @@ export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmploye
 
       if (!existingProfile) {
         await sendEmployeeInvite(businessId, data.planId, data.email);
+        
+        // Send invite email
+        if (businessProfile) {
+          await sendInviteEmail(
+            data.name,
+            data.email,
+            businessProfile.company_name
+          );
+        }
+
         toast({
           title: "Convite enviado",
           description: "Um email de convite foi enviado para o colaborador."

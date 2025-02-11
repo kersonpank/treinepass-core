@@ -62,3 +62,56 @@ export async function sendEmployeeInvite(businessId: string, planId: string, ema
     throw inviteError;
   }
 }
+
+export async function sendInviteEmail(employeeName: string, employeeEmail: string, companyName: string) {
+  const { data, error } = await supabase.functions.invoke('send-employee-invite', {
+    body: {
+      employeeName,
+      employeeEmail,
+      companyName
+    }
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function resendInvite(email: string, businessId: string) {
+  // Get employee data
+  const { data: employee } = await supabase
+    .from("employees")
+    .select(`
+      *,
+      employee_benefits!inner (
+        plan_id
+      )
+    `)
+    .eq("email", email)
+    .eq("business_id", businessId)
+    .single();
+
+  if (!employee) throw new Error("Colaborador não encontrado");
+
+  // Get company name
+  const { data: business } = await supabase
+    .from("business_profiles")
+    .select("company_name")
+    .eq("id", businessId)
+    .single();
+
+  if (!business) throw new Error("Empresa não encontrada");
+
+  // Resend invite
+  await sendInviteEmail(
+    employee.full_name,
+    employee.email,
+    business.company_name
+  );
+
+  // Update employee_invites table
+  await sendEmployeeInvite(
+    businessId, 
+    employee.employee_benefits[0].plan_id,
+    email
+  );
+}
