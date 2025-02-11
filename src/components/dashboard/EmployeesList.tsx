@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,23 +13,48 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
+import { AddEmployeeDialog } from "@/components/business/employees/AddEmployeeDialog";
 
 export function EmployeesList() {
   const [search, setSearch] = useState("");
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
-  const { data: employees, isLoading } = useQuery({
-    queryKey: ["employees", search],
+  const { data: businessProfile } = useQuery({
+    queryKey: ["businessProfile"],
     queryFn: async () => {
-      const { data: businessProfile } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
         .from("business_profiles")
-        .select("id")
+        .select("*")
+        .eq("user_id", user.id)
         .single();
 
-      if (!businessProfile) throw new Error("Business profile not found");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: employees, isLoading } = useQuery({
+    queryKey: ["employees", search, businessProfile?.id],
+    enabled: !!businessProfile?.id,
+    queryFn: async () => {
+      if (!businessProfile?.id) return [];
 
       const query = supabase
         .from("employees")
-        .select("*, employee_benefits(plan_id, status)")
+        .select(`
+          *,
+          employee_benefits!inner (
+            plan_id,
+            status,
+            benefit_plans (
+              name,
+              financing_rules
+            )
+          )
+        `)
         .eq("business_id", businessProfile.id)
         .order("full_name");
 
@@ -43,6 +69,10 @@ export function EmployeesList() {
     },
   });
 
+  if (isLoading) {
+    return <div>Carregando...</div>;
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -52,7 +82,7 @@ export function EmployeesList() {
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
-        <Button>
+        <Button onClick={() => setShowAddDialog(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Colaborador
         </Button>
@@ -67,6 +97,7 @@ export function EmployeesList() {
               <TableHead>Departamento</TableHead>
               <TableHead>Centro de Custo</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Plano</TableHead>
               <TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -87,6 +118,18 @@ export function EmployeesList() {
                   </span>
                 </TableCell>
                 <TableCell>
+                  {employee.employee_benefits?.map((benefit) => (
+                    <div key={benefit.plan_id} className="space-y-1">
+                      <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700">
+                        {benefit.benefit_plans.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground block">
+                        {benefit.status === "active" ? "Plano ativo" : "Plano inativo"}
+                      </span>
+                    </div>
+                  ))}
+                </TableCell>
+                <TableCell>
                   <Button variant="ghost" size="sm">
                     Editar
                   </Button>
@@ -96,6 +139,14 @@ export function EmployeesList() {
           </TableBody>
         </Table>
       </div>
+
+      {businessProfile && (
+        <AddEmployeeDialog 
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          businessId={businessProfile.id}
+        />
+      )}
     </div>
   );
 }
