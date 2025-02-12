@@ -45,7 +45,6 @@ export function EmployeesList() {
     queryFn: async () => {
       if (!businessProfile?.id) return [];
 
-      // Construir a query base
       let query = supabase
         .from("employees")
         .select(`
@@ -62,7 +61,6 @@ export function EmployeesList() {
         .eq("business_id", businessProfile.id)
         .eq("status", "active");
 
-      // Adicionar filtro de busca se necessário
       if (search) {
         query = query.ilike("full_name", `%${search}%`);
       }
@@ -103,8 +101,8 @@ export function EmployeesList() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>Email</TableHead>
               <TableHead>CPF</TableHead>
+              <TableHead>Data de Nascimento</TableHead>
               <TableHead>Departamento</TableHead>
               <TableHead>Centro de Custo</TableHead>
               <TableHead>Status</TableHead>
@@ -116,8 +114,10 @@ export function EmployeesList() {
             {employees?.map((employee) => (
               <TableRow key={employee.id}>
                 <TableCell>{employee.full_name}</TableCell>
-                <TableCell>{employee.email}</TableCell>
                 <TableCell>{employee.cpf}</TableCell>
+                <TableCell>
+                  {employee.birth_date ? new Date(employee.birth_date).toLocaleDateString() : "-"}
+                </TableCell>
                 <TableCell>{employee.department || "-"}</TableCell>
                 <TableCell>{employee.cost_center || "-"}</TableCell>
                 <TableCell>
