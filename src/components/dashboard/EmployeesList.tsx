@@ -45,11 +45,12 @@ export function EmployeesList() {
     queryFn: async () => {
       if (!businessProfile?.id) return [];
 
-      const query = supabase
+      // Construir a query base
+      let query = supabase
         .from("employees")
         .select(`
           *,
-          employee_benefits!inner (
+          employee_benefits (
             plan_id,
             status,
             benefit_plans (
@@ -61,13 +62,18 @@ export function EmployeesList() {
         .eq("business_id", businessProfile.id)
         .eq("status", "active");
 
+      // Adicionar filtro de busca se necessário
       if (search) {
-        query.ilike("full_name", `%${search}%`);
+        query = query.ilike("full_name", `%${search}%`);
       }
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching employees:", error);
+        throw error;
+      }
+
       console.log("Employees loaded:", data);
       return data;
     },
@@ -98,6 +104,7 @@ export function EmployeesList() {
             <TableRow>
               <TableHead>Nome</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>CPF</TableHead>
               <TableHead>Departamento</TableHead>
               <TableHead>Centro de Custo</TableHead>
               <TableHead>Status</TableHead>
@@ -110,6 +117,7 @@ export function EmployeesList() {
               <TableRow key={employee.id}>
                 <TableCell>{employee.full_name}</TableCell>
                 <TableCell>{employee.email}</TableCell>
+                <TableCell>{employee.cpf}</TableCell>
                 <TableCell>{employee.department || "-"}</TableCell>
                 <TableCell>{employee.cost_center || "-"}</TableCell>
                 <TableCell>
