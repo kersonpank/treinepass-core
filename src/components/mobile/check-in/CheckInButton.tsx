@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -35,12 +34,7 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Você precisa estar logado para fazer check-in",
-        });
-        return;
+        throw new Error("Você precisa estar logado para fazer check-in");
       }
 
       // Verificar se o usuário pode fazer check-in
@@ -53,36 +47,49 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
       const validation = validationResult?.[0];
       
       if (validationError || !validation?.can_check_in) {
-        toast({
-          variant: "destructive",
-          title: "Check-in não permitido",
-          description: validation?.message || "Não foi possível validar o check-in",
-        });
-        return;
+        throw new Error(validation?.message || "Não foi possível validar o check-in");
       }
 
-      // Registrar check-in
-      const { error: checkInError } = await supabase
+      // Registrar check-in com informações financeiras
+      const { data: checkInData, error: checkInError } = await supabase
         .from("gym_check_ins")
         .insert({
           user_id: user.id,
           academia_id: academiaId,
           check_in_time: new Date().toISOString(),
           status: "active",
-          validation_method: "automatic"
-        });
+          validation_method: "automatic",
+          valor_repasse: validation.valor_repasse,
+          plano_id: validation.plano_id
+        })
+        .select()
+        .single();
 
       if (checkInError) throw checkInError;
+
+      // Registrar histórico financeiro
+      await supabase
+        .from("gym_check_in_financial_records")
+        .insert({
+          check_in_id: checkInData.id,
+          plan_id: validation.plano_id,
+          valor_repasse: validation.valor_repasse,
+          valor_plano: validation.valor_plano,
+          status_pagamento: "processed",
+          data_processamento: new Date().toISOString()
+        });
 
       toast({
         title: "Check-in realizado!",
         description: "Check-in realizado com sucesso. Boas atividades!",
+        duration: 5000,
       });
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Erro ao realizar check-in",
         description: error.message,
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);

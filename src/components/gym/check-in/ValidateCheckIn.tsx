@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -122,40 +121,72 @@ export function ValidateCheckIn() {
 
     setIsValidating(true);
     try {
-      const { data, error } = await supabase.rpc('validate_check_in_code', {
-        p_code: accessToken,
-        p_academia_id: academiaId
+      // Buscar check-in pendente pelo token de validação
+      const { data: checkInData, error: checkInError } = await supabase
+        .from("gym_check_ins")
+        .select(`
+          *,
+          user:user_id (
+            id,
+            full_name,
+            email
+          ),
+          plano:plano_id (
+            id,
+            name,
+            plan_type
+          )
+        `)
+        .eq("validation_token", accessToken)
+        .eq("academia_id", academiaId)
+        .eq("status", "pending")
+        .single();
+
+      if (checkInError || !checkInData) {
+        throw new Error("Token inválido ou expirado");
+      }
+
+      // Atualizar status do check-in
+      const { error: updateError } = await supabase
+        .from("gym_check_ins")
+        .update({
+          status: "active",
+          validated_at: new Date().toISOString()
+        })
+        .eq("id", checkInData.id);
+
+      if (updateError) throw updateError;
+
+      // Atualizar registro financeiro
+      await supabase
+        .from("gym_check_in_financial_records")
+        .update({
+          status_pagamento: "processed",
+          data_processamento: new Date().toISOString()
+        })
+        .eq("check_in_id", checkInData.id);
+
+      setValidationResult({
+        success: true,
+        message: "Check-in validado com sucesso",
+        userName: checkInData.user.full_name
       });
 
-      if (error) throw error;
+      toast({
+        title: "Check-in validado!",
+        description: `Check-in confirmado para ${checkInData.user.full_name}`,
+      });
 
-      if (data) {
-        const { is_valid, message, user_name } = data;
-        setValidationResult({
-          success: is_valid,
-          message,
-          userName: user_name
-        });
-
-        if (is_valid) {
-          toast({
-            title: "Check-in válido",
-            description: `Check-in confirmado para ${user_name}`,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Check-in inválido",
-            description: message,
-          });
-        }
-      }
     } catch (error: any) {
       console.error("Erro ao validar token:", error);
+      setValidationResult({
+        success: false,
+        message: error.message || "Erro ao validar token",
+      });
       toast({
         variant: "destructive",
         title: "Erro na validação",
-        description: "Não foi possível validar o token. Tente novamente.",
+        description: error.message || "Não foi possível validar o token. Tente novamente.",
       });
     } finally {
       setIsValidating(false);
@@ -256,4 +287,3 @@ export function ValidateCheckIn() {
     </div>
   );
 }
-
