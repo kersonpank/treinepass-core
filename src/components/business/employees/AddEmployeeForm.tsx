@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { AddEmployeeForm } from "./types";
+import type { AddEmployeeForm as AddEmployeeFormType } from "./types";
 
 interface AddEmployeeFormProps {
-  form: UseFormReturn<AddEmployeeForm>;
+  form: UseFormReturn<AddEmployeeFormType>;
   activePlans: Array<{
     plan_id: string;
     benefit_plans: {

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,11 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
 import { AddEmployeeDialog } from "@/components/business/employees/AddEmployeeDialog";
 import { resendInvite } from "@/components/business/employees/employee.service";
-import { toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 
 export function EmployeesList() {
   const [search, setSearch] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const { toast } = useToast();
 
   const { data: businessProfile } = useQuery({
     queryKey: ["businessProfile"],
