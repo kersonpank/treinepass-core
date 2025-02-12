@@ -28,36 +28,46 @@ export function AvailablePlansList() {
     },
   });
 
-  // Buscar convites de empresa pendentes para o usuário
-  const { data: employeeInvites } = useQuery({
-    queryKey: ["employeeInvites", currentUser?.email],
+  // Buscar planos corporativos disponíveis baseado no email do usuário
+  const { data: corporatePlans } = useQuery({
+    queryKey: ["corporatePlans", currentUser?.email],
     enabled: !!currentUser?.email,
     queryFn: async () => {
       if (!currentUser?.email) return [];
 
-      const { data, error } = await supabase
-        .from("employee_invites")
+      const { data: employees, error: employeesError } = await supabase
+        .from("employees")
         .select(`
           *,
-          business_profiles (company_name),
-          benefit_plans (*)
+          business_profiles!inner (
+            company_name
+          ),
+          employee_benefits!inner (
+            plan_id,
+            status,
+            benefit_plans (
+              *
+            )
+          )
         `)
         .eq("email", currentUser.email)
-        .eq("status", "pending");
+        .eq("status", "active");
 
-      if (error) throw error;
-      return data;
+      if (employeesError) throw employeesError;
+      
+      console.log("Planos corporativos encontrados:", employees);
+      return employees || [];
     },
   });
 
-  // Buscar todos os planos disponíveis (individuais e corporativos)
-  const { data: plans, isLoading } = useQuery({
-    queryKey: ["availablePlans"],
+  // Buscar planos individuais disponíveis
+  const { data: individualPlans, isLoading } = useQuery({
+    queryKey: ["individualPlans"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("benefit_plans")
         .select("*")
-        .in("plan_type", ["individual", "corporate", "corporate_subsidized"])
+        .eq("plan_type", "individual")
         .eq("status", "active")
         .order("monthly_cost");
 
@@ -118,43 +128,45 @@ export function AvailablePlansList() {
 
   return (
     <div className="space-y-6">
-      {employeeInvites && employeeInvites.length > 0 && (
+      {corporatePlans && corporatePlans.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-lg font-semibold">Planos Empresariais Disponíveis</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {employeeInvites.map((invite) => (
-              <Card key={invite.id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>{invite.benefit_plans.name}</span>
-                    <span className="text-2xl font-bold">
-                      {formatCurrency(invite.benefit_plans.final_user_cost)}
-                      <span className="text-sm font-normal text-muted-foreground">/mês</span>
-                    </span>
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Oferecido por {invite.business_profiles.company_name}
-                  </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Benefícios inclusos:</h4>
-                    <ul className="space-y-2 text-sm">
-                      {Object.entries(invite.benefit_plans.rules || {}).map(([key, value]) => (
-                        <li key={key} className="flex items-center text-muted-foreground">
-                          • {key}: {JSON.stringify(value)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleSubscribe(invite.plan_id)}
-                  >
-                    Ativar Plano
-                  </Button>
-                </CardContent>
-              </Card>
+            {corporatePlans.map((employee) => (
+              employee.employee_benefits.map((benefit) => (
+                <Card key={benefit.plan_id}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>{benefit.benefit_plans.name}</span>
+                      <span className="text-2xl font-bold">
+                        {formatCurrency(benefit.benefit_plans.final_user_cost || 0)}
+                        <span className="text-sm font-normal text-muted-foreground">/mês</span>
+                      </span>
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Oferecido por {employee.business_profiles.company_name}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Benefícios inclusos:</h4>
+                      <ul className="space-y-2 text-sm">
+                        {Object.entries(benefit.benefit_plans.rules || {}).map(([key, value]) => (
+                          <li key={key} className="flex items-center text-muted-foreground">
+                            • {key}: {JSON.stringify(value)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <Button 
+                      className="w-full" 
+                      onClick={() => handleSubscribe(benefit.plan_id)}
+                    >
+                      Ativar Plano
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
             ))}
           </div>
         </div>
@@ -163,7 +175,7 @@ export function AvailablePlansList() {
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Planos Individuais</h2>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {plans?.filter(plan => plan.plan_type === "individual").map((plan) => (
+          {individualPlans?.map((plan) => (
             <Card key={plan.id}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
