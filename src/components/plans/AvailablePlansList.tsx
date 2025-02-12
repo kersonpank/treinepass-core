@@ -28,12 +28,12 @@ export function AvailablePlansList() {
     },
   });
 
-  // Buscar planos corporativos disponíveis baseado no email do usuário
+  // Buscar planos corporativos disponíveis baseado no CPF do usuário
   const { data: corporatePlans } = useQuery({
-    queryKey: ["corporatePlans", currentUser?.email],
-    enabled: !!currentUser?.email,
+    queryKey: ["corporatePlans", currentUser?.cpf, currentUser?.birth_date],
+    enabled: !!currentUser?.cpf && !!currentUser?.birth_date,
     queryFn: async () => {
-      if (!currentUser?.email) return [];
+      if (!currentUser?.cpf || !currentUser?.birth_date) return [];
 
       const { data: employees, error: employeesError } = await supabase
         .from("employees")
@@ -50,7 +50,7 @@ export function AvailablePlansList() {
             )
           )
         `)
-        .eq("email", currentUser.email)
+        .eq("cpf", currentUser.cpf)
         .eq("status", "active");
 
       if (employeesError) throw employeesError;
