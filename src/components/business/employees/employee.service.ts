@@ -5,44 +5,15 @@ import { AddEmployeeForm } from "./types";
 export async function createEmployee(data: AddEmployeeForm, businessId: string) {
   console.log("Creating employee:", { data, businessId });
 
-  // Buscar plano atual da empresa
-  const { data: businessPlan, error: planError } = await supabase
-    .from("business_plan_subscriptions")
-    .select(`
-      *,
-      benefit_plans!inner (
-        employee_limit,
-        name
-      )
-    `)
-    .eq("business_id", businessId)
-    .eq("status", "active")
-    .single();
-
-  if (planError) {
-    console.error("Error fetching business plan:", planError);
-    throw new Error("Erro ao verificar plano da empresa");
-  }
-
-  if (!businessPlan) {
-    throw new Error("Empresa não possui plano ativo");
-  }
-
-  // Verificar limite de colaboradores
-  const { count: currentEmployeesCount, error: countError } = await supabase
+  // Verificar se o colaborador já existe para esta empresa
+  const { data: existingEmployee } = await supabase
     .from("employees")
-    .select("*", { count: true })
+    .select("*")
     .eq("business_id", businessId)
-    .eq("status", "active");
+    .or(`email.eq.${data.email},cpf.eq.${data.cpf}`);
 
-  if (countError) {
-    console.error("Error counting employees:", countError);
-    throw new Error("Erro ao verificar quantidade de colaboradores");
-  }
-
-  const employeeLimit = businessPlan.benefit_plans.employee_limit;
-  if (employeeLimit && currentEmployeesCount >= employeeLimit) {
-    throw new Error(`Limite de ${employeeLimit} colaboradores atingido no plano ${businessPlan.benefit_plans.name}`);
+  if (existingEmployee?.length > 0) {
+    throw new Error("Colaborador já cadastrado para esta empresa");
   }
 
   // Criar colaborador
@@ -50,8 +21,8 @@ export async function createEmployee(data: AddEmployeeForm, businessId: string) 
     .from("employees")
     .insert({
       business_id: businessId,
-      email: data.email,
       full_name: data.name,
+      email: data.email,
       cpf: data.cpf,
       department: data.department || null,
       cost_center: data.costCenter || null,
@@ -62,9 +33,6 @@ export async function createEmployee(data: AddEmployeeForm, businessId: string) 
 
   if (employeeError) {
     console.error("Error creating employee:", employeeError);
-    if (employeeError.code === '23505') {
-      throw new Error("CPF ou email já cadastrado para esta empresa");
-    }
     throw new Error("Erro ao criar colaborador");
   }
 
@@ -85,64 +53,39 @@ export async function createEmployee(data: AddEmployeeForm, businessId: string) 
     }
   }
 
-  console.log("Employee created successfully:", employee);
   return employee;
 }
 
-export async function resendInvite(email: string, businessId: string) {
-  console.log("Resending invite:", { email, businessId });
-
-  // Buscar dados da empresa
-  const { data: business, error: businessError } = await supabase
-    .from("business_profiles")
-    .select("company_name")
-    .eq("id", businessId)
-    .single();
-
-  if (businessError) {
-    console.error("Error fetching business:", businessError);
-    throw new Error("Erro ao buscar dados da empresa");
-  }
-
-  // Buscar benefícios do colaborador
-  const { data: employee, error: employeeError } = await supabase
-    .from("employees")
-    .select(`
-      *,
-      employee_benefits!inner (
-        plan_id
-      )
-    `)
-    .eq("email", email)
-    .eq("business_id", businessId)
-    .single();
-
-  if (employeeError) {
-    console.error("Error fetching employee:", employeeError);
-    throw new Error("Colaborador não encontrado");
-  }
-
-  // Enviar convite
-  try {
-    await sendInviteEmail(
-      employee.full_name,
-      email,
-      business.company_name
-    );
-  } catch (error) {
-    console.error("Error sending invite:", error);
-    throw new Error("Erro ao enviar convite");
-  }
-}
-
-export async function sendInviteEmail(employeeName: string, employeeEmail: string, companyName: string) {
-  // Invocar edge function de envio de email
+export async function sendInviteEmail(name: string, email: string, companyName: string) {
   const { error } = await supabase.functions.invoke('send-employee-invite', {
-    body: { employeeName, employeeEmail, companyName }
+    body: { employeeName: name, employeeEmail: email, companyName }
   });
 
   if (error) {
     console.error("Error sending invite email:", error);
     throw error;
   }
+}
+
+export async function resendInvite(email: string, businessId: string) {
+  // Buscar dados da empresa e do colaborador
+  const { data: business } = await supabase
+    .from("business_profiles")
+    .select("company_name")
+    .eq("id", businessId)
+    .single();
+
+  const { data: employee } = await supabase
+    .from("employees")
+    .select("full_name")
+    .eq("email", email)
+    .eq("business_id", businessId)
+    .single();
+
+  if (!business || !employee) {
+    throw new Error("Dados não encontrados");
+  }
+
+  // Reenviar o convite
+  await sendInviteEmail(employee.full_name, email, business.company_name);
 }
