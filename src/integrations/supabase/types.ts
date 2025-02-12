@@ -569,6 +569,7 @@ export type Database = {
       }
       employees: {
         Row: {
+          birth_date: string | null
           business_id: string
           cost_center: string | null
           cpf: string
@@ -581,6 +582,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          birth_date?: string | null
           business_id: string
           cost_center?: string | null
           cpf: string
@@ -593,6 +595,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          birth_date?: string | null
           business_id?: string
           cost_center?: string | null
           cpf?: string
