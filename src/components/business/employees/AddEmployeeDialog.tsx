@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -121,6 +122,7 @@ export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmploye
             onOpenChange(false);
             form.reset();
           }}
+          onSubmit={handleSubmit}
         />
       </DialogContent>
     </Dialog>
