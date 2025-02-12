@@ -39,7 +39,7 @@ export function EmployeesList() {
     },
   });
 
-  const { data: employees, isLoading } = useQuery({
+  const { data: employees, isLoading, refetch } = useQuery({
     queryKey: ["employees", search, businessProfile?.id],
     enabled: !!businessProfile?.id,
     queryFn: async () => {
@@ -59,7 +59,7 @@ export function EmployeesList() {
           )
         `)
         .eq("business_id", businessProfile.id)
-        .order("full_name");
+        .eq("status", "active");
 
       if (search) {
         query.ilike("full_name", `%${search}%`);
@@ -68,6 +68,7 @@ export function EmployeesList() {
       const { data, error } = await query;
 
       if (error) throw error;
+      console.log("Employees loaded:", data);
       return data;
     },
   });
