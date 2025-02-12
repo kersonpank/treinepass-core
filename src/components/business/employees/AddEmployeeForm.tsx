@@ -16,12 +16,13 @@ interface AddEmployeeFormProps {
   }> | undefined;
   isSubmitting: boolean;
   onCancel: () => void;
+  onSubmit: (data: AddEmployeeFormType) => Promise<void>;
 }
 
-export function AddEmployeeForm({ form, activePlans, isSubmitting, onCancel }: AddEmployeeFormProps) {
+export function AddEmployeeForm({ form, activePlans, isSubmitting, onCancel, onSubmit }: AddEmployeeFormProps) {
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -30,20 +31,6 @@ export function AddEmployeeForm({ form, activePlans, isSubmitting, onCancel }: A
               <FormLabel>Nome completo</FormLabel>
               <FormControl>
                 <Input {...field} placeholder="Nome do colaborador" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input {...field} type="email" placeholder="colaborador@empresa.com" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -70,6 +57,24 @@ export function AddEmployeeForm({ form, activePlans, isSubmitting, onCancel }: A
                     field.onChange(value);
                   }}
                   maxLength={14}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="birth_date"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Data de Nascimento</FormLabel>
+              <FormControl>
+                <Input 
+                  {...field}
+                  type="date"
+                  placeholder="DD/MM/AAAA"
                 />
               </FormControl>
               <FormMessage />

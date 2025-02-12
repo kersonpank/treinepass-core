@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AddEmployeeForm } from "./AddEmployeeForm";
 import { addEmployeeSchema, type AddEmployeeForm as AddEmployeeFormType, type AddEmployeeDialogProps } from "./types";
-import { createEmployee, sendInviteEmail } from "./employee.service";
+import { createEmployee } from "./employee.service";
 
 export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmployeeDialogProps) {
   const { toast } = useToast();
@@ -40,58 +40,21 @@ export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmploye
     },
   });
 
-  const { data: businessProfile } = useQuery({
-    queryKey: ["businessProfile", businessId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("business_profiles")
-        .select("*")
-        .eq("id", businessId)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
   const handleSubmit = async (data: AddEmployeeFormType) => {
     setIsSubmitting(true);
     try {
-      // A função createEmployee agora lida com todo o processo de criação
-      const employeeData = await createEmployee(data, businessId);
+      await createEmployee(data, businessId);
       
-      // Enviar email de convite apenas se o perfil da empresa existir
-      if (businessProfile) {
-        await sendInviteEmail(
-          employeeData.full_name,
-          employeeData.email,
-          businessProfile.company_name
-        );
-        
-        toast({
-          title: "Convite enviado",
-          description: "Um email de convite foi enviado para o colaborador."
-        });
-      } else {
-        toast({
-          title: "Sucesso",
-          description: "Colaborador adicionado com sucesso!"
-        });
-      }
+      toast({
+        title: "Sucesso",
+        description: "Colaborador adicionado com sucesso!"
+      });
 
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       onOpenChange(false);
       form.reset();
     } catch (error: any) {
       console.error("Error adding employee:", error);
-      if (error.code === "23505") {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Este colaborador já está cadastrado."
-        });
-        return;
-      }
       toast({
         variant: "destructive",
         title: "Erro",
