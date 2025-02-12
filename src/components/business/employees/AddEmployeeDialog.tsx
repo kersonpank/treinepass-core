@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AddEmployeeForm } from "./AddEmployeeForm";
 import { addEmployeeSchema, type AddEmployeeForm as AddEmployeeFormType, type AddEmployeeDialogProps } from "./types";
-import { createEmployee, addEmployeeBenefit, checkExistingProfile, sendEmployeeInvite, sendInviteEmail } from "./employee.service";
+import { createEmployee, sendInviteEmail } from "./employee.service";
 
 export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmployeeDialogProps) {
   const { toast } = useToast();
@@ -57,23 +57,17 @@ export function AddEmployeeDialog({ open, onOpenChange, businessId }: AddEmploye
   const handleSubmit = async (data: AddEmployeeFormType) => {
     setIsSubmitting(true);
     try {
+      // A função createEmployee agora lida com todo o processo de criação
       const employeeData = await createEmployee(data, businessId);
-      await addEmployeeBenefit(employeeData.id, data.planId);
-
-      const existingProfile = await checkExistingProfile(data.email);
-
-      if (!existingProfile) {
-        await sendEmployeeInvite(businessId, data.planId, data.email);
+      
+      // Enviar email de convite apenas se o perfil da empresa existir
+      if (businessProfile) {
+        await sendInviteEmail(
+          employeeData.full_name,
+          employeeData.email,
+          businessProfile.company_name
+        );
         
-        // Send invite email
-        if (businessProfile) {
-          await sendInviteEmail(
-            data.name,
-            data.email,
-            businessProfile.company_name
-          );
-        }
-
         toast({
           title: "Convite enviado",
           description: "Um email de convite foi enviado para o colaborador."
