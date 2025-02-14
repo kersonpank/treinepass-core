@@ -14,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Plus } from "lucide-react";
 import { AddEmployeeDialog } from "@/components/business/employees/AddEmployeeDialog";
-import { resendInvite } from "@/components/business/employees/employee.service";
 import { useToast } from "@/hooks/use-toast";
 
 export function EmployeesList() {
@@ -39,7 +38,7 @@ export function EmployeesList() {
     },
   });
 
-  const { data: employees, isLoading, refetch } = useQuery({
+  const { data: employees, isLoading } = useQuery({
     queryKey: ["employees", search, businessProfile?.id],
     enabled: !!businessProfile?.id,
     queryFn: async () => {
@@ -143,28 +142,6 @@ export function EmployeesList() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          if (!businessProfile?.id) return;
-                          await resendInvite(employee.email, businessProfile.id);
-                          toast({
-                            title: "Convite reenviado",
-                            description: "Um novo email de convite foi enviado para o colaborador."
-                          });
-                        } catch (error: any) {
-                          toast({
-                            variant: "destructive",
-                            title: "Erro",
-                            description: error.message
-                          });
-                        }
-                      }}
-                    >
-                      Reenviar convite
-                    </Button>
                     <Button variant="ghost" size="sm">
                       Editar
                     </Button>
