@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,28 +22,29 @@ export function BusinessManagement() {
     queryFn: async () => {
       const { data: businessData, error: businessError } = await supabase
         .from("business_profiles")
-        .select("*")
+        .select(`
+          *,
+          user_plan_subscriptions (
+            status,
+            start_date,
+            end_date
+          ),
+          employees (
+            id,
+            full_name,
+            email,
+            cpf,
+            birth_date,
+            department,
+            cost_center,
+            status
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (businessError) throw businessError;
 
-      const businessesWithPlans = await Promise.all(
-        businessData.map(async (business) => {
-          const { data: subscriptions } = await supabase
-            .from("user_plan_subscriptions")
-            .select("status")
-            .eq("user_id", business.user_id)
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-          return {
-            ...business,
-            user_plan_subscriptions: subscriptions || []
-          };
-        })
-      );
-
-      return businessesWithPlans as Business[];
+      return businessData as Business[];
     },
   });
 

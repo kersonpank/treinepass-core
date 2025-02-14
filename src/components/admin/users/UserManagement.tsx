@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,28 +22,25 @@ export function UserManagement() {
     queryFn: async () => {
       const { data: profiles, error: profilesError } = await supabase
         .from("user_profiles")
-        .select("*");
+        .select(`
+          *,
+          user_types (
+            type
+          ),
+          user_plan_subscriptions (
+            status,
+            start_date,
+            end_date,
+            plan_id,
+            benefit_plans (
+              name
+            )
+          )
+        `);
 
       if (profilesError) throw profilesError;
 
-      const usersWithTypes = await Promise.all(
-        profiles.map(async (profile) => {
-          const { data: types, error: typesError } = await supabase
-            .from("user_types")
-            .select("type")
-            .eq("user_id", profile.id);
-
-          if (typesError) throw typesError;
-
-          return {
-            ...profile,
-            user_types: types || [],
-            active: true, // Default value for now
-          };
-        })
-      );
-
-      return usersWithTypes as User[];
+      return profiles as User[];
     },
   });
 
@@ -96,31 +94,6 @@ export function UserManagement() {
     }
   };
 
-  const handleEditUser = async (userId: string, data: Partial<User>) => {
-    try {
-      const { error } = await supabase
-        .from("user_profiles")
-        .update(data)
-        .eq("id", userId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Sucesso",
-        description: "Usuário atualizado com sucesso",
-      });
-
-      refetch();
-      setIsEditDialogOpen(false);
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: error.message,
-      });
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -157,7 +130,30 @@ export function UserManagement() {
           user={selectedUser}
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
-          onSubmit={handleEditUser}
+          onSubmit={async (userId, data) => {
+            try {
+              const { error } = await supabase
+                .from("user_profiles")
+                .update(data)
+                .eq("id", userId);
+
+              if (error) throw error;
+
+              toast({
+                title: "Sucesso",
+                description: "Usuário atualizado com sucesso",
+              });
+
+              refetch();
+              setIsEditDialogOpen(false);
+            } catch (error: any) {
+              toast({
+                variant: "destructive",
+                title: "Erro",
+                description: error.message,
+              });
+            }
+          }}
         />
 
         <UserViewDialog
