@@ -20,27 +20,45 @@ export function UserManagement() {
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
+      // First get user profiles
       const { data: profiles, error: profilesError } = await supabase
         .from("user_profiles")
-        .select(`
-          *,
-          user_types (
-            type
-          ),
-          user_plan_subscriptions (
-            status,
-            start_date,
-            end_date,
-            plan_id,
-            benefit_plans (
-              name
-            )
-          )
-        `);
+        .select("*");
 
       if (profilesError) throw profilesError;
 
-      return profiles as User[];
+      // Then for each profile, get their types and subscriptions
+      const usersWithData = await Promise.all(
+        profiles.map(async (profile) => {
+          // Get user types
+          const { data: types } = await supabase
+            .from("user_types")
+            .select("type")
+            .eq("user_id", profile.id);
+
+          // Get user plan subscriptions
+          const { data: subscriptions } = await supabase
+            .from("user_plan_subscriptions")
+            .select(`
+              status,
+              start_date,
+              end_date,
+              plan_id,
+              benefit_plans (
+                name
+              )
+            `)
+            .eq("user_id", profile.id);
+
+          return {
+            ...profile,
+            user_types: types || [],
+            user_plan_subscriptions: subscriptions || []
+          };
+        })
+      );
+
+      return usersWithData as User[];
     },
   });
 
