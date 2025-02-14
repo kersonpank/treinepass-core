@@ -26,7 +26,8 @@ export async function createEmployee(data: AddEmployeeForm, businessId: string) 
       birth_date: data.birth_date,
       department: data.department || null,
       cost_center: data.costCenter || null,
-      status: "active"
+      status: "active",
+      email: `${data.cpf}@placeholder.com` // Adicionando email placeholder baseado no CPF
     })
     .select()
     .single();
