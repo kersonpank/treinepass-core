@@ -33,6 +33,17 @@ export function BusinessTableRow({
     (sub) => sub.status === "active"
   );
 
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "active":
+        return "default";
+      case "pending":
+        return "secondary";
+      default:
+        return "destructive";
+    }
+  };
+
   return (
     <TableRow>
       <TableCell>
@@ -60,15 +71,7 @@ export function BusinessTableRow({
         )}
       </TableCell>
       <TableCell>
-        <Badge
-          variant={
-            business.status === "active"
-              ? "success"
-              : business.status === "pending"
-              ? "warning"
-              : "destructive"
-          }
-        >
+        <Badge variant={getStatusBadgeVariant(business.status)}>
           {business.status === "active"
             ? "Ativa"
             : business.status === "pending"

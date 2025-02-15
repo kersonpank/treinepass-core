@@ -26,11 +26,19 @@ export interface Business {
   termos_aceitos: boolean | null;
   data_termos_aceitos: string | null;
   business_plan_subscriptions?: Array<{
+    id: string;
     status: string;
-    start_date?: string;
-    end_date?: string | null;
-    benefit_plans?: {
+    start_date: string;
+    end_date: string | null;
+    benefit_plans: {
+      id: string;
       name: string;
+      description: string | null;
+      monthly_cost: string;
+      plan_type: string;
+      period_type: string;
+      status: string;
+      rules: Record<string, any>;
     };
   }>;
   employees?: Array<{
