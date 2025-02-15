@@ -1,4 +1,6 @@
+
 import { supabase } from "@/integrations/supabase/client";
+import { compressImage } from "@/utils/imageCompression";
 
 interface GymRegistrationData {
   nome: string;
@@ -10,6 +12,8 @@ interface GymRegistrationData {
   horario_funcionamento: Record<string, any>;
   modalidades: string[];
   full_name: string;
+  fotos: FileList;
+  documentos: FileList;
 }
 
 interface RegistrationResult {
@@ -45,9 +49,32 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
       throw new Error("Erro ao criar usuário");
     }
 
-    console.log("Usuário da academia criado com sucesso:", { userId: authData.user.id });
+    // 2. Upload das imagens
+    const fotosPaths: string[] = [];
+    if (data.fotos) {
+      for (let i = 0; i < data.fotos.length; i++) {
+        const file = data.fotos[i];
+        const compressedFile = await compressImage(file);
+        
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
 
-    // 2. Criar academia
+        const { error: uploadError } = await supabase.storage
+          .from('academy-images')
+          .upload(fileName, compressedFile);
+
+        if (uploadError) {
+          console.error("Erro ao fazer upload da imagem:", uploadError);
+          continue;
+        }
+
+        fotosPaths.push(fileName);
+      }
+    }
+
+    console.log("Upload de imagens concluído:", fotosPaths);
+
+    // 3. Criar academia
     const { data: academiaData, error: academiaError } = await supabase
       .from("academias")
       .insert({
@@ -58,7 +85,8 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
         email: data.email,
         endereco: data.endereco,
         horario_funcionamento: data.horario_funcionamento,
-        modalidades: data.modalidades, // Salvar as modalidades no array da academia
+        modalidades: data.modalidades,
+        fotos: fotosPaths,
         status: 'pendente'
       })
       .select()
@@ -66,14 +94,19 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
 
     if (academiaError) {
       console.error("Erro ao criar academia:", academiaError);
-      // Se falhar, tentar reverter a criação do usuário
+      // Limpar imagens enviadas em caso de erro
+      for (const path of fotosPaths) {
+        await supabase.storage
+          .from('academy-images')
+          .remove([path]);
+      }
       await supabase.auth.admin.deleteUser(authData.user.id);
       throw academiaError;
     }
 
     console.log("Academia criada com sucesso:", academiaData);
 
-    // 3. Associar modalidades na tabela de relacionamento
+    // 4. Associar modalidades
     if (data.modalidades && data.modalidades.length > 0) {
       const modalidadesAcademia = data.modalidades.map(modalidadeId => ({
         academia_id: academiaData.id,
@@ -86,11 +119,10 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
 
       if (modalidadesError) {
         console.error("Erro ao associar modalidades:", modalidadesError);
-        // Logar o erro mas não falhar o processo
       }
     }
 
-    // 4. Criar role de dono da academia
+    // 5. Criar role de dono da academia
     const { error: roleError } = await supabase
       .from('user_gym_roles')
       .insert({
@@ -102,10 +134,9 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
 
     if (roleError) {
       console.error("Erro ao criar role:", roleError);
-      // Não falhar o processo se a role não for criada
     }
 
-    // 5. Registrar o tipo de usuário
+    // 6. Registrar o tipo de usuário
     const { error: userTypeError } = await supabase
       .from('user_types')
       .insert({
@@ -115,18 +146,6 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
 
     if (userTypeError) {
       console.error("Erro ao registrar tipo de usuário:", userTypeError);
-      // Não falhar o processo se não conseguir registrar o tipo
-    }
-
-    // 6. Login automático como usuário da academia
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    });
-
-    if (signInError) {
-      console.error("Erro ao fazer login:", signInError);
-      // Não falhar o processo se o login automático falhar
     }
 
     return {
