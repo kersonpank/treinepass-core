@@ -48,7 +48,38 @@ export function BusinessManagement() {
 
       if (businessError) throw businessError;
 
-      return businessData as Business[];
+      // Transformar os dados para garantir o tipo correto
+      const businesses: Business[] = (businessData || []).map(business => ({
+        id: business.id,
+        user_id: business.user_id,
+        company_name: business.company_name,
+        cnpj: business.cnpj,
+        trading_name: business.trading_name,
+        phone: business.phone,
+        email: business.email,
+        address: business.address,
+        number_of_employees: business.number_of_employees,
+        industry: business.industry,
+        contact_person: business.contact_person,
+        contact_position: business.contact_position,
+        contact_phone: business.contact_phone,
+        contact_email: business.contact_email,
+        status: business.status,
+        created_at: business.created_at,
+        updated_at: business.updated_at,
+        inscricao_estadual: business.inscricao_estadual,
+        telefone_secundario: business.telefone_secundario,
+        plano_tipo: business.plano_tipo,
+        plano_modalidade: business.plano_modalidade,
+        plano_pagamento_dia: business.plano_pagamento_dia,
+        documentos: business.documentos,
+        termos_aceitos: business.termos_aceitos,
+        data_termos_aceitos: business.data_termos_aceitos,
+        user_plan_subscriptions: business.user_plan_subscriptions,
+        employees: business.employees,
+      }));
+
+      return businesses;
     },
   });
 
