@@ -59,9 +59,10 @@ export function BusinessTableRow({
     return addressParts.join(" - ");
   };
 
-  const hasActivePlans = business.business_plan_subscriptions?.some(
-    sub => sub.status === "active" && sub.benefit_plans
-  );
+  // Modificação na lógica de verificação de planos ativos
+  const activePlans = business.business_plan_subscriptions?.filter(
+    sub => sub.status === "active" && sub.benefit_plans && sub.benefit_plans.status === "active"
+  ) || [];
 
   return (
     <TableRow>
@@ -90,20 +91,18 @@ export function BusinessTableRow({
       </TableCell>
       <TableCell>
         <ScrollArea className="h-20">
-          {hasActivePlans ? (
-            business.business_plan_subscriptions
-              ?.filter(sub => sub.status === "active" && sub.benefit_plans)
-              .map((sub, index) => (
-                <div key={index} className="mb-2 last:mb-0">
-                  <Badge variant="secondary" className="mb-1">
-                    {sub.benefit_plans?.name}
-                  </Badge>
-                  <div className="text-xs text-muted-foreground">
-                    {format(new Date(sub.start_date), "dd/MM/yyyy")}
-                    {sub.end_date && ` - ${format(new Date(sub.end_date), "dd/MM/yyyy")}`}
-                  </div>
+          {activePlans.length > 0 ? (
+            activePlans.map((sub, index) => (
+              <div key={index} className="mb-2 last:mb-0">
+                <Badge variant="secondary" className="mb-1">
+                  {sub.benefit_plans?.name}
+                </Badge>
+                <div className="text-xs text-muted-foreground">
+                  {format(new Date(sub.start_date), "dd/MM/yyyy")}
+                  {sub.end_date && ` - ${format(new Date(sub.end_date), "dd/MM/yyyy")}`}
                 </div>
-              ))
+              </div>
+            ))
           ) : (
             <Badge variant="outline">Sem plano ativo</Badge>
           )}
