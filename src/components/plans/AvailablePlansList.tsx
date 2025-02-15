@@ -35,6 +35,7 @@ export function AvailablePlansList() {
     queryFn: async () => {
       if (!currentUser?.cpf || !currentUser?.birth_date) return [];
 
+      // Buscar informações do funcionário e seus planos disponíveis
       const { data: employees, error: employeesError } = await supabase
         .from("employees")
         .select(`
@@ -51,6 +52,7 @@ export function AvailablePlansList() {
           )
         `)
         .eq("cpf", currentUser.cpf)
+        .eq("birth_date", currentUser.birth_date)
         .eq("status", "active");
 
       if (employeesError) throw employeesError;
@@ -76,7 +78,7 @@ export function AvailablePlansList() {
     },
   });
 
-  const handleSubscribe = async (planId: string) => {
+  const handleSubscribe = async (planId: string, isFullySubsidized: boolean = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -84,6 +86,23 @@ export function AvailablePlansList() {
           variant: "destructive",
           title: "Erro",
           description: "Você precisa estar logado para assinar um plano",
+        });
+        return;
+      }
+
+      // Verificar se já existe um plano ativo
+      const { data: existingPlan } = await supabase
+        .from("user_plan_subscriptions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+      if (existingPlan) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Você já possui um plano ativo. Cancele o plano atual antes de ativar um novo.",
         });
         return;
       }
@@ -99,14 +118,16 @@ export function AvailablePlansList() {
           plan_id: planId,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
-          status: "active"
+          status: isFullySubsidized ? "active" : "pending"
         });
 
       if (error) throw error;
 
       toast({
-        title: "Plano ativado com sucesso!",
-        description: "Você já pode começar a usar seu plano.",
+        title: isFullySubsidized ? "Plano ativado com sucesso!" : "Plano contratado com sucesso!",
+        description: isFullySubsidized 
+          ? "Você já pode começar a usar seu plano."
+          : "Em breve você receberá as instruções de pagamento.",
       });
     } catch (error: any) {
       console.error("Error subscribing to plan:", error);
@@ -133,40 +154,52 @@ export function AvailablePlansList() {
           <h2 className="text-lg font-semibold">Planos Empresariais Disponíveis</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {corporatePlans.map((employee) => (
-              employee.employee_benefits.map((benefit) => (
-                <Card key={benefit.plan_id}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>{benefit.benefit_plans.name}</span>
-                      <span className="text-2xl font-bold">
-                        {formatCurrency(benefit.benefit_plans.final_user_cost || 0)}
-                        <span className="text-sm font-normal text-muted-foreground">/mês</span>
-                      </span>
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      Oferecido por {employee.business_profiles.company_name}
-                    </p>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium">Benefícios inclusos:</h4>
-                      <ul className="space-y-2 text-sm">
-                        {Object.entries(benefit.benefit_plans.rules || {}).map(([key, value]) => (
-                          <li key={key} className="flex items-center text-muted-foreground">
-                            • {key}: {JSON.stringify(value)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <Button 
-                      className="w-full" 
-                      onClick={() => handleSubscribe(benefit.plan_id)}
-                    >
-                      Ativar Plano
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))
+              employee.employee_benefits.map((benefit) => {
+                const plan = benefit.benefit_plans;
+                const isFullySubsidized = plan.financing_rules.type === "company_paid" || 
+                  (plan.financing_rules.type === "co_financed" && plan.financing_rules.employee_contribution === 0);
+                
+                const employeeCost = plan.financing_rules.type === "co_financed"
+                  ? plan.financing_rules.contribution_type === "fixed"
+                    ? plan.financing_rules.employee_contribution
+                    : (plan.monthly_cost * plan.financing_rules.employee_contribution) / 100
+                  : 0;
+
+                return (
+                  <Card key={benefit.plan_id}>
+                    <CardHeader>
+                      <CardTitle className="flex items-center justify-between">
+                        <span>{plan.name}</span>
+                        <span className="text-2xl font-bold">
+                          {formatCurrency(employeeCost)}
+                          <span className="text-sm font-normal text-muted-foreground">/mês</span>
+                        </span>
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Oferecido por {employee.business_profiles.company_name}
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium">Benefícios inclusos:</h4>
+                        <ul className="space-y-2 text-sm">
+                          {Object.entries(plan.rules || {}).map(([key, value]) => (
+                            <li key={key} className="flex items-center text-muted-foreground">
+                              • {key}: {JSON.stringify(value)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <Button 
+                        className="w-full" 
+                        onClick={() => handleSubscribe(benefit.plan_id, isFullySubsidized)}
+                      >
+                        {isFullySubsidized ? "Ativar Plano" : "Contratar Plano"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })
             ))}
           </div>
         </div>
