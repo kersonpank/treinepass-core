@@ -25,25 +25,19 @@ export async function registerUser(data: RegisterData) {
   }
 
   try {
-    // First check if the email exists
-    const { data: { user: existingUser }, error: userCheckError } = await supabase.auth.admin.getUserByEmail(data.email);
+    // Check if user exists
+    const { data: existingUser } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    });
 
     let userId;
 
-    if (existingUser) {
-      // If user exists, try to sign in
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (signInError) {
-        throw new Error("Email já cadastrado com outra senha");
-      }
-
-      userId = signInData.user.id;
+    if (existingUser.user) {
+      // User exists, use existing ID
+      userId = existingUser.user.id;
     } else {
-      // Create new auth user if email doesn't exist
+      // Create new auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
