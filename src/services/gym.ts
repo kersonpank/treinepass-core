@@ -58,7 +58,8 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
         email: data.email,
         endereco: data.endereco,
         horario_funcionamento: data.horario_funcionamento,
-        status: 'active'
+        modalidades: data.modalidades, // Salvar as modalidades no array da academia
+        status: 'pendente'
       })
       .select()
       .single();
@@ -72,7 +73,7 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
 
     console.log("Academia criada com sucesso:", academiaData);
 
-    // 3. Associar modalidades
+    // 3. Associar modalidades na tabela de relacionamento
     if (data.modalidades && data.modalidades.length > 0) {
       const modalidadesAcademia = data.modalidades.map(modalidadeId => ({
         academia_id: academiaData.id,
@@ -85,7 +86,7 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
 
       if (modalidadesError) {
         console.error("Erro ao associar modalidades:", modalidadesError);
-        // Não falhar o processo se as modalidades não forem associadas
+        // Logar o erro mas não falhar o processo
       }
     }
 
