@@ -59,6 +59,10 @@ export function BusinessTableRow({
     return addressParts.join(" - ");
   };
 
+  const hasActivePlans = business.business_plan_subscriptions?.some(
+    sub => sub.status === "active" && sub.benefit_plans
+  );
+
   return (
     <TableRow>
       <TableCell>
@@ -86,9 +90,9 @@ export function BusinessTableRow({
       </TableCell>
       <TableCell>
         <ScrollArea className="h-20">
-          {business.business_plan_subscriptions?.filter(sub => sub.status === "active").length > 0 ? (
+          {hasActivePlans ? (
             business.business_plan_subscriptions
-              .filter(sub => sub.status === "active")
+              ?.filter(sub => sub.status === "active" && sub.benefit_plans)
               .map((sub, index) => (
                 <div key={index} className="mb-2 last:mb-0">
                   <Badge variant="secondary" className="mb-1">
