@@ -24,4 +24,5 @@ export interface User {
   active: boolean;
   user_profile_types: UserType[];
   user_plan_subscriptions?: UserPlanSubscription[];
+  user_types: { type: string }[];
 }

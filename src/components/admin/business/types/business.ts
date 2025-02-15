@@ -1,54 +1,29 @@
 
 export interface Business {
   id: string;
-  user_id: string;
   company_name: string;
   cnpj: string;
-  trading_name: string | null;
-  phone: string;
-  email: string;
+  contact_person: string;
+  contact_email: string;
+  contact_phone: string;
   address: string;
   number_of_employees: number;
-  industry: string | null;
-  contact_person: string;
-  contact_position: string;
-  contact_phone: string;
-  contact_email: string;
   status: string;
-  created_at: string;
-  updated_at: string;
-  inscricao_estadual: string | null;
-  telefone_secundario: string | null;
-  plano_tipo: string | null;
-  plano_modalidade: string | null;
-  plano_pagamento_dia: number | null;
-  documentos: any;
-  termos_aceitos: boolean | null;
-  data_termos_aceitos: string | null;
-  business_plan_subscriptions?: Array<{
+  business_plan_subscriptions?: {
     id: string;
     status: string;
     start_date: string;
-    end_date: string | null;
-    benefit_plans: {
+    end_date?: string;
+    benefit_plans?: {
       id: string;
       name: string;
-      description: string | null;
-      monthly_cost: string;
-      plan_type: string;
-      period_type: string;
       status: string;
-      rules: Record<string, any>;
+      financing_rules?: {
+        type: string;
+        contribution_type: string;
+        company_contribution: number;
+        employee_contribution: number;
+      };
     };
-  }>;
-  employees?: Array<{
-    id: string;
-    full_name: string;
-    email: string;
-    cpf: string;
-    birth_date: string | null;
-    department: string | null;
-    cost_center: string | null;
-    status: string;
-  }>;
+  }[];
 }
