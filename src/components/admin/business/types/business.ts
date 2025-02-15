@@ -22,7 +22,7 @@ export interface Business {
   plano_tipo: string | null;
   plano_modalidade: string | null;
   plano_pagamento_dia: number | null;
-  documentos: Record<string, any> | null;
+  documentos: any;
   termos_aceitos: boolean | null;
   data_termos_aceitos: string | null;
   user_plan_subscriptions?: Array<{
