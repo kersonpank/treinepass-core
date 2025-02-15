@@ -1180,6 +1180,35 @@ export type Database = {
           },
         ]
       }
+      user_profile_types: {
+        Row: {
+          created_at: string
+          id: string
+          type: Database["public"]["Enums"]["user_role_type"]
+          user_profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          type: Database["public"]["Enums"]["user_role_type"]
+          user_profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          type?: Database["public"]["Enums"]["user_role_type"]
+          user_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profile_types_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           active: boolean

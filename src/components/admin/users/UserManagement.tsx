@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,12 +20,12 @@ export function UserManagement() {
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      // First get user profiles with all details
+      // Get user profiles with all details
       const { data: profiles, error: profilesError } = await supabase
         .from("user_profiles")
         .select(`
           *,
-          user_types (
+          user_profile_types (
             type
           ),
           user_plan_subscriptions (
