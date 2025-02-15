@@ -31,14 +31,12 @@ export function BusinessTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Empresa</TableHead>
-            <TableHead>CNPJ</TableHead>
-            <TableHead>Contato</TableHead>
-            <TableHead>Responsável</TableHead>
-            <TableHead>Funcionários</TableHead>
-            <TableHead>Plano</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
+            <TableHead className="w-[250px]">Empresa</TableHead>
+            <TableHead className="w-[250px]">Contato</TableHead>
+            <TableHead className="w-[100px]">Funcionários</TableHead>
+            <TableHead className="w-[250px]">Planos</TableHead>
+            <TableHead className="w-[100px]">Status</TableHead>
+            <TableHead className="w-[100px] text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

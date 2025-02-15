@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Business } from "./types/business";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
 
 interface BusinessTableRowProps {
   business: Business;
@@ -44,39 +46,61 @@ export function BusinessTableRow({
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "active":
+        return "Ativa";
+      case "pending":
+        return "Pendente";
+      default:
+        return "Inativa";
+    }
+  };
+
   return (
     <TableRow>
       <TableCell>
-        <div className="font-medium">{business.company_name}</div>
-        <div className="text-sm text-muted-foreground">
-          CNPJ: {business.cnpj}
+        <div className="flex flex-col">
+          <div className="font-medium">{business.company_name}</div>
+          <div className="text-sm text-muted-foreground">{business.cnpj}</div>
         </div>
       </TableCell>
       <TableCell>
-        <div>{business.contact_person}</div>
-        <div className="text-sm text-muted-foreground">{business.contact_email}</div>
+        <div className="flex flex-col">
+          <div className="font-medium">{business.contact_person}</div>
+          <div className="text-sm text-muted-foreground">
+            {business.contact_email}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {business.contact_phone}
+          </div>
+        </div>
       </TableCell>
       <TableCell>
-        {activePlan ? (
-          <div>
-            <Badge variant="secondary" className="mb-1">
-              {activePlan.benefit_plans?.name}
-            </Badge>
-            <div className="text-sm text-muted-foreground">
-              Início: {new Date(activePlan.start_date || "").toLocaleDateString()}
-            </div>
-          </div>
-        ) : (
-          <Badge variant="outline">Sem plano ativo</Badge>
-        )}
+        <div className="font-medium">{business.number_of_employees || 0}</div>
+      </TableCell>
+      <TableCell>
+        <ScrollArea className="h-20">
+          {business.business_plan_subscriptions && business.business_plan_subscriptions.length > 0 ? (
+            business.business_plan_subscriptions.map((sub, index) => (
+              <div key={index} className="mb-2 last:mb-0">
+                <Badge variant={sub.status === "active" ? "secondary" : "outline"} className="mb-1">
+                  {sub.benefit_plans?.name}
+                </Badge>
+                <div className="text-xs text-muted-foreground">
+                  {format(new Date(sub.start_date), "dd/MM/yyyy")}
+                  {sub.end_date && ` - ${format(new Date(sub.end_date), "dd/MM/yyyy")}`}
+                </div>
+              </div>
+            ))
+          ) : (
+            <Badge variant="outline">Sem plano</Badge>
+          )}
+        </ScrollArea>
       </TableCell>
       <TableCell>
         <Badge variant={getStatusBadgeVariant(business.status)}>
-          {business.status === "active"
-            ? "Ativa"
-            : business.status === "pending"
-            ? "Pendente"
-            : "Inativa"}
+          {getStatusLabel(business.status)}
         </Badge>
       </TableCell>
       <TableCell>
