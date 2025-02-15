@@ -22,6 +22,6 @@ export interface User {
   created_at: string;
   updated_at: string;
   active: boolean;
-  user_profile_types?: UserType[];
+  user_types: UserType[];
   user_plan_subscriptions?: UserPlanSubscription[];
 }
