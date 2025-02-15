@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,9 +24,7 @@ export function BusinessManagement() {
         .select(`
           *,
           user_plan_subscriptions (
-            status,
-            start_date,
-            end_date
+            status
           ),
           employees (
             id,
@@ -44,7 +41,13 @@ export function BusinessManagement() {
 
       if (businessError) throw businessError;
 
-      return businessData as Business[];
+      // Cast the response to match the Business type
+      return (businessData || []).map(business => ({
+        ...business,
+        user_plan_subscriptions: business.user_plan_subscriptions || [],
+        employees: business.employees || [],
+        documentos: business.documentos || {}
+      })) as Business[];
     },
   });
 
