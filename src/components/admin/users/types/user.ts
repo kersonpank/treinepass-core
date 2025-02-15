@@ -1,5 +1,15 @@
+
 export interface UserType {
   type: string;
+}
+
+export interface UserPlanSubscription {
+  status: string;
+  start_date: string;
+  end_date: string | null;
+  benefit_plans: {
+    name: string;
+  };
 }
 
 export interface User {
@@ -7,7 +17,11 @@ export interface User {
   full_name: string;
   email: string;
   cpf: string;
+  birth_date: string | null;
+  phone_number: string | null;
   created_at: string;
-  user_types: UserType[];
+  updated_at: string;
   active: boolean;
+  user_types: UserType[];
+  user_plan_subscriptions?: UserPlanSubscription[];
 }

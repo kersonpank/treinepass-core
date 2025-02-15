@@ -1,3 +1,4 @@
+
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { User } from "./types/user";
 import { UserTableRow } from "./UserTableRow";
@@ -24,10 +25,11 @@ export function UserTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nome</TableHead>
-            <TableHead>Email</TableHead>
+            <TableHead>Nome / Email</TableHead>
             <TableHead>CPF</TableHead>
-            <TableHead>Tipo</TableHead>
+            <TableHead>Data de Nascimento</TableHead>
+            <TableHead>Tipos</TableHead>
+            <TableHead>Plano Atual</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>

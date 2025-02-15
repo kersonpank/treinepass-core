@@ -9,6 +9,7 @@ import { UserTable } from "./UserTable";
 import { UserEditDialog } from "./UserEditDialog";
 import { UserViewDialog } from "./UserViewDialog";
 import { ManageUserPlanDialog } from "./ManageUserPlanDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function UserManagement() {
   const { toast } = useToast();
@@ -20,46 +21,49 @@ export function UserManagement() {
   const { data: users = [], isLoading, refetch } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      // First get user profiles
+      // First get user profiles with all details
       const { data: profiles, error: profilesError } = await supabase
         .from("user_profiles")
-        .select("*");
+        .select(`
+          *,
+          user_types (
+            type
+          ),
+          user_plan_subscriptions (
+            status,
+            start_date,
+            end_date,
+            benefit_plans (
+              name
+            )
+          )
+        `);
 
       if (profilesError) throw profilesError;
 
-      // Then for each profile, get their types and subscriptions
-      const usersWithData = await Promise.all(
-        profiles.map(async (profile) => {
-          // Get user types
-          const { data: types } = await supabase
-            .from("user_types")
-            .select("type")
-            .eq("user_id", profile.id);
-
-          // Get user plan subscriptions
-          const { data: subscriptions } = await supabase
-            .from("user_plan_subscriptions")
-            .select(`
-              status,
-              start_date,
-              end_date,
-              plan_id,
-              benefit_plans (
-                name
-              )
-            `)
-            .eq("user_id", profile.id);
-
-          return {
-            ...profile,
-            user_types: types || [],
-            user_plan_subscriptions: subscriptions || []
-          };
-        })
-      );
-
-      return usersWithData as User[];
+      return profiles as User[];
     },
+  });
+
+  const { data: metrics } = useQuery({
+    queryKey: ["userMetrics"],
+    queryFn: async () => {
+      const [
+        { count: totalUsers },
+        { count: activeUsers },
+        { count: inactiveUsers }
+      ] = await Promise.all([
+        supabase.from("user_profiles").select("*", { count: "exact" }),
+        supabase.from("user_profiles").select("*", { count: "exact" }).eq("active", true),
+        supabase.from("user_profiles").select("*", { count: "exact" }).eq("active", false)
+      ]);
+
+      return {
+        total: totalUsers,
+        active: activeUsers,
+        inactive: inactiveUsers
+      };
+    }
   });
 
   const handleStatusChange = async (userId: string, active: boolean) => {
@@ -126,6 +130,34 @@ export function UserManagement() {
         <CardTitle>Gerenciamento de Usuários</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Métricas */}
+        <div className="grid gap-4 mb-8 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.total || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Usuários Ativos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.active || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Usuários Inativos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.inactive || 0}</div>
+            </CardContent>
+          </Card>
+        </div>
+
         <UserTable
           users={users}
           onEdit={(user) => {
