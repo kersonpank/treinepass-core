@@ -1,3 +1,4 @@
+
 import { Business } from "./types/business";
 import {
   Table,
@@ -30,12 +31,13 @@ export function BusinessTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Nome da Empresa</TableHead>
+            <TableHead>Empresa</TableHead>
             <TableHead>CNPJ</TableHead>
-            <TableHead>Email</TableHead>
+            <TableHead>Contato</TableHead>
+            <TableHead>Responsável</TableHead>
             <TableHead>Funcionários</TableHead>
-            <TableHead>Status</TableHead>
             <TableHead>Plano</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>

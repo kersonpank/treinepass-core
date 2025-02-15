@@ -1,3 +1,4 @@
+
 import { Business } from "./types/business";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,12 +22,41 @@ export function BusinessTableRow({
   onEdit,
   onPlanManage,
 }: BusinessTableRowProps) {
+  const activePlan = business.user_plan_subscriptions?.find(
+    sub => sub.status === "active"
+  );
+
   return (
     <TableRow>
-      <TableCell className="font-medium">{business.company_name}</TableCell>
+      <TableCell className="font-medium">
+        <div className="flex flex-col">
+          <span className="font-semibold">{business.company_name}</span>
+          <span className="text-sm text-muted-foreground">{business.trading_name || '-'}</span>
+        </div>
+      </TableCell>
       <TableCell>{business.cnpj}</TableCell>
-      <TableCell>{business.email}</TableCell>
-      <TableCell>{business.number_of_employees}</TableCell>
+      <TableCell>
+        <div className="flex flex-col">
+          <span>{business.email}</span>
+          <span className="text-sm text-muted-foreground">{business.phone}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-col">
+          <span>{business.contact_person}</span>
+          <span className="text-sm text-muted-foreground">{business.contact_position}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        {business.employees?.length || 0} funcionários
+      </TableCell>
+      <TableCell>
+        {activePlan ? (
+          <Badge variant="secondary">{activePlan.benefit_plans?.name || 'Plano Ativo'}</Badge>
+        ) : (
+          <Badge variant="outline">Sem plano</Badge>
+        )}
+      </TableCell>
       <TableCell>
         <Badge
           variant={
@@ -42,19 +72,6 @@ export function BusinessTableRow({
             : business.status === "inactive"
               ? "Inativo"
               : "Pendente"}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        <Badge
-          variant={
-            business.user_plan_subscriptions?.[0]?.status === "active"
-              ? "default"
-              : "outline"
-          }
-        >
-          {business.user_plan_subscriptions?.[0]?.status === "active"
-            ? "Ativo"
-            : "Sem plano"}
         </Badge>
       </TableCell>
       <TableCell>
@@ -93,17 +110,17 @@ export function BusinessTableRow({
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onPlanManage(business)}
+            onClick={() => onEdit(business)}
           >
-            <CreditCard className="h-4 w-4" />
+            <Edit2 className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => onEdit(business)}
+            onClick={() => onPlanManage(business)}
           >
-            <Edit2 className="h-4 w-4" />
+            <CreditCard className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"

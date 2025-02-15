@@ -9,6 +9,7 @@ import { BusinessDetailsDialog } from "./BusinessDetailsDialog";
 import { BusinessEditDialog } from "./BusinessEditDialog";
 import { ManagePlanSubscriptionDialog } from "./ManagePlanSubscriptionDialog";
 import { BusinessTable } from "./BusinessTable";
+import { Building2, Users, CheckCircle2, XCircle } from "lucide-react";
 
 export function BusinessManagement() {
   const { toast } = useToast();
@@ -27,7 +28,10 @@ export function BusinessManagement() {
           user_plan_subscriptions (
             status,
             start_date,
-            end_date
+            end_date,
+            benefit_plans (
+              name
+            )
           ),
           employees (
             id,
@@ -45,6 +49,30 @@ export function BusinessManagement() {
       if (businessError) throw businessError;
 
       return businessData as Business[];
+    },
+  });
+
+  const { data: metrics } = useQuery({
+    queryKey: ["businessMetrics"],
+    queryFn: async () => {
+      const [
+        { count: totalBusinesses },
+        { count: activeBusinesses },
+        { count: pendingBusinesses },
+        { count: totalEmployees }
+      ] = await Promise.all([
+        supabase.from("business_profiles").select("*", { count: "exact" }),
+        supabase.from("business_profiles").select("*", { count: "exact" }).eq("status", "active"),
+        supabase.from("business_profiles").select("*", { count: "exact" }).eq("status", "pending"),
+        supabase.from("employees").select("*", { count: "exact" }).eq("status", "active")
+      ]);
+
+      return {
+        total: totalBusinesses,
+        active: activeBusinesses,
+        pending: pendingBusinesses,
+        employees: totalEmployees
+      };
     },
   });
 
@@ -112,6 +140,54 @@ export function BusinessManagement() {
         <CardTitle>Gerenciamento de Empresas</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Métricas */}
+        <div className="grid gap-4 mb-8 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" />
+                Total de Empresas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.total || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                Empresas Ativas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.active || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <XCircle className="h-4 w-4 text-yellow-500" />
+                Empresas Pendentes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.pending || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                Total de Funcionários
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.employees || 0}</div>
+            </CardContent>
+          </Card>
+        </div>
+
         <BusinessTable
           businesses={businesses}
           onStatusChange={handleStatusChange}
