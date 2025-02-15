@@ -628,6 +628,7 @@ export type Database = {
           expires_at: string | null
           id: string
           qr_code_id: string | null
+          qr_data: Json | null
           status: string
           token_expires_at: string | null
           user_id: string
@@ -644,6 +645,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           qr_code_id?: string | null
+          qr_data?: Json | null
           status?: string
           token_expires_at?: string | null
           user_id: string
@@ -660,6 +662,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           qr_code_id?: string | null
+          qr_data?: Json | null
           status?: string
           token_expires_at?: string | null
           user_id?: string

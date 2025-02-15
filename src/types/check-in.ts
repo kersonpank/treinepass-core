@@ -6,6 +6,7 @@ export interface CheckInCode {
   expires_at: string;
   created_at: string;
   user_id: string;
+  academia_id: string;
   qr_data?: {
     code: string;
     timestamp: string;
@@ -21,7 +22,8 @@ export interface CheckInHistoryItem {
   validation_method: string;
   code?: string;
   access_token?: string;
-  user_profile?: {
+  valor_repasse: number;
+  user?: {
     full_name: string;
     email: string;
     cpf: string;

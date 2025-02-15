@@ -3,9 +3,12 @@ export interface Business {
   id: string;
   company_name: string;
   cnpj: string;
+  email: string;
+  phone: string;
   contact_person: string;
   contact_email: string;
   contact_phone: string;
+  contact_position: string;
   address: string;
   number_of_employees: number;
   status: string;
