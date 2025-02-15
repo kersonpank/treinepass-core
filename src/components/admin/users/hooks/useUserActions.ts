@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { User } from "../types/user";
 
 export function useUserActions() {
   const { toast } = useToast();
@@ -31,19 +32,20 @@ export function useUserActions() {
   };
 
   const handleDelete = async (userId: string) => {
-    if (!confirm("Tem certeza que deseja excluir este usuário?")) return false;
+    if (!confirm("Tem certeza que deseja desativar este usuário?")) return false;
 
     try {
+      // Instead of deleting, we just set active to false
       const { error } = await supabase
         .from("user_profiles")
-        .delete()
+        .update({ active: false })
         .eq("id", userId);
 
       if (error) throw error;
 
       toast({
         title: "Sucesso",
-        description: "Usuário excluído com sucesso",
+        description: "Usuário desativado com sucesso",
       });
 
       return true;
