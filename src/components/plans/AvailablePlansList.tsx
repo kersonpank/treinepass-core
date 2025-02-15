@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, Building2, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 export function AvailablePlansList() {
   const { toast } = useToast();
@@ -57,7 +59,6 @@ export function AvailablePlansList() {
 
       if (employeesError) throw employeesError;
       
-      console.log("Planos corporativos encontrados:", employees);
       return employees || [];
     },
   });
@@ -78,7 +79,7 @@ export function AvailablePlansList() {
     },
   });
 
-  const handleSubscribe = async (planId: string, isFullySubsidized: boolean = false) => {
+  const handleSubscribe = async (planId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -118,22 +119,20 @@ export function AvailablePlansList() {
           plan_id: planId,
           start_date: startDate.toISOString().split('T')[0],
           end_date: endDate.toISOString().split('T')[0],
-          status: isFullySubsidized ? "active" : "pending"
+          status: "pending"
         });
 
       if (error) throw error;
 
       toast({
-        title: isFullySubsidized ? "Plano ativado com sucesso!" : "Plano contratado com sucesso!",
-        description: isFullySubsidized 
-          ? "Você já pode começar a usar seu plano."
-          : "Em breve você receberá as instruções de pagamento.",
+        title: "Plano contratado com sucesso!",
+        description: "Em breve você receberá as instruções de pagamento.",
       });
     } catch (error: any) {
       console.error("Error subscribing to plan:", error);
       toast({
         variant: "destructive",
-        title: "Erro ao ativar plano",
+        title: "Erro ao contratar plano",
         description: error.message,
       });
     }
@@ -147,18 +146,28 @@ export function AvailablePlansList() {
     );
   }
 
+  const hasCorporatePlans = corporatePlans && corporatePlans.length > 0;
+
   return (
-    <div className="space-y-6">
-      {corporatePlans && corporatePlans.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold">Planos Empresariais Disponíveis</h2>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-8 pb-8">
+      {!currentUser?.cpf && (
+        <div className="rounded-lg bg-muted p-4 text-sm">
+          <p>Complete seu perfil com CPF e data de nascimento para ver planos empresariais disponíveis.</p>
+        </div>
+      )}
+
+      {/* Planos Corporativos */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold">Planos Empresariais</h2>
+        </div>
+        
+        {hasCorporatePlans ? (
+          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {corporatePlans.map((employee) => (
               employee.employee_benefits.map((benefit) => {
                 const plan = benefit.benefit_plans;
-                const isFullySubsidized = plan.financing_rules.type === "company_paid" || 
-                  (plan.financing_rules.type === "co_financed" && plan.financing_rules.employee_contribution === 0);
-                
                 const employeeCost = plan.financing_rules.type === "co_financed"
                   ? plan.financing_rules.contribution_type === "fixed"
                     ? plan.financing_rules.employee_contribution
@@ -166,11 +175,14 @@ export function AvailablePlansList() {
                   : 0;
 
                 return (
-                  <Card key={benefit.plan_id}>
+                  <Card key={benefit.plan_id} className="relative overflow-hidden transition-all hover:shadow-lg">
+                    {plan.financing_rules.type === "company_paid" && (
+                      <Badge className="absolute right-2 top-2 bg-primary">100% Subsidiado</Badge>
+                    )}
                     <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <span>{plan.name}</span>
-                        <span className="text-2xl font-bold">
+                      <CardTitle className="flex flex-col gap-2">
+                        <span className="text-xl">{plan.name}</span>
+                        <span className="text-3xl font-bold text-primary">
                           {formatCurrency(employeeCost)}
                           <span className="text-sm font-normal text-muted-foreground">/mês</span>
                         </span>
@@ -192,9 +204,9 @@ export function AvailablePlansList() {
                       </div>
                       <Button 
                         className="w-full" 
-                        onClick={() => handleSubscribe(benefit.plan_id, isFullySubsidized)}
+                        onClick={() => handleSubscribe(benefit.plan_id)}
                       >
-                        {isFullySubsidized ? "Ativar Plano" : "Contratar Plano"}
+                        Ativar Plano
                       </Button>
                     </CardContent>
                   </Card>
@@ -202,18 +214,31 @@ export function AvailablePlansList() {
               })
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="rounded-lg border-2 border-dashed p-8 text-center">
+            <p className="text-muted-foreground">
+              Nenhum plano empresarial disponível no momento.
+            </p>
+          </div>
+        )}
+      </div>
 
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Planos Individuais</h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <Separator className="my-8" />
+
+      {/* Planos Individuais */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <User className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold">Planos Individuais</h2>
+        </div>
+        
+        <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {individualPlans?.map((plan) => (
-            <Card key={plan.id}>
+            <Card key={plan.id} className="transition-all hover:shadow-lg">
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>{plan.name}</span>
-                  <span className="text-2xl font-bold">
+                <CardTitle className="flex flex-col gap-2">
+                  <span className="text-xl">{plan.name}</span>
+                  <span className="text-3xl font-bold text-primary">
                     {formatCurrency(plan.monthly_cost)}
                     <span className="text-sm font-normal text-muted-foreground">/mês</span>
                   </span>
