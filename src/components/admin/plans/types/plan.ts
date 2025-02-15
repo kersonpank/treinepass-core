@@ -30,6 +30,12 @@ export interface CancellationRules {
   notice_period_days: number;
 }
 
+export interface VolumeDiscount {
+  min_employees: number;
+  max_employees?: number;
+  discount_percentage: number;
+}
+
 export interface Plan {
   id: string;
   name: string;
@@ -44,7 +50,7 @@ export interface Plan {
   base_price?: number | null;
   platform_fee?: number | null;
   renewal_type: RenewalType;
-  payment_rules?: {
+  payment_rules: {
     continue_without_use: boolean;
   };
   category_ids?: string[];
@@ -54,14 +60,8 @@ export interface Plan {
   auto_renewal: boolean;
   cancellation_rules: CancellationRules;
   employee_limit?: number | null;
+  volume_discounts?: VolumeDiscount[];
 }
-
-export const financingRulesSchema = z.object({
-  type: z.enum(["company_paid", "employee_paid", "co_financed"]),
-  contribution_type: z.enum(["fixed", "percentage"]),
-  company_contribution: z.number().min(0),
-  employee_contribution: z.number().min(0)
-});
 
 export const planFormSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
@@ -73,7 +73,12 @@ export const planFormSchema = z.object({
   period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
   status: z.enum(["active", "inactive"]),
   rules: z.record(z.any()).default({}),
-  financing_rules: financingRulesSchema.default({
+  financing_rules: z.object({
+    type: z.enum(["company_paid", "employee_paid", "co_financed"]),
+    contribution_type: z.enum(["fixed", "percentage"]),
+    company_contribution: z.number().min(0),
+    employee_contribution: z.number().min(0)
+  }).default({
     type: "company_paid",
     contribution_type: "fixed",
     company_contribution: 0,
@@ -112,7 +117,12 @@ export const planFormSchema = z.object({
     user_can_cancel: true,
     notice_period_days: 30
   }),
-  employee_limit: z.number().nullable().optional()
+  employee_limit: z.number().nullable().optional(),
+  volume_discounts: z.array(z.object({
+    min_employees: z.number(),
+    max_employees: z.number().optional(),
+    discount_percentage: z.number()
+  })).optional()
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;

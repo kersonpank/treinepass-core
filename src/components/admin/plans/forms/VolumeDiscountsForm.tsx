@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
@@ -92,11 +93,11 @@ export function VolumeDiscountsForm({ form, planId }: VolumeDiscountsFormProps) 
       </div>
 
       <div className="space-y-4">
-        {volumeDiscounts?.map((discount) => (
+        {volumeDiscounts?.map((discount, index) => (
           <div key={discount.id} className="flex items-end gap-4">
             <FormField
               control={form.control}
-              name={`volume_discounts.${discount.id}.min_employees`}
+              name={`volume_discounts.${index}.min_employees`}
               render={({ field }) => (
                 <FormItem className="flex-1">
                   <FormLabel>Mínimo de Funcionários</FormLabel>
@@ -110,7 +111,7 @@ export function VolumeDiscountsForm({ form, planId }: VolumeDiscountsFormProps) 
 
             <FormField
               control={form.control}
-              name={`volume_discounts.${discount.id}.max_employees`}
+              name={`volume_discounts.${index}.max_employees`}
               render={({ field }) => (
                 <FormItem className="flex-1">
                   <FormLabel>Máximo de Funcionários</FormLabel>
@@ -124,7 +125,7 @@ export function VolumeDiscountsForm({ form, planId }: VolumeDiscountsFormProps) 
 
             <FormField
               control={form.control}
-              name={`volume_discounts.${discount.id}.discount_percentage`}
+              name={`volume_discounts.${index}.discount_percentage`}
               render={({ field }) => (
                 <FormItem className="flex-1">
                   <FormLabel>Desconto (%)</FormLabel>
