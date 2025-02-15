@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 interface RegisterData {
@@ -6,6 +7,7 @@ interface RegisterData {
   password: string;
   cpf: string;
   birth_date: string;
+  phone_number: string;
 }
 
 export async function registerUser(data: RegisterData) {
@@ -75,6 +77,7 @@ export async function registerUser(data: RegisterData) {
           email: data.email,
           cpf: data.cpf.replace(/\D/g, ""),
           birth_date: formattedDate,
+          phone_number: data.phone_number,
         });
 
       if (profileError) {
