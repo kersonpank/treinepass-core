@@ -1,3 +1,4 @@
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ export function UserEditDialog({
               full_name: formData.get("full_name") as string,
               email: formData.get("email") as string,
               cpf: formData.get("cpf") as string,
+              phone_number: formData.get("phone_number") as string,
               active: formData.get("active") === "true",
             });
           }}
@@ -65,6 +67,18 @@ export function UserEditDialog({
               name="cpf"
               defaultValue={user.cpf}
               required
+            />
+          </div>
+          <div>
+            <Label htmlFor="phone_number">Celular</Label>
+            <Input
+              id="phone_number"
+              name="phone_number"
+              type="tel"
+              defaultValue={user.phone_number || ''}
+              placeholder="DDD + Número (ex: 11987654321)"
+              pattern="^[1-9]{2}9[0-9]{8}$"
+              title="Digite um número de celular válido com DDD (11 dígitos)"
             />
           </div>
           <div>

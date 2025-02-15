@@ -1,3 +1,4 @@
+
 export interface UserType {
   type: string;
 }
@@ -7,6 +8,7 @@ export interface User {
   full_name: string;
   email: string;
   cpf: string;
+  phone_number: string | null;
   created_at: string;
   user_types: UserType[];
   active: boolean;
