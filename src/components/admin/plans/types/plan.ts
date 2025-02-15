@@ -30,6 +30,12 @@ export interface CancellationRules {
   notice_period_days: number;
 }
 
+export interface VolumeDiscount {
+  min_employees: number;
+  max_employees?: number;
+  discount_percentage: number;
+}
+
 export interface Plan {
   id: string;
   name: string;
@@ -44,7 +50,7 @@ export interface Plan {
   base_price?: number | null;
   platform_fee?: number | null;
   renewal_type: RenewalType;
-  payment_rules?: {
+  payment_rules: {
     continue_without_use: boolean;
   };
   category_ids?: string[];
@@ -54,6 +60,7 @@ export interface Plan {
   auto_renewal: boolean;
   cancellation_rules: CancellationRules;
   employee_limit?: number | null;
+  volume_discounts?: VolumeDiscount[];
 }
 
 export const financingRulesSchema = z.object({
@@ -61,6 +68,12 @@ export const financingRulesSchema = z.object({
   contribution_type: z.enum(["fixed", "percentage"]),
   company_contribution: z.number().min(0),
   employee_contribution: z.number().min(0)
+});
+
+export const volumeDiscountSchema = z.object({
+  min_employees: z.number().min(1),
+  max_employees: z.number().nullable().optional(),
+  discount_percentage: z.number().min(0).max(100)
 });
 
 export const planFormSchema = z.object({
@@ -112,7 +125,8 @@ export const planFormSchema = z.object({
     user_can_cancel: true,
     notice_period_days: 30
   }),
-  employee_limit: z.number().nullable().optional()
+  employee_limit: z.number().nullable().optional(),
+  volume_discounts: z.array(volumeDiscountSchema).optional()
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;

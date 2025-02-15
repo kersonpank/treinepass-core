@@ -1,39 +1,31 @@
 
-export interface CheckInHistoryItem {
+export interface CheckInCode {
   id: string;
+  code: string;
+  status: string;
+  expires_at: string;
+  created_at: string;
   user_id: string;
   academia_id: string;
+  qr_data?: {
+    code: string;
+    timestamp: string;
+    userId: string;
+  };
+}
+
+export interface CheckInHistoryItem {
+  id: string;
   check_in_time: string;
-  check_out_time: string | null;
-  validation_method: 'qr_code' | 'token';
-  valor_repasse: number | null;
+  check_out_time?: string;
+  status: string;
+  validation_method: string;
+  code?: string;
+  access_token?: string;
+  valor_repasse: number;
   user?: {
     full_name: string;
     email: string;
     cpf: string;
   };
-}
-
-export interface CheckInCode {
-  id: string;
-  code: string;
-  user_id: string;
-  academia_id: string;
-  status: 'active' | 'used' | 'expired';
-  expires_at: string;
-  used_at?: string | null;
-  qr_data: {
-    code: string;
-    academia_id: string;
-  };
-}
-
-export interface CheckInValidation {
-  can_check_in: boolean;
-  message: string;
-}
-
-export interface CheckInResponse {
-  success: boolean;
-  message: string;
 }
