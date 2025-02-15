@@ -31,10 +31,6 @@ export function BusinessTableRow({
   onEdit,
   onPlanManage,
 }: BusinessTableRowProps) {
-  const activePlan = business.business_plan_subscriptions?.find(
-    (sub) => sub.status === "active"
-  );
-
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case "active":
@@ -57,12 +53,21 @@ export function BusinessTableRow({
     }
   };
 
+  const formatAddress = (address: string) => {
+    if (!address) return "";
+    const addressParts = address.split(",").map(part => part.trim());
+    return addressParts.join(" - ");
+  };
+
   return (
     <TableRow>
       <TableCell>
         <div className="flex flex-col">
           <div className="font-medium">{business.company_name}</div>
           <div className="text-sm text-muted-foreground">{business.cnpj}</div>
+          <div className="text-sm text-muted-foreground">
+            {formatAddress(business.address)}
+          </div>
         </div>
       </TableCell>
       <TableCell>
@@ -81,20 +86,22 @@ export function BusinessTableRow({
       </TableCell>
       <TableCell>
         <ScrollArea className="h-20">
-          {business.business_plan_subscriptions && business.business_plan_subscriptions.length > 0 ? (
-            business.business_plan_subscriptions.map((sub, index) => (
-              <div key={index} className="mb-2 last:mb-0">
-                <Badge variant={sub.status === "active" ? "secondary" : "outline"} className="mb-1">
-                  {sub.benefit_plans?.name}
-                </Badge>
-                <div className="text-xs text-muted-foreground">
-                  {format(new Date(sub.start_date), "dd/MM/yyyy")}
-                  {sub.end_date && ` - ${format(new Date(sub.end_date), "dd/MM/yyyy")}`}
+          {business.business_plan_subscriptions?.filter(sub => sub.status === "active").length > 0 ? (
+            business.business_plan_subscriptions
+              .filter(sub => sub.status === "active")
+              .map((sub, index) => (
+                <div key={index} className="mb-2 last:mb-0">
+                  <Badge variant="secondary" className="mb-1">
+                    {sub.benefit_plans?.name}
+                  </Badge>
+                  <div className="text-xs text-muted-foreground">
+                    {format(new Date(sub.start_date), "dd/MM/yyyy")}
+                    {sub.end_date && ` - ${format(new Date(sub.end_date), "dd/MM/yyyy")}`}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))
           ) : (
-            <Badge variant="outline">Sem plano</Badge>
+            <Badge variant="outline">Sem plano ativo</Badge>
           )}
         </ScrollArea>
       </TableCell>
