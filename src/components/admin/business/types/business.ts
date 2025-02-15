@@ -1,4 +1,3 @@
-
 export interface Business {
   id: string;
   user_id: string;
@@ -26,16 +25,6 @@ export interface Business {
   termos_aceitos: boolean | null;
   data_termos_aceitos: string | null;
   user_plan_subscriptions?: Array<{
-    status: string;
-  }>;
-  employees?: Array<{
-    id: string;
-    full_name: string;
-    email: string;
-    cpf: string;
-    birth_date: string;
-    department: string;
-    cost_center: string;
     status: string;
   }>;
 }

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,7 +52,6 @@ export function UserManagement() {
 
           return {
             ...profile,
-            phone_number: profile.phone_number || null, // Garantindo que phone_number existe
             user_types: types || [],
             user_plan_subscriptions: subscriptions || []
           };

@@ -55,7 +55,6 @@ export function GymManagement() {
           *,
           academia_modalidades (
             modalidade:modalidades (
-              id,
               nome
             )
           )

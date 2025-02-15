@@ -1,4 +1,3 @@
-
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,25 +52,6 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
         />
         {errors.full_name && (
           <p className="text-sm text-red-500 mt-1">{errors.full_name.message}</p>
-        )}
-      </div>
-
-      <div>
-        <Label htmlFor="phone_number">Celular</Label>
-        <Input
-          id="phone_number"
-          type="tel"
-          placeholder="DDD + Número (ex: 11987654321)"
-          {...register("phone_number", {
-            required: "Celular é obrigatório",
-            pattern: {
-              value: /^[1-9]{2}9[0-9]{8}$/,
-              message: "Formato inválido. Use apenas números, ex: 11987654321",
-            },
-          })}
-        />
-        {errors.phone_number && (
-          <p className="text-sm text-red-500 mt-1">{errors.phone_number.message}</p>
         )}
       </div>
 

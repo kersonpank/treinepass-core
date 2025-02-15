@@ -1,4 +1,3 @@
-
 import { Json } from "@/integrations/supabase/types";
 
 export interface Gym {
@@ -49,7 +48,7 @@ export interface CheckInCode {
 export interface AuthLayoutProps {
   children: React.ReactNode;
   title: string;
-  subtitle?: string;  // Tornando subtitle opcional
+  subtitle?: string;
 }
 
 export interface CheckInValidation {
@@ -60,15 +59,4 @@ export interface CheckInValidation {
 export interface CheckInResponse {
   success: boolean;
   message: string;
-}
-
-export interface CheckInHistoryItem {
-  id: string;
-  created_at: string;
-  check_in_time?: string;
-  check_out_time?: string;
-  status: string;
-  academia?: {
-    nome: string;
-  };
 }
