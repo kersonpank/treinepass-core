@@ -1,4 +1,11 @@
 
+export interface GymModalidade {
+  modalidade: {
+    id: string;
+    nome: string;
+  };
+}
+
 export interface Gym {
   id: string;
   nome: string;
@@ -16,10 +23,9 @@ export interface Gym {
   fotos: string[];
   created_at: string;
   updated_at: string;
-  academia_modalidades: Array<{
-    modalidade: {
-      id: string;
-      nome: string;
-    };
-  }>;
+  academia_modalidades: GymModalidade[];
+  categoria?: {
+    nome: string;
+    valor_repasse_checkin: number;
+  };
 }

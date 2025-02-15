@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,33 +12,16 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Eye, Trash2, CheckCircle2, XCircle, Image } from "lucide-react";
+import { Edit2, Eye, Trash2, CheckCircle2, XCircle, Image, Building2, Dumbbell, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { EditGymDialog } from "./EditGymDialog";
 import { GymPhotosDialog } from "./GymPhotosDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface Gym {
-  id: string;
-  nome: string;
-  cnpj: string;
-  email: string;
-  telefone: string | null;
-  endereco: string | null;
-  status: string;
-  fotos?: string[];
-  horario_funcionamento?: Record<string, any>;
-  academia_modalidades?: { 
-    modalidade: { 
-      nome: string;
-      id: string;
-    } 
-  }[];
-  usa_regras_personalizadas?: boolean;
-  categoria_id?: string | null;
-}
+import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
+import { Gym } from "./types/gym";
 
 export function GymManagement() {
   const { toast } = useToast();
@@ -55,15 +39,44 @@ export function GymManagement() {
           *,
           academia_modalidades (
             modalidade:modalidades (
+              id,
               nome
             )
+          ),
+          categoria:academia_categorias (
+            nome,
+            valor_repasse_checkin
           )
         `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Gym[];
+      return data as unknown as Gym[];
     },
+  });
+
+  const { data: metrics } = useQuery({
+    queryKey: ["gymMetrics"],
+    queryFn: async () => {
+      const [
+        { count: totalGyms },
+        { count: activeGyms },
+        { count: pendingGyms },
+        { count: totalModalidades }
+      ] = await Promise.all([
+        supabase.from("academias").select("*", { count: "exact" }),
+        supabase.from("academias").select("*", { count: "exact" }).eq("status", "ativo"),
+        supabase.from("academias").select("*", { count: "exact" }).eq("status", "pendente"),
+        supabase.from("modalidades").select("*", { count: "exact" })
+      ]);
+
+      return {
+        total: totalGyms,
+        active: activeGyms,
+        pending: pendingGyms,
+        modalidades: totalModalidades
+      };
+    }
   });
 
   const handleStatusChange = async (gymId: string, newStatus: string) => {
@@ -146,13 +159,63 @@ export function GymManagement() {
         <CardTitle>Gerenciamento de Academias</CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Métricas */}
+        <div className="grid gap-4 mb-8 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" />
+                Total de Academias
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.total || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                Academias Ativas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.active || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Users className="h-4 w-4 text-yellow-500" />
+                Academias Pendentes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.pending || 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Dumbbell className="h-4 w-4 text-primary" />
+                Modalidades
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{metrics?.modalidades || 0}</div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Academia</TableHead>
                 <TableHead>CNPJ</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Contato</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead>Modalidades</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -160,7 +223,7 @@ export function GymManagement() {
             <TableBody>
               {gyms?.map((gym) => (
                 <TableRow key={gym.id}>
-                  <TableCell className="font-medium">
+                  <TableCell className="min-w-[200px]">
                     <div className="flex items-center gap-2">
                       {gym.fotos?.[0] && (
                         <img
@@ -169,11 +232,42 @@ export function GymManagement() {
                           className="w-8 h-8 rounded-full object-cover"
                         />
                       )}
-                      {gym.nome}
+                      <div>
+                        <div className="font-medium">{gym.nome}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {gym.endereco || 'Endereço não cadastrado'}
+                        </div>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>{gym.cnpj}</TableCell>
-                  <TableCell>{gym.email}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="text-sm">{gym.email}</div>
+                      <div className="text-sm text-muted-foreground">{gym.telefone || '-'}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {gym.categoria ? (
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">{gym.categoria.nome}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Repasse: {formatCurrency(gym.categoria.valor_repasse_checkin)}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Sem categoria</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {gym.academia_modalidades?.map((am, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {am.modalidade.nome}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={
@@ -280,7 +374,7 @@ export function GymManagement() {
 
           <GymPhotosDialog
             gymId={selectedGym.id}
-            fotos={selectedGym.fotos || []}
+            fotos={selectedGym.fotos}
             open={isPhotosDialogOpen}
             onOpenChange={setIsPhotosDialogOpen}
             onSuccess={refetch}
@@ -318,11 +412,15 @@ export function GymManagement() {
                     <h4 className="font-semibold">Endereço</h4>
                     <p>{selectedGym.endereco || "-"}</p>
                   </div>
+                  <div>
+                    <h4 className="font-semibold">Categoria</h4>
+                    <p>{selectedGym.categoria?.nome || "Sem categoria"}</p>
+                  </div>
                 </TabsContent>
                 <TabsContent value="schedule">
                   {selectedGym.horario_funcionamento ? (
                     <div className="space-y-2">
-                      {Object.entries(selectedGym.horario_funcionamento).map(([dia, horario]: [string, any]) => (
+                      {Object.entries(selectedGym.horario_funcionamento).map(([dia, horario]) => (
                         <div key={dia} className="flex justify-between">
                           <span className="font-semibold capitalize">{dia}</span>
                           <span>{horario.abertura} - {horario.fechamento}</span>
@@ -336,8 +434,8 @@ export function GymManagement() {
                 <TabsContent value="modalities">
                   {selectedGym.academia_modalidades?.length ? (
                     <div className="flex flex-wrap gap-2">
-                      {selectedGym.academia_modalidades.map((am, index) => (
-                        <Badge key={index} variant="secondary">
+                      {selectedGym.academia_modalidades.map((am) => (
+                        <Badge key={am.modalidade.id} variant="secondary">
                           {am.modalidade.nome}
                         </Badge>
                       ))}
