@@ -25,7 +25,7 @@ export interface Business {
   documentos: any;
   termos_aceitos: boolean | null;
   data_termos_aceitos: string | null;
-  user_plan_subscriptions?: Array<{
+  business_plan_subscriptions?: Array<{
     status: string;
     start_date?: string;
     end_date?: string | null;

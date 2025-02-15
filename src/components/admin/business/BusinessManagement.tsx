@@ -25,7 +25,7 @@ export function BusinessManagement() {
         .from("business_profiles")
         .select(`
           *,
-          user_plan_subscriptions (
+          business_plan_subscriptions (
             status,
             start_date,
             end_date,
