@@ -23,7 +23,7 @@ export interface Gym {
   endereco?: string;
   horario_funcionamento: GymHours;
   fotos: string[];
-  modalidades?: string[];
+  modalidades: string[];
   status: string;
   automatic_checkin: boolean;
   categoria_id?: string;

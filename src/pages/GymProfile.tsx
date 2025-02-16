@@ -30,20 +30,16 @@ export function GymProfile() {
         .from("academias")
         .select(`
           *,
-          academia_modalidades (
-            modalidade:modalidades (
-              id,
-              nome
-            )
+          modalidades (
+            id,
+            nome
           )
         `)
         .eq("id", id)
         .single();
 
       if (error) throw error;
-      
-      // Type assertion para garantir a estrutura correta
-      return data as unknown as Gym;
+      return data as Gym;
     },
   });
 
@@ -125,16 +121,16 @@ export function GymProfile() {
             <p className="text-muted-foreground">Email: {gym.email}</p>
           </div>
 
-          {gym.academia_modalidades && gym.academia_modalidades.length > 0 && (
+          {gym.modalidades && gym.modalidades.length > 0 && (
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">Modalidades</h2>
               <div className="flex flex-wrap gap-2">
-                {gym.academia_modalidades.map((am, index) => (
+                {gym.modalidades.map((modalidade, index) => (
                   <span
                     key={index}
                     className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
                   >
-                    {am.modalidade.nome}
+                    {modalidade}
                   </span>
                 ))}
               </div>
@@ -145,7 +141,7 @@ export function GymProfile() {
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">Horário de Funcionamento</h2>
               <div className="space-y-1">
-                {formatHorario(gym.horario_funcionamento as Record<string, any>).map((horario) => (
+                {formatHorario(gym.horario_funcionamento).map((horario) => (
                   <p key={horario} className="text-muted-foreground">{horario}</p>
                 ))}
               </div>
