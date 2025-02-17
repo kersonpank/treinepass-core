@@ -72,9 +72,39 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
       }
     }
 
-    console.log("Upload de imagens concluído:", fotosPaths);
+    // 3. Upload dos documentos
+    const documentosUploaded: Array<{
+      nome: string;
+      tipo: string;
+      caminho: string;
+    }> = [];
 
-    // 3. Criar academia
+    if (data.documentos) {
+      for (let i = 0; i < data.documentos.length; i++) {
+        const file = data.documentos[i];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('academy-documents')
+          .upload(fileName, file);
+
+        if (uploadError) {
+          console.error("Erro ao fazer upload do documento:", uploadError);
+          continue;
+        }
+
+        documentosUploaded.push({
+          nome: file.name,
+          tipo: file.type,
+          caminho: fileName
+        });
+      }
+    }
+
+    console.log("Upload de documentos concluído:", documentosUploaded);
+
+    // 4. Criar academia
     const { data: academiaData, error: academiaError } = await supabase
       .from("academias")
       .insert({
@@ -87,6 +117,8 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
         horario_funcionamento: data.horario_funcionamento,
         modalidades: data.modalidades,
         fotos: fotosPaths,
+        documentos: documentosUploaded,
+        documentos_status: 'pendente',
         status: 'pendente'
       })
       .select()
@@ -94,35 +126,41 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
 
     if (academiaError) {
       console.error("Erro ao criar academia:", academiaError);
-      // Limpar imagens enviadas em caso de erro
+      // Limpar arquivos enviados em caso de erro
       for (const path of fotosPaths) {
         await supabase.storage
           .from('academy-images')
           .remove([path]);
       }
+      for (const doc of documentosUploaded) {
+        await supabase.storage
+          .from('academy-documents')
+          .remove([doc.caminho]);
+      }
       await supabase.auth.admin.deleteUser(authData.user.id);
       throw academiaError;
     }
 
-    console.log("Academia criada com sucesso:", academiaData);
+    // 5. Registrar documentos na tabela de tracking
+    if (documentosUploaded.length > 0) {
+      const { error: docsError } = await supabase
+        .from('academia_documentos')
+        .insert(
+          documentosUploaded.map(doc => ({
+            academia_id: academiaData.id,
+            nome: doc.nome,
+            tipo: doc.tipo,
+            caminho: doc.caminho,
+            status: 'pendente'
+          }))
+        );
 
-    // 4. Associar modalidades
-    if (data.modalidades && data.modalidades.length > 0) {
-      const modalidadesAcademia = data.modalidades.map(modalidadeId => ({
-        academia_id: academiaData.id,
-        modalidade_id: modalidadeId
-      }));
-
-      const { error: modalidadesError } = await supabase
-        .from('academia_modalidades')
-        .insert(modalidadesAcademia);
-
-      if (modalidadesError) {
-        console.error("Erro ao associar modalidades:", modalidadesError);
+      if (docsError) {
+        console.error("Erro ao registrar documentos:", docsError);
       }
     }
 
-    // 5. Criar role de dono da academia
+    // 6. Criar role de dono da academia
     const { error: roleError } = await supabase
       .from('user_gym_roles')
       .insert({
@@ -136,7 +174,7 @@ export async function registerGym(data: GymRegistrationData): Promise<Registrati
       console.error("Erro ao criar role:", roleError);
     }
 
-    // 6. Registrar o tipo de usuário
+    // 7. Registrar o tipo de usuário
     const { error: userTypeError } = await supabase
       .from('user_types')
       .insert({

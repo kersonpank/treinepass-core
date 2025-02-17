@@ -42,6 +42,53 @@ export type Database = {
         }
         Relationships: []
       }
+      academia_documentos: {
+        Row: {
+          academia_id: string | null
+          caminho: string
+          created_at: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          revisado_por: string | null
+          status: string | null
+          tipo: string
+          updated_at: string | null
+        }
+        Insert: {
+          academia_id?: string | null
+          caminho: string
+          created_at?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          revisado_por?: string | null
+          status?: string | null
+          tipo: string
+          updated_at?: string | null
+        }
+        Update: {
+          academia_id?: string | null
+          caminho?: string
+          created_at?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          revisado_por?: string | null
+          status?: string | null
+          tipo?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_documentos_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_modalidades: {
         Row: {
           academia_id: string
@@ -84,6 +131,8 @@ export type Database = {
           categoria_id: string | null
           cnpj: string
           created_at: string | null
+          documentos: Json | null
+          documentos_status: string | null
           email: string
           endereco: string | null
           fotos: Json | null
@@ -102,6 +151,8 @@ export type Database = {
           categoria_id?: string | null
           cnpj: string
           created_at?: string | null
+          documentos?: Json | null
+          documentos_status?: string | null
           email: string
           endereco?: string | null
           fotos?: Json | null
@@ -120,6 +171,8 @@ export type Database = {
           categoria_id?: string | null
           cnpj?: string
           created_at?: string | null
+          documentos?: Json | null
+          documentos_status?: string | null
           email?: string
           endereco?: string | null
           fotos?: Json | null
