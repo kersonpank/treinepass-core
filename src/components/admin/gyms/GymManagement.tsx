@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +28,7 @@ export function GymManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isPhotosDialogOpen, setIsPhotosDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   const { data: gyms, isLoading, refetch } = useQuery({
     queryKey: ["adminGyms"],
@@ -316,13 +316,12 @@ export function GymManagement() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
                         onClick={() => {
                           setSelectedGym(gym);
-                          setIsEditDialogOpen(true);
+                          setIsDetailsDialogOpen(true);
                         }}
                       >
-                        <Edit2 className="h-4 w-4" />
+                        <Eye className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -378,6 +377,13 @@ export function GymManagement() {
             open={isPhotosDialogOpen}
             onOpenChange={setIsPhotosDialogOpen}
             onSuccess={refetch}
+          />
+
+          <GymDetailsDialog
+            gym={selectedGym}
+            open={isDetailsDialogOpen}
+            onOpenChange={setIsDetailsDialogOpen}
+            onStatusChange={handleStatusChange}
           />
 
           <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
