@@ -6,6 +6,15 @@ export interface GymModalidade {
   };
 }
 
+export interface GymDocumento {
+  id?: string;
+  nome: string;
+  tipo: string;
+  caminho: string;
+  status?: string;
+  observacoes?: string;
+}
+
 export interface Gym {
   id: string;
   nome: string;
@@ -21,6 +30,7 @@ export interface Gym {
   usa_regras_personalizadas: boolean;
   categoria_id: string | null;
   fotos: string[];
+  documentos: GymDocumento[];
   created_at: string;
   updated_at: string;
   academia_modalidades: GymModalidade[];

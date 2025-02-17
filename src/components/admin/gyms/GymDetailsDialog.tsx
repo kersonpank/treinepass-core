@@ -1,4 +1,3 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Table, 
@@ -18,7 +17,7 @@ import { Gym } from "./types/gym";
 import { CheckCircle2, Download, Eye, XCircle } from "lucide-react";
 
 interface GymDetailsDialogProps {
-  gym: Gym | null;
+  gym: Gym;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStatusChange: (gymId: string, newStatus: string) => void;
