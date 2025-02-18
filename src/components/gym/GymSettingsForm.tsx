@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
@@ -32,6 +31,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   const [isPhotosDialogOpen, setIsPhotosDialogOpen] = useState(false);
   const [replicateHours, setReplicateHours] = useState(false);
   const [modalidades, setModalidades] = useState<any[]>([]);
+  const [bankData, setBankData] = useState<any>(null);
 
   const {
     register,
@@ -41,7 +41,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
     formState: { errors },
   } = useForm();
 
-  // Buscar modalidades disponíveis
   useEffect(() => {
     const fetchModalidades = async () => {
       const { data, error } = await supabase
@@ -86,7 +85,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
       if (error) throw error;
 
-      // Garantir que horario_funcionamento é um objeto válido
       const horarioFuncionamento = typeof gymData.horario_funcionamento === 'object' 
         ? gymData.horario_funcionamento 
         : {
@@ -111,7 +109,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
       setGym(gymWithCorrectTypes);
       
-      // Configurar valores do formulário
       setValue("nome", gymData.nome);
       setValue("email", gymData.email);
       setValue("telefone", gymData.telefone);
@@ -135,6 +132,35 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
     fetchGym();
   }, [gymId, setValue, toast]);
 
+  const fetchBankData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('academia_dados_bancarios')
+        .select('*')
+        .eq('academia_id', gymId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      setBankData(data);
+    } catch (error: any) {
+      console.error('Erro ao carregar dados bancários:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar dados bancários",
+        description: error.message,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (gymId) {
+      fetchBankData();
+    }
+  }, [gymId]);
+
   const onSubmitForm = async (data: any) => {
     if (!gymId) {
       toast({
@@ -147,7 +173,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
     setIsSaving(true);
     try {
-      // Verificar CNPJ duplicado
       if (data.cnpj !== gym?.cnpj) {
         const { data: existingGym, error: checkError } = await supabase
           .from("academias")
@@ -161,7 +186,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         }
       }
 
-      // Atualizar dados básicos da academia
       const { error: updateError } = await supabase
         .from("academias")
         .update({
@@ -177,9 +201,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
       if (updateError) throw updateError;
 
-      // Atualizar modalidades
       if (data.modalidades) {
-        // Remover modalidades existentes
         const { error: deleteError } = await supabase
           .from("academia_modalidades")
           .delete()
@@ -187,7 +209,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
         if (deleteError) throw deleteError;
 
-        // Adicionar novas modalidades
         if (data.modalidades.length > 0) {
           const { error: insertError } = await supabase
             .from("academia_modalidades")
@@ -207,7 +228,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         description: "Dados atualizados com sucesso",
       });
 
-      fetchGym(); // Recarregar dados
+      fetchGym();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -234,6 +255,8 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         title: "Dados bancários atualizados",
         description: "Os dados bancários foram atualizados com sucesso.",
       });
+
+      fetchBankData();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -392,7 +415,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
         <TabsContent value="bank">
           <BankDataForm
-            initialData={null}
+            initialData={bankData}
             onSubmit={handleBankDataSubmit}
           />
         </TabsContent>
