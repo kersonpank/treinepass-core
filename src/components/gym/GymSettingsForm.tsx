@@ -35,6 +35,15 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
   useEffect(() => {
     const fetchGym = async () => {
+      if (!gymId) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "ID da academia não fornecido",
+        });
+        return;
+      }
+
       setIsLoading(true);
       try {
         const { data, error } = await supabase
@@ -42,7 +51,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
           .select(`
             *,
             academia_modalidades (
-              modalidade (
+              modalidades (
                 id,
                 nome
               )
@@ -53,7 +62,14 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
         if (error) throw error;
 
-        setGym(data);
+        const gymData: Gym = {
+          ...data,
+          academia_modalidades: data.academia_modalidades?.map((am: any) => ({
+            modalidade: am.modalidades
+          })) || []
+        };
+
+        setGym(gymData);
         setValue("nome", data.nome);
         setValue("email", data.email);
         setValue("telefone", data.telefone);
@@ -76,6 +92,15 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   }, [gymId, setValue, toast]);
 
   const onSubmitForm = async (data: any) => {
+    if (!gymId) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "ID da academia não fornecido",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Primeiro, verificar se o CNPJ já existe (excluindo a academia atual)
@@ -101,7 +126,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
           telefone: data.telefone,
           endereco: data.endereco,
           cnpj: data.cnpj,
-          horario_funcionamento: JSON.parse(JSON.stringify(data.horario_funcionamento)),
+          horario_funcionamento: data.horario_funcionamento,
           automatic_checkin: data.automatic_checkin,
         })
         .eq("id", gymId);
