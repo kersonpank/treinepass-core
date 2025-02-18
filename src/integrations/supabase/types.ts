@@ -340,11 +340,14 @@ export type Database = {
           interest_value: number | null
           invoice_url: string | null
           net_amount: number | null
+          next_due_date: string | null
           payment_date: string | null
           payment_link: string | null
           payment_method: string | null
           status: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id: string | null
+          subscription_period: string | null
+          subscription_type: string | null
           updated_at: string
         }
         Insert: {
@@ -362,11 +365,14 @@ export type Database = {
           interest_value?: number | null
           invoice_url?: string | null
           net_amount?: number | null
+          next_due_date?: string | null
           payment_date?: string | null
           payment_link?: string | null
           payment_method?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
+          subscription_period?: string | null
+          subscription_type?: string | null
           updated_at?: string
         }
         Update: {
@@ -384,11 +390,14 @@ export type Database = {
           interest_value?: number | null
           invoice_url?: string | null
           net_amount?: number | null
+          next_due_date?: string | null
           payment_date?: string | null
           payment_link?: string | null
           payment_method?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
+          subscription_period?: string | null
+          subscription_type?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1264,6 +1273,47 @@ export type Database = {
           },
         ]
       }
+      plan_payment_settings: {
+        Row: {
+          automatic_retry: boolean | null
+          billing_type: string
+          created_at: string | null
+          due_day: number
+          id: string
+          max_retry_attempts: number | null
+          plan_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          automatic_retry?: boolean | null
+          billing_type?: string
+          created_at?: string | null
+          due_day?: number
+          id?: string
+          max_retry_attempts?: number | null
+          plan_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          automatic_retry?: boolean | null
+          billing_type?: string
+          created_at?: string | null
+          due_day?: number
+          id?: string
+          max_retry_attempts?: number | null
+          plan_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_payment_settings_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_rules: {
         Row: {
           created_at: string
@@ -1457,6 +1507,44 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "academia_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_rules: {
+        Row: {
+          academia_id: string | null
+          automatic_transfer: boolean | null
+          created_at: string | null
+          id: string
+          minimum_transfer_amount: number | null
+          transfer_day: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          academia_id?: string | null
+          automatic_transfer?: boolean | null
+          created_at?: string | null
+          id?: string
+          minimum_transfer_amount?: number | null
+          transfer_day?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          academia_id?: string | null
+          automatic_transfer?: boolean | null
+          created_at?: string | null
+          id?: string
+          minimum_transfer_amount?: number | null
+          transfer_day?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_rules_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
             referencedColumns: ["id"]
           },
         ]
