@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
@@ -64,7 +65,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
     fetchGym();
   }, [gymId, setValue, toast]);
 
-  const handleSubmit = async (data: any) => {
+  const onSubmitForm = async (data: any) => {
     try {
       const { error } = await supabase
         .from("academias")
@@ -102,7 +103,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(handleSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Informações da Academia</CardTitle>
