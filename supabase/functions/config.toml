@@ -1,0 +1,14 @@
+
+# project_id = "jlzkwcgzpfrdgcdjmjao"
+
+[process-payment]
+verify_jwt = true
+
+[process-transfer]
+verify_jwt = true
+
+[asaas-customer]
+verify_jwt = true
+
+[send-employee-invite]
+verify_jwt = true
