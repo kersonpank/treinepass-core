@@ -232,7 +232,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         {Array.isArray(gym?.fotos) && gym.fotos.map((foto: string, index: number) => (
           <div key={index} className="relative aspect-square">
             <img
-              src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/academy-images/${foto}`}
+              src={`${supabase.storageUrl}/object/public/academy-images/${foto}`}
               alt={`Foto ${index + 1}`}
               className="w-full h-full object-cover rounded-lg"
             />
