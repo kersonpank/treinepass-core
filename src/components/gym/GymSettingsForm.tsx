@@ -32,6 +32,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   const [replicateHours, setReplicateHours] = useState(false);
   const [modalidades, setModalidades] = useState<any[]>([]);
   const [bankData, setBankData] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("basic");
 
   const {
     register,
@@ -254,15 +255,14 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
       if (error) throw error;
 
       toast({
-        title: "Dados bancários atualizados",
-        description: "Os dados bancários foram atualizados com sucesso.",
+        title: "Dados bancários salvos com sucesso",
       });
 
       fetchBankData();
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Erro ao atualizar dados bancários",
+        title: "Erro ao salvar",
         description: error.message,
       });
     }
@@ -277,7 +277,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   }
 
   return (
-    <Tabs defaultValue="basic" className="space-y-6">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
       <TabsList>
         <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
         <TabsTrigger value="schedule">Horários</TabsTrigger>
