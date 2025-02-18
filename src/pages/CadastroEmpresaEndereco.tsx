@@ -7,11 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { BusinessAddressForm } from "@/components/business/forms/BusinessAddressForm";
 
-interface AddressFormData {
+interface AddressData {
   cep: string;
   street: string;
   number: string;
-  complement?: string;
+  complement: string;
   neighborhood: string;
   city: string;
   state: string;
@@ -27,9 +27,9 @@ export default function CadastroEmpresaEndereco() {
     handleSubmit,
     formState: { errors },
     setValue
-  } = useForm<AddressFormData>();
+  } = useForm<AddressData>();
 
-  const onSubmit = async (data: AddressFormData) => {
+  const onSubmit = async (data: AddressData) => {
     console.log("Starting address submission:", data);
     try {
       setIsSubmitting(true);
