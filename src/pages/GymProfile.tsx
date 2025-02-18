@@ -4,35 +4,46 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
-import { StaffPanel } from "@/components/gym/panels/StaffPanel";
-import { FinancialPanel } from "@/components/gym/panels/FinancialPanel";
-import { GymSettingsForm } from "@/components/gym/GymSettingsForm";
 import { Button } from "@/components/ui/button";
 import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
 import { CheckInHistory } from "@/components/gym/check-in/CheckInHistory";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { PaymentsManagement } from "@/components/admin/payments/PaymentsManagement";
+import { useParams, useNavigate } from "react-router-dom";
 
 export function GymProfile() {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
 
   const { data: gym, isLoading, error } = useQuery({
-    queryKey: ["gym-profile"],
+    queryKey: ["gym", id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
+      console.log("Buscando academia com ID:", id);
+      
+      if (!id) throw new Error("ID da academia não fornecido");
 
       const { data, error } = await supabase
         .from("academias")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        .select(`
+          *,
+          academia_modalidades (
+            modalidade:modalidades (
+              id,
+              nome
+            )
+          )
+        `)
+        .eq("id", id)
+        .single();
 
-      if (error) throw error;
-      if (!data) throw new Error("Academia não encontrada");
-      
+      if (error) {
+        console.error("Erro ao buscar academia:", error);
+        throw error;
+      }
+
+      console.log("Academia encontrada:", data);
       return data;
     }
   });
@@ -45,12 +56,28 @@ export function GymProfile() {
     );
   }
 
-  if (error || !gym) {
+  if (error) {
+    toast({
+      variant: "destructive",
+      title: "Erro",
+      description: "Não foi possível carregar os dados da academia.",
+    });
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-4">Academia não encontrada</h1>
-        <Button onClick={() => window.location.href = "/"}>
-          Voltar para o início
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <h1 className="text-2xl font-bold">Academia não encontrada</h1>
+        <Button onClick={() => navigate("/app")}>
+          Voltar
+        </Button>
+      </div>
+    );
+  }
+
+  if (!gym) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <h1 className="text-2xl font-bold">Academia não encontrada</h1>
+        <Button onClick={() => navigate("/app")}>
+          Voltar
         </Button>
       </div>
     );
@@ -66,10 +93,6 @@ export function GymProfile() {
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="check-in">Check-in</TabsTrigger>
-          <TabsTrigger value="financial">Financeiro</TabsTrigger>
-          <TabsTrigger value="payments">Pagamentos</TabsTrigger>
-          <TabsTrigger value="staff">Equipe</TabsTrigger>
-          <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -79,22 +102,6 @@ export function GymProfile() {
         <TabsContent value="check-in" className="space-y-6">
           <CheckInManager gymId={gym.id} />
           <CheckInHistory gymId={gym.id} />
-        </TabsContent>
-
-        <TabsContent value="financial">
-          <FinancialPanel />
-        </TabsContent>
-
-        <TabsContent value="payments">
-          <PaymentsManagement />
-        </TabsContent>
-
-        <TabsContent value="staff">
-          <StaffPanel gymId={gym.id} />
-        </TabsContent>
-
-        <TabsContent value="settings">
-          <GymSettingsForm gymId={gym.id} />
         </TabsContent>
       </Tabs>
     </div>
