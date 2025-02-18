@@ -25,6 +25,7 @@ interface GymSettingsFormProps {
 
 export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("basic");
   const [gym, setGym] = useState<Gym | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,7 +33,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   const [replicateHours, setReplicateHours] = useState(false);
   const [modalidades, setModalidades] = useState<any[]>([]);
   const [bankData, setBankData] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("basic");
 
   const {
     register,
@@ -134,18 +134,20 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   }, [gymId, setValue, toast]);
 
   const fetchBankData = async () => {
+    if (!gymId) return;
+
     try {
+      console.log('Buscando dados bancários para academia:', gymId);
       const { data, error } = await supabase
         .from('academia_dados_bancarios')
         .select('*')
         .eq('academia_id', gymId)
         .maybeSingle();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      setBankData(data);
+      console.log('Dados bancários recebidos:', data);
+      setBankData(data || null);
     } catch (error: any) {
       console.error('Erro ao carregar dados bancários:', error);
       toast({
@@ -241,13 +243,16 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
     }
   };
 
-  const handleBankDataSubmit = async (bankData: any) => {
+  const handleBankDataSubmit = async (formData: any) => {
+    if (!gymId) return;
+
     try {
+      console.log('Salvando dados bancários:', formData);
       const { error } = await supabase
         .from("academia_dados_bancarios")
         .upsert({
           academia_id: gymId,
-          ...bankData
+          ...formData
         }, {
           onConflict: 'academia_id'
         });
@@ -255,11 +260,13 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
       if (error) throw error;
 
       toast({
-        title: "Dados bancários salvos com sucesso",
+        title: "Sucesso",
+        description: "Dados bancários salvos com sucesso",
       });
 
-      fetchBankData();
+      await fetchBankData();
     } catch (error: any) {
+      console.error('Erro ao salvar dados bancários:', error);
       toast({
         variant: "destructive",
         title: "Erro ao salvar",
