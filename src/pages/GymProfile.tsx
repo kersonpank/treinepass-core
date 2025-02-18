@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +12,7 @@ import { CheckInHistory } from "@/components/gym/check-in/CheckInHistory";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
-export default function GymProfile() {
+export function GymProfile() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
 
