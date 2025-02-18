@@ -4,17 +4,18 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CheckInButton } from "@/components/mobile/check-in/CheckInButton";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Clock, MapPin, Phone } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "@supabase/auth-helpers-react";
+import { useSession } from "@supabase/auth-helpers-react";
 
 export function GymProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const user = useAuth();
+  const session = useSession();
 
   const { data: gym, isLoading, error } = useQuery({
     queryKey: ["gym", id],
@@ -76,7 +77,7 @@ export function GymProfile() {
       {/* Cabeçalho com nome e imagem */}
       <div className="space-y-4">
         <h1 className="text-3xl font-bold">{gym.nome}</h1>
-        {gym.fotos && gym.fotos.length > 0 ? (
+        {gym.fotos && Array.isArray(gym.fotos) && gym.fotos.length > 0 ? (
           <div className="relative w-full h-48 rounded-lg overflow-hidden">
             <img 
               src={gym.fotos[0]} 
@@ -136,10 +137,10 @@ export function GymProfile() {
       {/* Botão de Check-in */}
       <Card className="mt-6">
         <CardContent className="pt-6">
-          {user?.id ? (
+          {session?.user?.id ? (
             <CheckInButton
               academiaId={gym.id}
-              userId={user.id}
+              userId={session.user.id}
               onSuccess={handleCheckInSuccess}
             />
           ) : (
