@@ -2,20 +2,22 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { CheckInButton } from "@/components/mobile/check-in/CheckInButton";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Clock, MapPin, Phone } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSession } from "@supabase/auth-helpers-react";
+import { CheckInDisplay } from "@/components/mobile/check-in/CheckInDisplay";
+import { ManualCheckIn } from "@/components/mobile/check-in/ManualCheckIn";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function GymProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const session = useSession();
+  const [activeCheckIn, setActiveCheckIn] = useState<any>(null);
 
   const { data: gym, isLoading, error } = useQuery({
     queryKey: ["gym", id],
@@ -41,11 +43,16 @@ export function GymProfile() {
     }
   });
 
-  const handleCheckInSuccess = (newCode: any) => {
+  const handleCheckInSuccess = (checkInData: any) => {
+    setActiveCheckIn(checkInData);
     toast({
       title: "Check-in realizado!",
       description: "Você fez check-in com sucesso.",
     });
+  };
+
+  const handleCheckInExpire = () => {
+    setActiveCheckIn(null);
   };
 
   if (isLoading) {
@@ -72,84 +79,58 @@ export function GymProfile() {
     );
   }
 
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <h1 className="text-2xl font-bold">Faça login para continuar</h1>
+        <Button onClick={() => navigate("/login")}>
+          Fazer Login
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto py-8 space-y-6 px-4">
-      {/* Cabeçalho com nome e imagem */}
-      <div className="space-y-4">
+    <div className="container mx-auto py-8 space-y-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">{gym.nome}</h1>
-        {gym.fotos && Array.isArray(gym.fotos) && gym.fotos.length > 0 ? (
-          <div className="relative w-full h-48 rounded-lg overflow-hidden">
-            <img 
-              src={gym.fotos[0]} 
-              alt={gym.nome}
-              className="w-full h-full object-cover"
-            />
-          </div>
-        ) : (
-          <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-200">
-            <img 
-              src="/placeholder-gym.jpg" 
-              alt="Placeholder"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
       </div>
 
-      {/* Informações principais */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {activeCheckIn ? (
+        <CheckInDisplay 
+          checkInCode={activeCheckIn}
+          onExpire={handleCheckInExpire}
+        />
+      ) : (
         <Card>
-          <CardHeader>
-            <CardTitle>Informações</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <MapPin className="h-5 w-5 text-gray-500" />
-              <span>{gym.endereco || "Endereço não informado"}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Phone className="h-5 w-5 text-gray-500" />
-              <span>{gym.telefone || "Telefone não informado"}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Clock className="h-5 w-5 text-gray-500" />
-              <span>Horário de funcionamento disponível na academia</span>
-            </div>
+          <CardContent className="pt-6">
+            <Tabs defaultValue="qrcode" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="qrcode">QR Code</TabsTrigger>
+                <TabsTrigger value="manual">Código Manual</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="qrcode">
+                <ManualCheckIn 
+                  academiaId={id!}
+                  userId={session.user.id}
+                  onSuccess={handleCheckInSuccess}
+                  method="qr_code"
+                />
+              </TabsContent>
+
+              <TabsContent value="manual">
+                <ManualCheckIn 
+                  academiaId={id!}
+                  userId={session.user.id}
+                  onSuccess={handleCheckInSuccess}
+                  method="access_token"
+                />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Modalidades</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {gym.academia_modalidades?.map((item: any) => (
-                <Badge key={item.modalidade.id} variant="secondary">
-                  {item.modalidade.nome}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Botão de Check-in */}
-      <Card className="mt-6">
-        <CardContent className="pt-6">
-          {session?.user?.id ? (
-            <CheckInButton
-              academiaId={gym.id}
-              userId={session.user.id}
-              onSuccess={handleCheckInSuccess}
-            />
-          ) : (
-            <Button onClick={() => navigate("/login")} className="w-full">
-              Faça login para realizar check-in
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      )}
     </div>
   );
 }
