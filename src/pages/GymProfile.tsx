@@ -15,35 +15,20 @@ export function GymProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("check-in");
 
   const { data: gym, isLoading, error } = useQuery({
     queryKey: ["gym", id],
     queryFn: async () => {
-      console.log("Buscando academia com ID:", id);
-      
       if (!id) throw new Error("ID da academia não fornecido");
 
       const { data, error } = await supabase
         .from("academias")
-        .select(`
-          *,
-          academia_modalidades (
-            modalidade:modalidades (
-              id,
-              nome
-            )
-          )
-        `)
+        .select("*")
         .eq("id", id)
         .single();
 
-      if (error) {
-        console.error("Erro ao buscar academia:", error);
-        throw error;
-      }
-
-      console.log("Academia encontrada:", data);
+      if (error) throw error;
       return data;
     }
   });
@@ -56,23 +41,12 @@ export function GymProfile() {
     );
   }
 
-  if (error) {
+  if (error || !gym) {
     toast({
       variant: "destructive",
       title: "Erro",
       description: "Não foi possível carregar os dados da academia.",
     });
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-        <h1 className="text-2xl font-bold">Academia não encontrada</h1>
-        <Button onClick={() => navigate("/app")}>
-          Voltar
-        </Button>
-      </div>
-    );
-  }
-
-  if (!gym) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
         <h1 className="text-2xl font-bold">Academia não encontrada</h1>
@@ -91,17 +65,17 @@ export function GymProfile() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="check-in">Check-in</TabsTrigger>
+          <TabsTrigger value="overview">Detalhes</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="check-in" className="space-y-6">
+          <CheckInManager gymId={id} />
+          <CheckInHistory gymId={id} />
+        </TabsContent>
 
         <TabsContent value="overview">
           <OverviewPanel academia={gym} />
-        </TabsContent>
-
-        <TabsContent value="check-in" className="space-y-6">
-          <CheckInManager gymId={gym.id} />
-          <CheckInHistory gymId={gym.id} />
         </TabsContent>
       </Tabs>
     </div>
