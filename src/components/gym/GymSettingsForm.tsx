@@ -13,7 +13,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Gym } from "@/types/gym";
+import type { Gym } from "@/types/gym";
 
 interface GymSettingsFormProps {
   gymId: string;
@@ -23,6 +23,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   const { toast } = useToast();
   const [gym, setGym] = useState<Gym | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const {
     register,
@@ -38,7 +39,15 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
       try {
         const { data, error } = await supabase
           .from("academias")
-          .select("*")
+          .select(`
+            *,
+            academia_modalidades (
+              modalidade (
+                id,
+                nome
+              )
+            )
+          `)
           .eq("id", gymId)
           .single();
 
@@ -49,6 +58,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         setValue("email", data.email);
         setValue("telefone", data.telefone);
         setValue("endereco", data.endereco);
+        setValue("cnpj", data.cnpj);
         setValue("horario_funcionamento", data.horario_funcionamento);
         setValue("automatic_checkin", data.automatic_checkin);
       } catch (error: any) {
@@ -66,7 +76,23 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   }, [gymId, setValue, toast]);
 
   const onSubmitForm = async (data: any) => {
+    setIsSaving(true);
     try {
+      // Primeiro, verificar se o CNPJ já existe (excluindo a academia atual)
+      if (data.cnpj !== gym?.cnpj) {
+        const { data: existingGym, error: checkError } = await supabase
+          .from("academias")
+          .select("id")
+          .eq("cnpj", data.cnpj)
+          .neq("id", gymId)
+          .single();
+
+        if (existingGym) {
+          throw new Error("Este CNPJ já está cadastrado para outra academia");
+        }
+      }
+
+      // Se passar pela verificação, atualizar os dados
       const { error } = await supabase
         .from("academias")
         .update({
@@ -74,6 +100,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
           email: data.email,
           telefone: data.telefone,
           endereco: data.endereco,
+          cnpj: data.cnpj,
           horario_funcionamento: JSON.parse(JSON.stringify(data.horario_funcionamento)),
           automatic_checkin: data.automatic_checkin,
         })
@@ -91,6 +118,8 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         title: "Erro ao atualizar dados",
         description: error.message || "Ocorreu um erro ao atualizar os dados da academia.",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -111,19 +140,40 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="nome">Nome</Label>
-            <Input id="nome" defaultValue={gym.nome} {...register("nome")} />
+            <Input id="nome" {...register("nome", { required: true })} />
+          </div>
+          <div>
+            <Label htmlFor="cnpj">CNPJ</Label>
+            <Input 
+              id="cnpj" 
+              {...register("cnpj", { required: true })}
+              disabled={isSaving} 
+            />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" defaultValue={gym.email} {...register("email")} />
+            <Input 
+              id="email" 
+              type="email" 
+              {...register("email", { required: true })}
+              disabled={isSaving}
+            />
           </div>
           <div>
             <Label htmlFor="telefone">Telefone</Label>
-            <Input id="telefone" defaultValue={gym.telefone} {...register("telefone")} />
+            <Input 
+              id="telefone" 
+              {...register("telefone")}
+              disabled={isSaving}
+            />
           </div>
           <div>
             <Label htmlFor="endereco">Endereço</Label>
-            <Input id="endereco" defaultValue={gym.endereco} {...register("endereco")} />
+            <Input 
+              id="endereco" 
+              {...register("endereco")}
+              disabled={isSaving}
+            />
           </div>
 
           <div>
@@ -132,6 +182,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
               id="horario_funcionamento"
               defaultValue={JSON.stringify(gym.horario_funcionamento)}
               {...register("horario_funcionamento")}
+              disabled={isSaving}
             />
           </div>
 
@@ -141,10 +192,13 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
               id="automatic_checkin"
               defaultChecked={gym.automatic_checkin}
               {...register("automatic_checkin")}
+              disabled={isSaving}
             />
           </div>
 
-          <Button type="submit">Salvar Alterações</Button>
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? "Salvando..." : "Salvar Alterações"}
+          </Button>
         </CardContent>
       </Card>
 
