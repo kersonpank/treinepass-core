@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Gym } from "@/types/gym";
+import { GymPhotosDialog } from "@/components/admin/gyms/GymPhotosDialog";
+import { OperatingHoursForm } from "@/components/gym/forms/OperatingHoursForm";
 
 interface GymSettingsFormProps {
   gymId: string;
@@ -24,6 +26,8 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   const [gym, setGym] = useState<Gym | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPhotosDialogOpen, setIsPhotosDialogOpen] = useState(false);
+  const [replicateHours, setReplicateHours] = useState(false);
 
   const {
     register,
@@ -103,7 +107,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
     setIsSaving(true);
     try {
-      // Primeiro, verificar se o CNPJ já existe (excluindo a academia atual)
       if (data.cnpj !== gym?.cnpj) {
         const { data: existingGym, error: checkError } = await supabase
           .from("academias")
@@ -117,7 +120,6 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         }
       }
 
-      // Se passar pela verificação, atualizar os dados
       const { error } = await supabase
         .from("academias")
         .update({
@@ -201,15 +203,13 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
             />
           </div>
 
-          <div>
-            <Label htmlFor="horario_funcionamento">Horário de Funcionamento</Label>
-            <Input
-              id="horario_funcionamento"
-              defaultValue={JSON.stringify(gym.horario_funcionamento)}
-              {...register("horario_funcionamento")}
-              disabled={isSaving}
-            />
-          </div>
+          <OperatingHoursForm
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            replicateHours={replicateHours}
+            setReplicateHours={setReplicateHours}
+          />
 
           <div className="flex items-center justify-between">
             <Label htmlFor="automatic_checkin">Check-in Automático</Label>
@@ -227,18 +227,44 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         </CardContent>
       </Card>
 
-      {/* Exibição das fotos */}
-      <div className="grid grid-cols-3 gap-4 mt-4">
-        {Array.isArray(gym?.fotos) && gym.fotos.map((foto: string, index: number) => (
-          <div key={index} className="relative aspect-square">
-            <img
-              src={`${supabase.storageUrl}/object/public/academy-images/${foto}`}
-              alt={`Foto ${index + 1}`}
-              className="w-full h-full object-cover rounded-lg"
-            />
+      <Card>
+        <CardHeader>
+          <CardTitle>Fotos da Academia</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsPhotosDialogOpen(true)}
+          >
+            Gerenciar Fotos
+          </Button>
+
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            {Array.isArray(gym?.fotos) && gym.fotos.map((foto: string, index: number) => (
+              <div key={index} className="relative aspect-square">
+                <img
+                  src={`${supabase.supabaseUrl}/storage/v1/object/public/academy-images/${foto}`}
+                  alt={`Foto ${index + 1}`}
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </CardContent>
+      </Card>
+
+      <GymPhotosDialog
+        open={isPhotosDialogOpen}
+        onOpenChange={setIsPhotosDialogOpen}
+        gymId={gymId}
+        fotos={gym.fotos}
+        onSuccess={() => {
+          setIsPhotosDialogOpen(false);
+          // Recarregar os dados da academia
+          fetchGym();
+        }}
+      />
     </form>
   );
 }

@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
 import { StaffPanel } from "@/components/gym/panels/StaffPanel";
 import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
 import { AutoCheckInToggle } from "@/components/gym/AutoCheckInToggle";
+import { FinancialPanel } from "@/components/gym/panels/FinancialPanel";
 
 export default function AcademiaPanel() {
   const { id } = useParams<{ id: string }>();
@@ -125,6 +127,7 @@ export default function AcademiaPanel() {
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="check-in">Check-in</TabsTrigger>
+          <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="access">Gestão de Acessos</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
@@ -135,6 +138,10 @@ export default function AcademiaPanel() {
 
         <TabsContent value="check-in">
           <CheckInManager />
+        </TabsContent>
+
+        <TabsContent value="financial">
+          <FinancialPanel />
         </TabsContent>
 
         <TabsContent value="access">
