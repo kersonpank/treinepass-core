@@ -20,16 +20,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 
 export function FinancialPanel() {
+  const { id: academiaId } = useParams();
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   });
 
   // Buscar dados financeiros do mês
-  const { data: financialData, isLoading: isLoadingFinancial } = useQuery({
-    queryKey: ["gym-financial", selectedMonth],
+  const { data: checkInsData, isLoading: isLoadingCheckIns } = useQuery({
+    queryKey: ["gym-check-ins", selectedMonth, academiaId],
     queryFn: async () => {
       const [startDate, endDate] = getMonthRange(selectedMonth);
 
@@ -38,47 +40,34 @@ export function FinancialPanel() {
         .select(`
           id,
           valor_repasse,
-          check_in_time,
-          transfer_id,
-          asaas_transfers (
-            status,
-            transfer_date
-          )
+          check_in_time
         `)
+        .eq('academia_id', academiaId)
         .gte("check_in_time", startDate)
         .lt("check_in_time", endDate);
 
       if (checkInsError) throw checkInsError;
 
-      const totalValue = checkIns.reduce((acc, check) => acc + (Number(check.valor_repasse) || 0), 0);
-      const paidValue = checkIns
-        .filter(check => check.asaas_transfers?.status === "COMPLETED")
-        .reduce((acc, check) => acc + (Number(check.valor_repasse) || 0), 0);
-      const pendingValue = totalValue - paidValue;
-
-      return {
-        totalCheckIns: checkIns.length,
-        totalValue,
-        paidValue,
-        pendingValue,
-        checkIns
-      };
-    }
+      return checkIns;
+    },
+    enabled: !!academiaId
   });
 
   // Buscar histórico de transferências
   const { data: transfers, isLoading: isLoadingTransfers } = useQuery({
-    queryKey: ["gym-transfers", selectedMonth],
+    queryKey: ["gym-transfers", academiaId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("asaas_transfers")
         .select("*")
+        .eq('academia_id', academiaId)
         .order("created_at", { ascending: false })
         .limit(10);
 
       if (error) throw error;
       return data;
-    }
+    },
+    enabled: !!academiaId
   });
 
   const getMonthRange = (monthStr: string) => {
@@ -88,7 +77,13 @@ export function FinancialPanel() {
     return [startDate, endDate];
   };
 
-  if (isLoadingFinancial || isLoadingTransfers) {
+  // Calcular totais
+  const totalValue = checkInsData?.reduce((acc, check) => acc + (Number(check.valor_repasse) || 0), 0) || 0;
+  const completedTransfers = transfers?.filter(t => t.status === "COMPLETED") || [];
+  const paidValue = completedTransfers.reduce((acc, t) => acc + Number(t.amount), 0);
+  const pendingValue = totalValue - paidValue;
+
+  if (isLoadingCheckIns || isLoadingTransfers) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -124,7 +119,7 @@ export function FinancialPanel() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {financialData?.totalCheckIns || 0}
+              {checkInsData?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -138,7 +133,7 @@ export function FinancialPanel() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(financialData?.totalValue || 0)}
+              {formatCurrency(totalValue)}
             </div>
           </CardContent>
         </Card>
@@ -152,7 +147,7 @@ export function FinancialPanel() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(financialData?.pendingValue || 0)}
+              {formatCurrency(pendingValue)}
             </div>
           </CardContent>
         </Card>
