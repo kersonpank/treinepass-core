@@ -131,7 +131,7 @@ export function GymPhotosDialog({
             {fotos?.map((foto, index) => (
               <div key={index} className="relative group aspect-square">
                 <img
-                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/academy-images/${foto}`}
+                  src={`${supabase.supabaseUrl}/storage/v1/object/public/academy-images/${foto}`}
                   alt={`Foto ${index + 1}`}
                   className="w-full h-full object-cover rounded-lg"
                 />
