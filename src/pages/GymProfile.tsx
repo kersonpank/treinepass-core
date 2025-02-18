@@ -1,164 +1,94 @@
 
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { 
-  Carousel, 
-  CarouselContent, 
-  CarouselItem, 
-  CarouselNext, 
-  CarouselPrevious 
-} from "@/components/ui/carousel";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { Gym } from "@/types/gym";
-import { CheckInButton } from "@/components/mobile/check-in/CheckInButton";
-import { ManualCheckIn } from "@/components/mobile/check-in/ManualCheckIn";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
+import { StaffPanel } from "@/components/gym/panels/StaffPanel";
+import { FinancialPanel } from "@/components/gym/panels/FinancialPanel";
+import { GymSettingsForm } from "@/components/gym/GymSettingsForm";
+import { Button } from "@/components/ui/button";
+import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
+import { CheckInHistory } from "@/components/gym/check-in/CheckInHistory";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
-export function GymProfile() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [showManualCheckIn, setShowManualCheckIn] = useState(false);
+export default function GymProfile() {
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("overview");
 
   const { data: gym, isLoading } = useQuery({
-    queryKey: ["gym", id],
+    queryKey: ["gym-profile"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { data: gymData, error } = await supabase
         .from("academias")
-        .select(`
-          *,
-          modalidades (
-            id,
-            nome
-          )
-        `)
-        .eq("id", id)
+        .select("*")
+        .eq("user_id", user.id)
         .single();
 
       if (error) throw error;
-      return data as Gym;
-    },
+      return gymData;
+    }
   });
 
   if (isLoading) {
-    return <div className="p-4"><Skeleton className="w-full h-[200px] rounded-lg" /></div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
   }
 
   if (!gym) {
-    return <div className="p-4">Academia não encontrada</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold mb-4">Academia não encontrada</h1>
+        <Button onClick={() => window.location.href = "/"}>
+          Voltar para o início
+        </Button>
+      </div>
+    );
   }
 
-  const formatHorario = (horario: Record<string, any>) => {
-    const diasSemana = {
-      domingo: "Domingo",
-      segunda: "Segunda-feira",
-      terca: "Terça-feira",
-      quarta: "Quarta-feira",
-      quinta: "Quinta-feira",
-      sexta: "Sexta-feira",
-      sabado: "Sábado"
-    };
-
-    return Object.entries(horario).map(([dia, horarios]) => {
-      const { abertura, fechamento } = horarios as { abertura: string; fechamento: string };
-      return `${diasSemana[dia as keyof typeof diasSemana]}: ${abertura} - ${fechamento}`;
-    });
-  };
-
-  const getImageUrl = (foto: string) => {
-    if (foto.startsWith('http')) {
-      return foto;
-    }
-    return `https://jlzkwcgzpfrdgcdjmjao.supabase.co/storage/v1/object/public/academy-images/${foto}`;
-  };
-
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <Button 
-        variant="ghost" 
-        className="mb-4" 
-        onClick={() => navigate(-1)}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Voltar
-      </Button>
+    <div className="container mx-auto py-8 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">{gym.nome}</h1>
+      </div>
 
-      {gym.fotos && gym.fotos.length > 0 && (
-        <Carousel className="w-full max-w-3xl mx-auto">
-          <CarouselContent>
-            {gym.fotos.map((foto, index) => (
-              <CarouselItem key={index}>
-                <div className="aspect-video">
-                  <img
-                    src={getImageUrl(foto)}
-                    alt={`${gym.nome} - Foto ${index + 1}`}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
-        </Carousel>
-      )}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="check-in">Check-in</TabsTrigger>
+          <TabsTrigger value="financial">Financeiro</TabsTrigger>
+          <TabsTrigger value="staff">Equipe</TabsTrigger>
+          <TabsTrigger value="settings">Configurações</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          <h1 className="text-2xl font-bold">{gym.nome}</h1>
-          
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold">Endereço</h2>
-            <p className="text-muted-foreground">{gym.endereco}</p>
-          </div>
+        <TabsContent value="overview">
+          <OverviewPanel gymId={gym.id} />
+        </TabsContent>
 
-          <div className="space-y-2">
-            <h2 className="text-lg font-semibold">Contato</h2>
-            <p className="text-muted-foreground">Telefone: {gym.telefone}</p>
-            <p className="text-muted-foreground">Email: {gym.email}</p>
-          </div>
+        <TabsContent value="check-in" className="space-y-6">
+          <CheckInManager gymId={gym.id} />
+          <CheckInHistory gymId={gym.id} />
+        </TabsContent>
 
-          {gym.modalidades && gym.modalidades.length > 0 && (
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold">Modalidades</h2>
-              <div className="flex flex-wrap gap-2">
-                {gym.modalidades.map((modalidade, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-                  >
-                    {modalidade}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+        <TabsContent value="financial">
+          <FinancialPanel />
+        </TabsContent>
 
-          {gym.horario_funcionamento && (
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold">Horário de Funcionamento</h2>
-              <div className="space-y-1">
-                {formatHorario(gym.horario_funcionamento).map((horario) => (
-                  <p key={horario} className="text-muted-foreground">{horario}</p>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="staff">
+          <StaffPanel gymId={gym.id} />
+        </TabsContent>
 
-      {showManualCheckIn ? (
-        <ManualCheckIn academiaId={gym.id} />
-      ) : (
-        <CheckInButton
-          academiaId={gym.id}
-          automatic={gym.automatic_checkin || false}
-          onManualCheckIn={() => setShowManualCheckIn(true)}
-        />
-      )}
+        <TabsContent value="settings">
+          <GymSettingsForm gym={gym} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
