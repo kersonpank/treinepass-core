@@ -12,23 +12,18 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit2, Eye, Trash2, CheckCircle2, XCircle, Image, Building2, Dumbbell, Users } from "lucide-react";
+import { Edit2, Eye, Image, Building2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { EditGymDialog } from "./EditGymDialog";
 import { GymPhotosDialog } from "./GymPhotosDialog";
 import { GymDetailsDialog } from "./GymDetailsDialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format } from "date-fns";
-import { formatCurrency } from "@/lib/utils";
 import type { Gym } from "@/types/gym";
 
 export function GymManagement() {
   const { toast } = useToast();
   const [selectedGym, setSelectedGym] = useState<Gym | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isPhotosDialogOpen, setIsPhotosDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
@@ -62,13 +57,12 @@ export function GymManagement() {
 
       if (error) throw error;
 
-      // Mapear os documentos para o formato esperado
       const gymsWithDocs = data.map(gym => ({
         ...gym,
         documentos: gym.academia_documentos || []
       }));
 
-      return gymsWithDocs as unknown as Gym[];
+      return gymsWithDocs as Gym[];
     },
   });
 

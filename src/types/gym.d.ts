@@ -1,30 +1,41 @@
 
-export interface GymHours {
-  [key: string]: {
-    abertura?: string;
-    fechamento?: string;
+export interface GymModalidade {
+  modalidade: {
+    id: string;
+    nome: string;
   };
 }
 
-export interface GymPhotosDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  gymId: string;
-  fotos: string[];
-  onSuccess: () => void;
+export interface GymDocumento {
+  id?: string;
+  nome: string;
+  tipo: string;
+  caminho: string;
+  status?: string;
+  observacoes?: string;
 }
 
 export interface Gym {
   id: string;
   nome: string;
   cnpj: string;
-  email: string;
-  telefone?: string;
-  endereco?: string;
-  horario_funcionamento: GymHours;
-  fotos: string[];
-  modalidades: string[];
+  telefone: string | null;
   status: string;
+  email: string;
+  endereco: string | null;
+  horario_funcionamento: Record<string, { abertura: string; fechamento: string }>;
+  modalidades: string[];
   automatic_checkin: boolean;
-  categoria_id?: string;
+  user_id: string | null;
+  usa_regras_personalizadas: boolean;
+  categoria_id: string | null;
+  fotos: string[];
+  documentos: GymDocumento[];
+  created_at: string;
+  updated_at: string;
+  academia_modalidades: GymModalidade[];
+  categoria?: {
+    nome: string;
+    valor_repasse_checkin: number;
+  };
 }
