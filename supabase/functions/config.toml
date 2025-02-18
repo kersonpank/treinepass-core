@@ -12,3 +12,9 @@ verify_jwt = true
 
 [send-employee-invite]
 verify_jwt = true
+
+[asaas-webhook]
+verify_jwt = false
+
+[process-transfers-batch]
+verify_jwt = true
