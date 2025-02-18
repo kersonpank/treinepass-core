@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +19,6 @@ export default function AcademiaPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Verificar autenticação e permissões ao carregar o componente
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -35,7 +33,6 @@ export default function AcademiaPanel() {
         return;
       }
 
-      // Verificar se o usuário tem permissão para acessar esta academia
       const { data: userGymRoles } = await supabase
         .from("user_gym_roles")
         .select("*")
@@ -50,7 +47,6 @@ export default function AcademiaPanel() {
         .eq("id", id)
         .single();
 
-      // Permitir acesso apenas se for dono da academia ou tiver um papel ativo
       if (!userGymRoles && (!academia || academia.user_id !== session.user.id)) {
         toast({
           variant: "destructive",
@@ -153,10 +149,7 @@ export default function AcademiaPanel() {
             <CardContent>
               {academia && (
                 <GymSettingsForm
-                  academia={academia}
-                  onSuccess={() => {
-                    queryClient.invalidateQueries({ queryKey: ["academia", id] });
-                  }}
+                  gymId={academia.id}
                 />
               )}
             </CardContent>
