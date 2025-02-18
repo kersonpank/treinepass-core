@@ -223,6 +223,146 @@ export type Database = {
         }
         Relationships: []
       }
+      asaas_customers: {
+        Row: {
+          asaas_id: string
+          cpf_cnpj: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asaas_id: string
+          cpf_cnpj: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asaas_id?: string
+          cpf_cnpj?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      asaas_payments: {
+        Row: {
+          amount: number
+          asaas_id: string
+          billing_type: string
+          created_at: string
+          customer_id: string
+          due_date: string
+          id: string
+          invoice_url: string | null
+          net_amount: number | null
+          payment_date: string | null
+          status: Database["public"]["Enums"]["asaas_payment_status"]
+          subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          asaas_id: string
+          billing_type: string
+          created_at?: string
+          customer_id: string
+          due_date: string
+          id?: string
+          invoice_url?: string | null
+          net_amount?: number | null
+          payment_date?: string | null
+          status?: Database["public"]["Enums"]["asaas_payment_status"]
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          asaas_id?: string
+          billing_type?: string
+          created_at?: string
+          customer_id?: string
+          due_date?: string
+          id?: string
+          invoice_url?: string | null
+          net_amount?: number | null
+          payment_date?: string | null
+          status?: Database["public"]["Enums"]["asaas_payment_status"]
+          subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asaas_payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asaas_payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "business_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asaas_transfers: {
+        Row: {
+          academia_id: string
+          amount: number
+          asaas_id: string | null
+          created_at: string
+          id: string
+          reference_month: string
+          status: string
+          transfer_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          academia_id: string
+          amount: number
+          asaas_id?: string | null
+          created_at?: string
+          id?: string
+          reference_month: string
+          status?: string
+          transfer_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          academia_id?: string
+          amount?: number
+          asaas_id?: string | null
+          created_at?: string
+          id?: string
+          reference_month?: string
+          status?: string
+          transfer_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asaas_transfers_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       benefit_plans: {
         Row: {
           auto_renewal: boolean | null
@@ -1491,6 +1631,19 @@ export type Database = {
           }
     }
     Enums: {
+      asaas_payment_status:
+        | "PENDING"
+        | "RECEIVED"
+        | "CONFIRMED"
+        | "OVERDUE"
+        | "REFUNDED"
+        | "RECEIVED_IN_CASH"
+        | "REFUND_REQUESTED"
+        | "CHARGEBACK_REQUESTED"
+        | "CHARGEBACK_DISPUTE"
+        | "AWAITING_CHARGEBACK_REVERSAL"
+        | "DUNNING_REQUESTED"
+        | "CANCELED"
       check_in_validation_method: "qr_code" | "manual_code" | "qr_scan"
       employee_invite_status: "pending" | "accepted" | "rejected"
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
