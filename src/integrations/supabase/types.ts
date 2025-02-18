@@ -331,11 +331,18 @@ export type Database = {
           billing_type: string
           created_at: string
           customer_id: string
+          deleted: boolean | null
           due_date: string
+          external_reference: string | null
+          fine_value: number | null
           id: string
+          installment: number | null
+          interest_value: number | null
           invoice_url: string | null
           net_amount: number | null
           payment_date: string | null
+          payment_link: string | null
+          payment_method: string | null
           status: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id: string | null
           updated_at: string
@@ -346,11 +353,18 @@ export type Database = {
           billing_type: string
           created_at?: string
           customer_id: string
+          deleted?: boolean | null
           due_date: string
+          external_reference?: string | null
+          fine_value?: number | null
           id?: string
+          installment?: number | null
+          interest_value?: number | null
           invoice_url?: string | null
           net_amount?: number | null
           payment_date?: string | null
+          payment_link?: string | null
+          payment_method?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
           updated_at?: string
@@ -361,11 +375,18 @@ export type Database = {
           billing_type?: string
           created_at?: string
           customer_id?: string
+          deleted?: boolean | null
           due_date?: string
+          external_reference?: string | null
+          fine_value?: number | null
           id?: string
+          installment?: number | null
+          interest_value?: number | null
           invoice_url?: string | null
           net_amount?: number | null
           payment_date?: string | null
+          payment_link?: string | null
+          payment_method?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
           updated_at?: string
@@ -387,11 +408,42 @@ export type Database = {
           },
         ]
       }
+      asaas_transfer_batch: {
+        Row: {
+          created_at: string | null
+          id: string
+          processed_at: string | null
+          reference_month: string
+          status: string | null
+          total_amount: number
+          total_transfers: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          processed_at?: string | null
+          reference_month: string
+          status?: string | null
+          total_amount: number
+          total_transfers: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          processed_at?: string | null
+          reference_month?: string
+          status?: string | null
+          total_amount?: number
+          total_transfers?: number
+        }
+        Relationships: []
+      }
       asaas_transfers: {
         Row: {
           academia_id: string
           amount: number
           asaas_id: string | null
+          batch_id: string | null
           created_at: string
           id: string
           reference_month: string
@@ -403,6 +455,7 @@ export type Database = {
           academia_id: string
           amount: number
           asaas_id?: string | null
+          batch_id?: string | null
           created_at?: string
           id?: string
           reference_month: string
@@ -414,6 +467,7 @@ export type Database = {
           academia_id?: string
           amount?: number
           asaas_id?: string | null
+          batch_id?: string | null
           created_at?: string
           id?: string
           reference_month?: string
@@ -429,7 +483,41 @@ export type Database = {
             referencedRelation: "academias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "asaas_transfers_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_transfer_batch"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      asaas_webhook_events: {
+        Row: {
+          created_at: string | null
+          event_data: Json
+          event_type: string
+          id: string
+          processed: boolean | null
+          processed_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_data: Json
+          event_type: string
+          id?: string
+          processed?: boolean | null
+          processed_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_data?: Json
+          event_type?: string
+          id?: string
+          processed?: boolean | null
+          processed_at?: string | null
+        }
+        Relationships: []
       }
       benefit_plans: {
         Row: {
@@ -1372,6 +1460,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      transfer_settings: {
+        Row: {
+          auto_transfer: boolean | null
+          created_at: string | null
+          id: string
+          minimum_transfer_amount: number
+          transfer_day: number
+          updated_at: string | null
+        }
+        Insert: {
+          auto_transfer?: boolean | null
+          created_at?: string | null
+          id?: string
+          minimum_transfer_amount?: number
+          transfer_day?: number
+          updated_at?: string | null
+        }
+        Update: {
+          auto_transfer?: boolean | null
+          created_at?: string | null
+          id?: string
+          minimum_transfer_amount?: number
+          transfer_day?: number
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       user_gym_roles: {
         Row: {

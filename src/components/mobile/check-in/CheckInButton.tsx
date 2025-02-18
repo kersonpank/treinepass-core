@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,19 +18,43 @@ export function CheckInButton({ academiaId, userId, onSuccess }: CheckInButtonPr
   const handleCheckIn = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("check_in_codes")
+      const { data: qrCode, error: qrError } = await supabase
+        .from("gym_qr_codes")
+        .insert({
+          academia_id: academiaId,
+          status: "active",
+          code: crypto.randomUUID(),
+          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutos
+        })
+        .select()
+        .single();
+
+      if (qrError) throw qrError;
+
+      const { data: checkIn, error: checkInError } = await supabase
+        .from("gym_check_ins")
         .insert({
           user_id: userId,
           academia_id: academiaId,
+          qr_code_id: qrCode.id,
+          validation_method: "qr_code",
           status: "active",
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (checkInError) throw checkInError;
 
-      onSuccess(data);
+      onSuccess({
+        id: checkIn.id,
+        code: qrCode.code,
+        status: "active",
+        expires_at: qrCode.expires_at,
+        created_at: checkIn.created_at,
+        user_id: userId,
+        academia_id: academiaId
+      });
+
       toast({
         title: "Check-in realizado!",
         description: "Você fez check-in com sucesso.",
