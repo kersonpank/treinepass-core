@@ -42,6 +42,74 @@ export type Database = {
         }
         Relationships: []
       }
+      academia_dados_bancarios: {
+        Row: {
+          academia_id: string
+          agencia: string | null
+          agencia_digito: string | null
+          banco_codigo: string | null
+          banco_nome: string | null
+          chave_pix: string | null
+          conta: string | null
+          conta_digito: string | null
+          created_at: string
+          id: string
+          metodo_preferencial: string
+          tipo_chave_pix: string | null
+          tipo_conta: string | null
+          titular_cpf_cnpj: string
+          titular_nome: string
+          titular_tipo: string
+          updated_at: string
+        }
+        Insert: {
+          academia_id: string
+          agencia?: string | null
+          agencia_digito?: string | null
+          banco_codigo?: string | null
+          banco_nome?: string | null
+          chave_pix?: string | null
+          conta?: string | null
+          conta_digito?: string | null
+          created_at?: string
+          id?: string
+          metodo_preferencial?: string
+          tipo_chave_pix?: string | null
+          tipo_conta?: string | null
+          titular_cpf_cnpj: string
+          titular_nome: string
+          titular_tipo: string
+          updated_at?: string
+        }
+        Update: {
+          academia_id?: string
+          agencia?: string | null
+          agencia_digito?: string | null
+          banco_codigo?: string | null
+          banco_nome?: string | null
+          chave_pix?: string | null
+          conta?: string | null
+          conta_digito?: string | null
+          created_at?: string
+          id?: string
+          metodo_preferencial?: string
+          tipo_chave_pix?: string | null
+          tipo_conta?: string | null
+          titular_cpf_cnpj?: string
+          titular_nome?: string
+          titular_tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academia_dados_bancarios_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       academia_documentos: {
         Row: {
           academia_id: string | null
