@@ -13,28 +13,40 @@ import { CheckInHistory } from "@/components/gym/check-in/CheckInHistory";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { PaymentsManagement } from "@/components/admin/payments/PaymentsManagement";
+import { useParams } from "react-router-dom";
 
 export function GymProfile() {
+  const { id } = useParams();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
 
   const { data: gym, isLoading, error } = useQuery({
-    queryKey: ["gym-profile"],
+    queryKey: ["gym-profile", id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
+      console.log("Buscando academia com ID:", id);
+      
+      if (!id) throw new Error("ID da academia não fornecido");
 
       const { data, error } = await supabase
         .from("academias")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("id", id)
         .maybeSingle();
 
-      if (error) throw error;
-      if (!data) throw new Error("Academia não encontrada");
+      if (error) {
+        console.error("Erro ao buscar academia:", error);
+        throw error;
+      }
       
+      if (!data) {
+        console.error("Academia não encontrada");
+        throw new Error("Academia não encontrada");
+      }
+      
+      console.log("Academia encontrada:", data);
       return data;
-    }
+    },
+    enabled: !!id
   });
 
   if (isLoading) {
@@ -46,6 +58,7 @@ export function GymProfile() {
   }
 
   if (error || !gym) {
+    console.error("Erro ao carregar academia:", error);
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <h1 className="text-2xl font-bold mb-4">Academia não encontrada</h1>
