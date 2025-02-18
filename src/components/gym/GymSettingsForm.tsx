@@ -70,7 +70,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: gymData, error } = await supabase
         .from("academias")
         .select(`
           *,
@@ -86,22 +86,40 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
       if (error) throw error;
 
-      const gymData: Gym = {
-        ...data,
-        academia_modalidades: data.academia_modalidades?.map((am: any) => ({
+      // Garantir que horario_funcionamento é um objeto válido
+      const horarioFuncionamento = typeof gymData.horario_funcionamento === 'object' 
+        ? gymData.horario_funcionamento 
+        : {
+            segunda: { abertura: "08:00", fechamento: "18:00" },
+            terca: { abertura: "08:00", fechamento: "18:00" },
+            quarta: { abertura: "08:00", fechamento: "18:00" },
+            quinta: { abertura: "08:00", fechamento: "18:00" },
+            sexta: { abertura: "08:00", fechamento: "18:00" },
+            sabado: { abertura: "08:00", fechamento: "18:00" },
+            domingo: { abertura: "08:00", fechamento: "18:00" }
+          };
+
+      const gymWithCorrectTypes: Gym = {
+        ...gymData,
+        horario_funcionamento: horarioFuncionamento,
+        academia_modalidades: (gymData.academia_modalidades || []).map((am: any) => ({
           modalidade: am.modalidades
-        })) || []
+        })),
+        fotos: Array.isArray(gymData.fotos) ? gymData.fotos : [],
+        documentos: Array.isArray(gymData.documentos) ? gymData.documentos : []
       };
 
-      setGym(gymData);
-      setValue("nome", data.nome);
-      setValue("email", data.email);
-      setValue("telefone", data.telefone);
-      setValue("endereco", data.endereco);
-      setValue("cnpj", data.cnpj);
-      setValue("horario_funcionamento", data.horario_funcionamento);
-      setValue("automatic_checkin", data.automatic_checkin);
-      setValue("modalidades", data.academia_modalidades?.map((am: any) => am.modalidade.id) || []);
+      setGym(gymWithCorrectTypes);
+      
+      // Configurar valores do formulário
+      setValue("nome", gymData.nome);
+      setValue("email", gymData.email);
+      setValue("telefone", gymData.telefone);
+      setValue("endereco", gymData.endereco);
+      setValue("cnpj", gymData.cnpj);
+      setValue("horario_funcionamento", horarioFuncionamento);
+      setValue("automatic_checkin", gymData.automatic_checkin);
+      setValue("modalidades", gymData.academia_modalidades?.map((am: any) => am.modalidades.id) || []);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -129,6 +147,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
     setIsSaving(true);
     try {
+      // Verificar CNPJ duplicado
       if (data.cnpj !== gym?.cnpj) {
         const { data: existingGym, error: checkError } = await supabase
           .from("academias")
@@ -142,7 +161,8 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         }
       }
 
-      const { error } = await supabase
+      // Atualizar dados básicos da academia
+      const { error: updateError } = await supabase
         .from("academias")
         .update({
           nome: data.nome,
@@ -151,46 +171,48 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
           endereco: data.endereco,
           cnpj: data.cnpj,
           horario_funcionamento: data.horario_funcionamento,
-          automatic_checkin: data.automatic_checkin,
+          automatic_checkin: data.automatic_checkin
         })
         .eq("id", gymId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       // Atualizar modalidades
       if (data.modalidades) {
-        // Primeiro, remover todas as modalidades existentes
-        await supabase
+        // Remover modalidades existentes
+        const { error: deleteError } = await supabase
           .from("academia_modalidades")
           .delete()
           .eq("academia_id", gymId);
 
-        // Depois, adicionar as novas modalidades selecionadas
+        if (deleteError) throw deleteError;
+
+        // Adicionar novas modalidades
         if (data.modalidades.length > 0) {
-          const { error: modalidadesError } = await supabase
+          const { error: insertError } = await supabase
             .from("academia_modalidades")
             .insert(
               data.modalidades.map((modalidadeId: string) => ({
                 academia_id: gymId,
-                modalidade_id: modalidadeId,
+                modalidade_id: modalidadeId
               }))
             );
 
-          if (modalidadesError) throw modalidadesError;
+          if (insertError) throw insertError;
         }
       }
 
       toast({
-        title: "Dados atualizados",
-        description: "Os dados da academia foram atualizados com sucesso.",
+        title: "Sucesso",
+        description: "Dados atualizados com sucesso",
       });
-      
-      fetchGym(); // Recarregar os dados após a atualização
+
+      fetchGym(); // Recarregar dados
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Erro ao atualizar dados",
-        description: error.message || "Ocorreu um erro ao atualizar os dados da academia.",
+        title: "Erro ao salvar",
+        description: error.message || "Ocorreu um erro ao salvar as alterações.",
       });
     } finally {
       setIsSaving(false);

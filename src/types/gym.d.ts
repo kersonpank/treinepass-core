@@ -15,6 +15,11 @@ export interface GymDocumento {
   observacoes?: string;
 }
 
+export interface GymHorario {
+  abertura: string;
+  fechamento: string;
+}
+
 export interface Gym {
   id: string;
   nome: string;
@@ -23,7 +28,7 @@ export interface Gym {
   status: string;
   email: string;
   endereco: string | null;
-  horario_funcionamento: Record<string, { abertura: string; fechamento: string }>;
+  horario_funcionamento: Record<string, GymHorario>;
   modalidades: string[];
   automatic_checkin: boolean;
   user_id: string | null;
