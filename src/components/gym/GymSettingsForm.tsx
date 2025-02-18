@@ -138,9 +138,9 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         .from('academia_dados_bancarios')
         .select('*')
         .eq('academia_id', gymId)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         throw error;
       }
 
@@ -247,6 +247,8 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         .upsert({
           academia_id: gymId,
           ...bankData
+        }, {
+          onConflict: 'academia_id'
         });
 
       if (error) throw error;
