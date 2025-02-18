@@ -1,112 +1,109 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
 
-interface Payment {
-  id: string;
-  business_id: string;
-  amount: number;
-  status: string;
-  payment_method: string | null;
-  payment_date: string | null;
-  due_date: string;
-  business_profiles: {
-    company_name: string;
-  };
-}
+const statusMap = {
+  PENDING: { label: "Pendente", variant: "secondary" },
+  RECEIVED: { label: "Recebido", variant: "default" },
+  CONFIRMED: { label: "Confirmado", variant: "default" },
+  OVERDUE: { label: "Atrasado", variant: "destructive" },
+  REFUNDED: { label: "Reembolsado", variant: "secondary" },
+  RECEIVED_IN_CASH: { label: "Recebido em Dinheiro", variant: "default" },
+  REFUND_REQUESTED: { label: "Reembolso Solicitado", variant: "warning" },
+  CHARGEBACK_REQUESTED: { label: "Chargeback Solicitado", variant: "warning" },
+  CHARGEBACK_DISPUTE: { label: "Em Disputa", variant: "warning" },
+  AWAITING_CHARGEBACK_REVERSAL: { label: "Aguardando Reversão", variant: "warning" },
+  DUNNING_REQUESTED: { label: "Cobrança Solicitada", variant: "warning" },
+  CANCELED: { label: "Cancelado", variant: "secondary" }
+} as const;
 
 export function PaymentsList() {
-  const { data: payments } = useQuery({
+  const { data: payments, isLoading } = useQuery({
     queryKey: ["payments"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("payments")
+        .from("asaas_payments")
         .select(`
           *,
-          business_profiles (
-            company_name
-          )
+          customer:asaas_customers(name, email)
         `)
-        .order("due_date", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Payment[];
-    },
+      return data;
+    }
   });
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case "paid":
-        return "default" as const;
-      case "pending":
-        return "secondary" as const;
-      default:
-        return "destructive" as const;
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "paid":
-        return "Pago";
-      case "pending":
-        return "Pendente";
-      default:
-        return "Atrasado";
-    }
-  };
+  if (isLoading) {
+    return <div>Carregando...</div>;
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Empresa</TableHead>
-              <TableHead>Valor</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Vencimento</TableHead>
-              <TableHead>Pagamento</TableHead>
-              <TableHead>Método</TableHead>
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Cliente</TableHead>
+            <TableHead>Valor</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Data Vencimento</TableHead>
+            <TableHead>Data Pagamento</TableHead>
+            <TableHead className="text-right">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {payments?.map((payment) => (
+            <TableRow key={payment.id}>
+              <TableCell>
+                <div className="flex flex-col">
+                  <span>{payment.customer?.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {payment.customer?.email}
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell>{formatCurrency(payment.amount)}</TableCell>
+              <TableCell>
+                <Badge variant={statusMap[payment.status]?.variant as any}>
+                  {statusMap[payment.status]?.label}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                {new Date(payment.due_date).toLocaleDateString()}
+              </TableCell>
+              <TableCell>
+                {payment.payment_date ? 
+                  new Date(payment.payment_date).toLocaleDateString() : 
+                  "-"
+                }
+              </TableCell>
+              <TableCell className="text-right">
+                {payment.invoice_url && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    onClick={() => window.open(payment.invoice_url, "_blank")}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                )}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {payments?.map((payment) => (
-              <TableRow key={payment.id}>
-                <TableCell>
-                  {payment.business_profiles.company_name}
-                </TableCell>
-                <TableCell>R$ {payment.amount.toFixed(2)}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusBadgeVariant(payment.status)}>
-                    {getStatusText(payment.status)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  {format(new Date(payment.due_date), "dd/MM/yyyy")}
-                </TableCell>
-                <TableCell>
-                  {payment.payment_date
-                    ? format(new Date(payment.payment_date), "dd/MM/yyyy")
-                    : "-"}
-                </TableCell>
-                <TableCell>
-                  {payment.payment_method || "-"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
