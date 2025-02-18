@@ -11,20 +11,23 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import type { PaymentSetting } from "./types/payment";
 
 export function PaymentSettingsList() {
   const { data: settings, isLoading } = useQuery({
     queryKey: ["payment-settings"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("payment_settings")
+        .from("plan_payment_settings")
         .select(`
           *,
-          benefit_plans(name)
+          benefit_plans (
+            name
+          )
         `);
 
       if (error) throw error;
-      return data;
+      return data as PaymentSetting[];
     }
   });
 
