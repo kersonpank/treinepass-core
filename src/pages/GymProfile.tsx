@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +12,7 @@ import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
 import { CheckInHistory } from "@/components/gym/check-in/CheckInHistory";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { PaymentsManagement } from "@/components/admin/payments/PaymentsManagement";
 
 export function GymProfile() {
   const { toast } = useToast();
@@ -63,6 +65,7 @@ export function GymProfile() {
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="check-in">Check-in</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
+          <TabsTrigger value="payments">Pagamentos</TabsTrigger>
           <TabsTrigger value="staff">Equipe</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
@@ -80,12 +83,16 @@ export function GymProfile() {
           <FinancialPanel />
         </TabsContent>
 
+        <TabsContent value="payments">
+          <PaymentsManagement />
+        </TabsContent>
+
         <TabsContent value="staff">
           <StaffPanel gymId={gym.id} />
         </TabsContent>
 
         <TabsContent value="settings">
-          <GymSettingsForm gym={gym} />
+          <GymSettingsForm gymId={gym.id} />
         </TabsContent>
       </Tabs>
     </div>
