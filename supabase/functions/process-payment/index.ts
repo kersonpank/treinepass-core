@@ -1,24 +1,19 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { corsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const asaasKey = Deno.env.get("ASAAS_API_KEY") ?? "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 interface PaymentRequest {
   customerId: string;
   planId: string;
-  billingType: "BOLETO" | "CREDIT_CARD" | "PIX";
-  creditCard?: {
-    holderName: string;
-    number: string;
-    expiryMonth: string;
-    expiryYear: string;
-    ccv: string;
-  };
+  subscriptionType: "individual" | "corporate" | "corporate_subsidized";
+  billingType?: string;
+  dueDate?: string;
 }
 
 serve(async (req) => {
@@ -27,67 +22,65 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    const { customerId, planId, billingType, creditCard } = await req.json() as PaymentRequest;
+    const { customerId, planId, subscriptionType, billingType, dueDate } = await req.json() as PaymentRequest;
 
     // Buscar informações do plano
-    const { data: plan } = await supabase
+    const { data: plan, error: planError } = await supabase
       .from("benefit_plans")
       .select("*")
       .eq("id", planId)
       .single();
 
-    if (!plan) {
-      throw new Error("Plano não encontrado");
-    }
+    if (planError) throw new Error(`Erro ao buscar plano: ${planError.message}`);
 
-    // Buscar informações do customer
+    // Buscar configurações de pagamento do plano
+    const { data: paymentSettings } = await supabase
+      .from("plan_payment_settings")
+      .select("*")
+      .eq("plan_id", planId)
+      .single();
+
+    // Buscar cliente no Asaas
     const { data: customer } = await supabase
       .from("asaas_customers")
       .select("asaas_id")
       .eq("id", customerId)
       .single();
 
-    if (!customer) {
-      throw new Error("Cliente não encontrado no Asaas");
+    if (!customer?.asaas_id) throw new Error("Cliente não encontrado no Asaas");
+
+    // Calcular valor com base no tipo de assinatura
+    let value = Number(plan.monthly_cost);
+    if (subscriptionType === "corporate_subsidized") {
+      const employeeContribution = (plan.financing_rules?.employee_contribution || 0);
+      value = plan.financing_rules?.contribution_type === "percentage" 
+        ? (value * employeeContribution) / 100
+        : employeeContribution;
     }
 
     // Criar pagamento no Asaas
     const paymentData = {
       customer: customer.asaas_id,
-      billingType,
-      value: plan.monthly_cost,
-      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0], // Amanhã
-      description: `Pagamento do plano ${plan.name}`,
-      ...(creditCard && billingType === "CREDIT_CARD" ? {
-        creditCard: {
-          holderName: creditCard.holderName,
-          number: creditCard.number,
-          expiryMonth: creditCard.expiryMonth,
-          expiryYear: creditCard.expiryYear,
-          ccv: creditCard.ccv,
-        },
-      } : {}),
+      billingType: billingType || paymentSettings?.billing_type || "BOLETO",
+      value: value,
+      dueDate: dueDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      description: `Pagamento ${plan.name} - ${subscriptionType}`,
+      cycle: plan.period_type === "monthly" ? "MONTHLY" : "YEARLY",
+      maxPaymentAttempts: paymentSettings?.max_retry_attempts || 3,
+      automatically: true
     };
 
-    const asaasResponse = await fetch(
-      "https://api.asaas.com/v3/payments",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "access_token": Deno.env.get("ASAAS_API_KEY") || "",
-        },
-        body: JSON.stringify(paymentData),
-      }
-    );
+    const asaasResponse = await fetch("https://api.asaas.com/v3/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "access_token": asaasKey
+      },
+      body: JSON.stringify(paymentData)
+    });
 
     if (!asaasResponse.ok) {
-      throw new Error("Erro ao criar pagamento no Asaas");
+      throw new Error(`Erro ao criar pagamento no Asaas: ${await asaasResponse.text()}`);
     }
 
     const asaasPayment = await asaasResponse.json();
@@ -96,36 +89,33 @@ serve(async (req) => {
     const { data: payment, error: paymentError } = await supabase
       .from("asaas_payments")
       .insert({
-        asaas_id: asaasPayment.id,
         customer_id: customerId,
-        amount: plan.monthly_cost,
+        asaas_id: asaasPayment.id,
+        amount: value,
         status: asaasPayment.status,
         due_date: paymentData.dueDate,
-        billing_type: billingType,
-        invoice_url: asaasPayment.invoiceUrl,
+        billing_type: paymentData.billingType,
+        subscription_type: subscriptionType,
+        subscription_period: plan.period_type,
+        next_due_date: new Date(paymentData.dueDate)
       })
       .select()
       .single();
 
-    if (paymentError) {
-      throw paymentError;
-    }
+    if (paymentError) throw new Error(`Erro ao registrar pagamento: ${paymentError.message}`);
+
+    console.log("Pagamento criado com sucesso:", payment);
 
     return new Response(
-      JSON.stringify(payment),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
+      JSON.stringify({ success: true, payment }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
+    console.error("Erro ao processar pagamento:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
