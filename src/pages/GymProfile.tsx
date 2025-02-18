@@ -2,52 +2,50 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
-import { StaffPanel } from "@/components/gym/panels/StaffPanel";
-import { FinancialPanel } from "@/components/gym/panels/FinancialPanel";
-import { GymSettingsForm } from "@/components/gym/GymSettingsForm";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
-import { CheckInHistory } from "@/components/gym/check-in/CheckInHistory";
+import { CheckInButton } from "@/components/mobile/check-in/CheckInButton";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
-import { PaymentsManagement } from "@/components/admin/payments/PaymentsManagement";
-import { useParams } from "react-router-dom";
+import { Loader2, Clock, MapPin, Phone } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@supabase/auth-helpers-react";
 
 export function GymProfile() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("overview");
+  const user = useAuth();
 
   const { data: gym, isLoading, error } = useQuery({
-    queryKey: ["gym-profile", id],
+    queryKey: ["gym", id],
     queryFn: async () => {
-      console.log("Buscando academia com ID:", id);
-      
       if (!id) throw new Error("ID da academia não fornecido");
 
       const { data, error } = await supabase
         .from("academias")
-        .select("*")
+        .select(`
+          *,
+          academia_modalidades (
+            modalidade:modalidades (
+              id,
+              nome
+            )
+          )
+        `)
         .eq("id", id)
-        .maybeSingle();
+        .single();
 
-      if (error) {
-        console.error("Erro ao buscar academia:", error);
-        throw error;
-      }
-      
-      if (!data) {
-        console.error("Academia não encontrada");
-        throw new Error("Academia não encontrada");
-      }
-      
-      console.log("Academia encontrada:", data);
+      if (error) throw error;
       return data;
-    },
-    enabled: !!id
+    }
   });
+
+  const handleCheckInSuccess = (newCode: any) => {
+    toast({
+      title: "Check-in realizado!",
+      description: "Você fez check-in com sucesso.",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -58,58 +56,99 @@ export function GymProfile() {
   }
 
   if (error || !gym) {
-    console.error("Erro ao carregar academia:", error);
+    toast({
+      variant: "destructive",
+      title: "Erro",
+      description: "Não foi possível carregar os dados da academia.",
+    });
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-4">Academia não encontrada</h1>
-        <Button onClick={() => window.location.href = "/"}>
-          Voltar para o início
+      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+        <h1 className="text-2xl font-bold">Academia não encontrada</h1>
+        <Button onClick={() => navigate("/app")}>
+          Voltar
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto py-8 space-y-6 px-4">
+      {/* Cabeçalho com nome e imagem */}
+      <div className="space-y-4">
         <h1 className="text-3xl font-bold">{gym.nome}</h1>
+        {gym.fotos && gym.fotos.length > 0 ? (
+          <div className="relative w-full h-48 rounded-lg overflow-hidden">
+            <img 
+              src={gym.fotos[0]} 
+              alt={gym.nome}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-200">
+            <img 
+              src="/placeholder-gym.jpg" 
+              alt="Placeholder"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-          <TabsTrigger value="check-in">Check-in</TabsTrigger>
-          <TabsTrigger value="financial">Financeiro</TabsTrigger>
-          <TabsTrigger value="payments">Pagamentos</TabsTrigger>
-          <TabsTrigger value="staff">Equipe</TabsTrigger>
-          <TabsTrigger value="settings">Configurações</TabsTrigger>
-        </TabsList>
+      {/* Informações principais */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Informações</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <MapPin className="h-5 w-5 text-gray-500" />
+              <span>{gym.endereco || "Endereço não informado"}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Phone className="h-5 w-5 text-gray-500" />
+              <span>{gym.telefone || "Telefone não informado"}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Clock className="h-5 w-5 text-gray-500" />
+              <span>Horário de funcionamento disponível na academia</span>
+            </div>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="overview">
-          <OverviewPanel academia={gym} />
-        </TabsContent>
+        <Card>
+          <CardHeader>
+            <CardTitle>Modalidades</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {gym.academia_modalidades?.map((item: any) => (
+                <Badge key={item.modalidade.id} variant="secondary">
+                  {item.modalidade.nome}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        <TabsContent value="check-in" className="space-y-6">
-          <CheckInManager gymId={gym.id} />
-          <CheckInHistory gymId={gym.id} />
-        </TabsContent>
-
-        <TabsContent value="financial">
-          <FinancialPanel />
-        </TabsContent>
-
-        <TabsContent value="payments">
-          <PaymentsManagement />
-        </TabsContent>
-
-        <TabsContent value="staff">
-          <StaffPanel gymId={gym.id} />
-        </TabsContent>
-
-        <TabsContent value="settings">
-          <GymSettingsForm gymId={gym.id} />
-        </TabsContent>
-      </Tabs>
+      {/* Botão de Check-in */}
+      <Card className="mt-6">
+        <CardContent className="pt-6">
+          {user?.id ? (
+            <CheckInButton
+              academiaId={gym.id}
+              userId={user.id}
+              onSuccess={handleCheckInSuccess}
+            />
+          ) : (
+            <Button onClick={() => navigate("/login")} className="w-full">
+              Faça login para realizar check-in
+            </Button>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
