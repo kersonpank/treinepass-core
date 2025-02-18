@@ -18,20 +18,22 @@ export function GymProfile() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
 
-  const { data: gym, isLoading } = useQuery({
+  const { data: gym, isLoading, error } = useQuery({
     queryKey: ["gym-profile"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      const { data: gymData, error } = await supabase
+      const { data, error } = await supabase
         .from("academias")
         .select("*")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return gymData;
+      if (!data) throw new Error("Academia não encontrada");
+      
+      return data;
     }
   });
 
@@ -43,7 +45,7 @@ export function GymProfile() {
     );
   }
 
-  if (!gym) {
+  if (error || !gym) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <h1 className="text-2xl font-bold mb-4">Academia não encontrada</h1>
@@ -71,7 +73,7 @@ export function GymProfile() {
         </TabsList>
 
         <TabsContent value="overview">
-          <OverviewPanel gymId={gym.id} />
+          <OverviewPanel academia={gym} />
         </TabsContent>
 
         <TabsContent value="check-in" className="space-y-6">
