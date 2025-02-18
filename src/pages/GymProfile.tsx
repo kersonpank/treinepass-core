@@ -113,7 +113,6 @@ export function GymProfile() {
               <TabsContent value="qrcode">
                 <ManualCheckIn 
                   academiaId={id!}
-                  userId={session.user.id}
                   onSuccess={handleCheckInSuccess}
                   method="qr_code"
                 />
@@ -122,7 +121,6 @@ export function GymProfile() {
               <TabsContent value="manual">
                 <ManualCheckIn 
                   academiaId={id!}
-                  userId={session.user.id}
                   onSuccess={handleCheckInSuccess}
                   method="access_token"
                 />

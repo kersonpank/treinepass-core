@@ -10,6 +10,8 @@ import { CheckInDialog } from "./components/CheckInDialog";
 
 interface ManualCheckInProps {
   academiaId: string;
+  onSuccess: (checkInData: any) => void;
+  method: 'qr_code' | 'access_token';
 }
 
 interface CheckInLimits {
@@ -18,7 +20,7 @@ interface CheckInLimits {
   remainingMonthly: number | null;
 }
 
-export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
+export function ManualCheckIn({ academiaId, onSuccess, method }: ManualCheckInProps) {
   const [showCheckInDialog, setShowCheckInDialog] = useState(false);
   const [showNoPlanDialog, setShowNoPlanDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -66,7 +68,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           .insert({
             user_id: user.id,
             academia_id: academiaId,
-            validation_method: 'access_token',
+            validation_method: method,
             access_token: newToken,
             token_expires_at: expiresAt.toISOString(),
             status: 'active'
