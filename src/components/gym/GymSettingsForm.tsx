@@ -16,6 +16,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Gym } from "@/types/gym";
 import { GymPhotosDialog } from "@/components/admin/gyms/GymPhotosDialog";
 import { OperatingHoursForm } from "@/components/gym/forms/OperatingHoursForm";
+import { ModalitiesForm } from "@/components/gym/forms/ModalitiesForm";
+import { BankDataForm } from "@/components/gym/forms/BankDataForm";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface GymSettingsFormProps {
   gymId: string;
@@ -28,6 +31,7 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isPhotosDialogOpen, setIsPhotosDialogOpen] = useState(false);
   const [replicateHours, setReplicateHours] = useState(false);
+  const [modalidades, setModalidades] = useState<any[]>([]);
 
   const {
     register,
@@ -37,61 +41,79 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
     formState: { errors },
   } = useForm();
 
+  // Buscar modalidades disponíveis
   useEffect(() => {
-    const fetchGym = async () => {
-      if (!gymId) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "ID da academia não fornecido",
-        });
-        return;
-      }
+    const fetchModalidades = async () => {
+      const { data, error } = await supabase
+        .from('modalidades')
+        .select('*')
+        .eq('active', true)
+        .order('nome');
 
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("academias")
-          .select(`
-            *,
-            academia_modalidades (
-              modalidades (
-                id,
-                nome
-              )
-            )
-          `)
-          .eq("id", gymId)
-          .single();
-
-        if (error) throw error;
-
-        const gymData: Gym = {
-          ...data,
-          academia_modalidades: data.academia_modalidades?.map((am: any) => ({
-            modalidade: am.modalidades
-          })) || []
-        };
-
-        setGym(gymData);
-        setValue("nome", data.nome);
-        setValue("email", data.email);
-        setValue("telefone", data.telefone);
-        setValue("endereco", data.endereco);
-        setValue("cnpj", data.cnpj);
-        setValue("horario_funcionamento", data.horario_funcionamento);
-        setValue("automatic_checkin", data.automatic_checkin);
-      } catch (error: any) {
-        toast({
-          variant: "destructive",
-          title: "Erro ao carregar dados",
-          description: error.message || "Ocorreu um erro ao carregar os dados da academia.",
-        });
-      } finally {
-        setIsLoading(false);
+      if (!error && data) {
+        setModalidades(data);
       }
     };
 
+    fetchModalidades();
+  }, []);
+
+  const fetchGym = async () => {
+    if (!gymId) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "ID da academia não fornecido",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("academias")
+        .select(`
+          *,
+          academia_modalidades (
+            modalidades (
+              id,
+              nome
+            )
+          )
+        `)
+        .eq("id", gymId)
+        .single();
+
+      if (error) throw error;
+
+      const gymData: Gym = {
+        ...data,
+        academia_modalidades: data.academia_modalidades?.map((am: any) => ({
+          modalidade: am.modalidades
+        })) || []
+      };
+
+      setGym(gymData);
+      setValue("nome", data.nome);
+      setValue("email", data.email);
+      setValue("telefone", data.telefone);
+      setValue("endereco", data.endereco);
+      setValue("cnpj", data.cnpj);
+      setValue("horario_funcionamento", data.horario_funcionamento);
+      setValue("automatic_checkin", data.automatic_checkin);
+      setValue("modalidades", data.academia_modalidades?.map((am: any) => am.modalidade.id) || []);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar dados",
+        description: error.message || "Ocorreu um erro ao carregar os dados da academia.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchGym();
   }, [gymId, setValue, toast]);
 
@@ -135,10 +157,35 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
 
       if (error) throw error;
 
+      // Atualizar modalidades
+      if (data.modalidades) {
+        // Primeiro, remover todas as modalidades existentes
+        await supabase
+          .from("academia_modalidades")
+          .delete()
+          .eq("academia_id", gymId);
+
+        // Depois, adicionar as novas modalidades selecionadas
+        if (data.modalidades.length > 0) {
+          const { error: modalidadesError } = await supabase
+            .from("academia_modalidades")
+            .insert(
+              data.modalidades.map((modalidadeId: string) => ({
+                academia_id: gymId,
+                modalidade_id: modalidadeId,
+              }))
+            );
+
+          if (modalidadesError) throw modalidadesError;
+        }
+      }
+
       toast({
         title: "Dados atualizados",
         description: "Os dados da academia foram atualizados com sucesso.",
       });
+      
+      fetchGym(); // Recarregar os dados após a atualização
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -147,6 +194,30 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBankDataSubmit = async (bankData: any) => {
+    try {
+      const { error } = await supabase
+        .from("academia_dados_bancarios")
+        .upsert({
+          academia_id: gymId,
+          ...bankData
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Dados bancários atualizados",
+        description: "Os dados bancários foram atualizados com sucesso.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar dados bancários",
+        description: error.message,
+      });
     }
   };
 
@@ -159,100 +230,151 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Informações da Academia</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="nome">Nome</Label>
-            <Input id="nome" {...register("nome", { required: true })} />
-          </div>
-          <div>
-            <Label htmlFor="cnpj">CNPJ</Label>
-            <Input 
-              id="cnpj" 
-              {...register("cnpj", { required: true })}
-              disabled={isSaving} 
-            />
-          </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input 
-              id="email" 
-              type="email" 
-              {...register("email", { required: true })}
-              disabled={isSaving}
-            />
-          </div>
-          <div>
-            <Label htmlFor="telefone">Telefone</Label>
-            <Input 
-              id="telefone" 
-              {...register("telefone")}
-              disabled={isSaving}
-            />
-          </div>
-          <div>
-            <Label htmlFor="endereco">Endereço</Label>
-            <Input 
-              id="endereco" 
-              {...register("endereco")}
-              disabled={isSaving}
-            />
-          </div>
+    <Tabs defaultValue="basic" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
+        <TabsTrigger value="schedule">Horários</TabsTrigger>
+        <TabsTrigger value="modalities">Modalidades</TabsTrigger>
+        <TabsTrigger value="photos">Fotos</TabsTrigger>
+        <TabsTrigger value="bank">Dados Bancários</TabsTrigger>
+      </TabsList>
 
-          <OperatingHoursForm
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            replicateHours={replicateHours}
-            setReplicateHours={setReplicateHours}
-          />
-
-          <div className="flex items-center justify-between">
-            <Label htmlFor="automatic_checkin">Check-in Automático</Label>
-            <Switch
-              id="automatic_checkin"
-              defaultChecked={gym.automatic_checkin}
-              {...register("automatic_checkin")}
-              disabled={isSaving}
-            />
-          </div>
-
-          <Button type="submit" disabled={isSaving}>
-            {isSaving ? "Salvando..." : "Salvar Alterações"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Fotos da Academia</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsPhotosDialogOpen(true)}
-          >
-            Gerenciar Fotos
-          </Button>
-
-          <div className="grid grid-cols-3 gap-4 mt-4">
-            {Array.isArray(gym?.fotos) && gym.fotos.map((foto: string, index: number) => (
-              <div key={index} className="relative aspect-square">
-                <img
-                  src={`${supabase.supabaseUrl}/storage/v1/object/public/academy-images/${foto}`}
-                  alt={`Foto ${index + 1}`}
-                  className="w-full h-full object-cover rounded-lg"
+      <form onSubmit={handleSubmit(onSubmitForm)}>
+        <TabsContent value="basic">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações da Academia</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="nome">Nome</Label>
+                <Input id="nome" {...register("nome", { required: true })} />
+              </div>
+              <div>
+                <Label htmlFor="cnpj">CNPJ</Label>
+                <Input 
+                  id="cnpj" 
+                  {...register("cnpj", { required: true })}
+                  disabled={isSaving} 
                 />
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  {...register("email", { required: true })}
+                  disabled={isSaving}
+                />
+              </div>
+              <div>
+                <Label htmlFor="telefone">Telefone</Label>
+                <Input 
+                  id="telefone" 
+                  {...register("telefone")}
+                  disabled={isSaving}
+                />
+              </div>
+              <div>
+                <Label htmlFor="endereco">Endereço</Label>
+                <Input 
+                  id="endereco" 
+                  {...register("endereco")}
+                  disabled={isSaving}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="automatic_checkin">Check-in Automático</Label>
+                <Switch
+                  id="automatic_checkin"
+                  defaultChecked={gym.automatic_checkin}
+                  {...register("automatic_checkin")}
+                  disabled={isSaving}
+                />
+              </div>
+
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="schedule">
+          <Card>
+            <CardHeader>
+              <CardTitle>Horários de Funcionamento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OperatingHoursForm
+                register={register}
+                watch={watch}
+                setValue={setValue}
+                replicateHours={replicateHours}
+                setReplicateHours={setReplicateHours}
+              />
+              <Button type="submit" className="mt-4" disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Salvar Horários"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="modalities">
+          <Card>
+            <CardHeader>
+              <CardTitle>Modalidades</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ModalitiesForm
+                register={register}
+                errors={errors}
+                modalidades={modalidades}
+              />
+              <Button type="submit" className="mt-4" disabled={isSaving}>
+                {isSaving ? "Salvando..." : "Salvar Modalidades"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="photos">
+          <Card>
+            <CardHeader>
+              <CardTitle>Fotos da Academia</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsPhotosDialogOpen(true)}
+              >
+                Gerenciar Fotos
+              </Button>
+
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                {Array.isArray(gym?.fotos) && gym.fotos.map((foto: string, index: number) => (
+                  <div key={index} className="relative aspect-square">
+                    <img
+                      src={`${supabase.supabaseUrl}/storage/v1/object/public/academy-images/${foto}`}
+                      alt={`Foto ${index + 1}`}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="bank">
+          <BankDataForm
+            initialData={null}
+            onSubmit={handleBankDataSubmit}
+          />
+        </TabsContent>
+      </form>
 
       <GymPhotosDialog
         open={isPhotosDialogOpen}
@@ -261,10 +383,9 @@ export function GymSettingsForm({ gymId }: GymSettingsFormProps) {
         fotos={gym.fotos}
         onSuccess={() => {
           setIsPhotosDialogOpen(false);
-          // Recarregar os dados da academia
           fetchGym();
         }}
       />
-    </form>
+    </Tabs>
   );
 }
