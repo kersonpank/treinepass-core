@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +9,7 @@ import { GymPhotosDialog } from "./GymPhotosDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { GymList } from "./GymList";
 import { GymDetailsContent } from "./GymDetailsContent";
-import type { Gym } from "@/types/gym";
+import type { Gym, GymDocument } from "@/types/gym";
 
 export function GymManagement() {
   const { toast } = useToast();
@@ -50,7 +49,11 @@ export function GymManagement() {
         .eq("academia_id", selectedGym?.id);
 
       if (error) throw error;
-      return data;
+
+      return (data || []).map(doc => ({
+        ...doc,
+        status: doc.status as GymDocument['status']
+      })) as GymDocument[];
     },
   });
 

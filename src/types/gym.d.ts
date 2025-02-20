@@ -1,3 +1,4 @@
+
 export interface Gym {
   id: string;
   nome: string;
@@ -37,6 +38,12 @@ export interface GymDocument {
   deleted_by_gym?: boolean;
 }
 
+export interface AuthLayoutProps {
+  children: React.ReactNode;
+  title: string;
+  subtitle?: string;
+}
+
 export interface CheckInCode {
   id: string;
   code: string;
@@ -49,12 +56,6 @@ export interface CheckInCode {
     code: string;
     academia_id: string;
   };
-}
-
-export interface AuthLayoutProps {
-  children: React.ReactNode;
-  title: string;
-  subtitle?: string;
 }
 
 export interface CheckInValidation {

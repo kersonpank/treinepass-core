@@ -115,6 +115,8 @@ export type Database = {
           academia_id: string | null
           caminho: string
           created_at: string | null
+          deleted_at: string | null
+          deleted_by_gym: boolean | null
           id: string
           nome: string
           observacoes: string | null
@@ -127,6 +129,8 @@ export type Database = {
           academia_id?: string | null
           caminho: string
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by_gym?: boolean | null
           id?: string
           nome: string
           observacoes?: string | null
@@ -139,6 +143,8 @@ export type Database = {
           academia_id?: string | null
           caminho?: string
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by_gym?: boolean | null
           id?: string
           nome?: string
           observacoes?: string | null
