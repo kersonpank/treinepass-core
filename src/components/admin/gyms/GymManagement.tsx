@@ -44,14 +44,20 @@ export function GymManagement() {
     queryKey: ["gymDocuments", selectedGym?.id],
     enabled: !!selectedGym?.id,
     queryFn: async () => {
-      // Modificado para incluir todos os documentos, inclusive os marcados como excluídos
+      console.log("Fetching documents for gym:", selectedGym?.id);
+      
       const { data, error } = await supabase
         .from("academia_documentos")
         .select("*")
         .eq("academia_id", selectedGym?.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching documents:", error);
+        throw error;
+      }
+
+      console.log("Documents found:", data);
 
       return (data || []).map(doc => ({
         ...doc,
