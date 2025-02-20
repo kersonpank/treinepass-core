@@ -7,12 +7,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Loader2, Save, Building2, Clock, Camera, CreditCard } from "lucide-react";
+import { 
+  Loader2, 
+  Save, 
+  Building2, 
+  Clock, 
+  Camera, 
+  CreditCard,
+  Phone,
+  Mail,
+  MapPin
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GymPhotosDialog } from "../admin/gyms/GymPhotosDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Gym } from "@/types/gym";
 import { BankDetailsForm } from "./forms/BankDetailsForm";
+import { Textarea } from "@/components/ui/textarea";
 
 interface GymSettingsFormProps {
   academia: Gym;
