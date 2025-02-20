@@ -18,26 +18,7 @@ import { EditGymDialog } from "./EditGymDialog";
 import { GymPhotosDialog } from "./GymPhotosDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface Gym {
-  id: string;
-  nome: string;
-  cnpj: string;
-  email: string;
-  telefone: string | null;
-  endereco: string | null;
-  status: string;
-  fotos?: string[];
-  horario_funcionamento?: Record<string, any>;
-  academia_modalidades?: { 
-    modalidade: { 
-      nome: string;
-      id: string;
-    } 
-  }[];
-  usa_regras_personalizadas?: boolean;
-  categoria_id?: string | null;
-}
+import type { Gym } from "@/types/gym";
 
 export function GymManagement() {
   const { toast } = useToast();
@@ -55,6 +36,7 @@ export function GymManagement() {
           *,
           academia_modalidades (
             modalidade:modalidades (
+              id,
               nome
             )
           )
@@ -62,7 +44,7 @@ export function GymManagement() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Gym[];
+      return data as unknown as Gym[];
     },
   });
 
@@ -94,7 +76,6 @@ export function GymManagement() {
     if (!confirm("Tem certeza que deseja excluir esta academia?")) return;
 
     try {
-      // Primeiro excluir as fotos do storage
       const gym = gyms?.find(g => g.id === gymId);
       if (gym?.fotos?.length) {
         const { error: storageError } = await supabase.storage
@@ -104,7 +85,6 @@ export function GymManagement() {
         if (storageError) throw storageError;
       }
 
-      // Depois excluir o registro da academia
       const { error } = await supabase
         .from("academias")
         .delete()

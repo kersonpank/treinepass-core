@@ -1,3 +1,4 @@
+
 import { Json } from "@/integrations/supabase/types";
 
 export interface Gym {
@@ -22,6 +23,19 @@ export interface Gym {
       nome: string;
     };
   }[];
+}
+
+export interface GymDocument {
+  id: string;
+  academia_id: string;
+  nome: string;
+  tipo: string;
+  caminho: string;
+  observacoes?: string;
+  status: 'pendente' | 'aprovado' | 'rejeitado';
+  revisado_por?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface GymCategory {
