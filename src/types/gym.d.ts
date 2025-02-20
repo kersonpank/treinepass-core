@@ -9,7 +9,7 @@ export interface Gym {
   telefone: string | null;
   endereco: string | null;
   status: string;
-  horario_funcionamento: Json;
+  horario_funcionamento: Record<string, any>;
   modalidades?: string[];
   fotos?: string[];
   usa_regras_personalizadas?: boolean;
