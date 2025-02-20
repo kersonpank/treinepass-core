@@ -1,4 +1,3 @@
-
 export interface Gym {
   id: string;
   nome: string;
@@ -34,6 +33,8 @@ export interface GymDocument {
   revisado_por?: string;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
+  deleted_by_gym?: boolean;
 }
 
 export interface CheckInCode {
