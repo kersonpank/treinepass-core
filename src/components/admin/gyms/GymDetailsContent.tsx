@@ -22,6 +22,11 @@ export function GymDetailsContent({
   onDeleteDocument,
   getImageUrl,
 }: GymDetailsContentProps) {
+  const getDocumentUrl = (path: string) => {
+    if (path?.startsWith('http')) return path;
+    return `https://jlzkwcgzpfrdgcdjmjao.supabase.co/storage/v1/object/public/academy-images/${path}`;
+  };
+
   return (
     <Tabs defaultValue="info" className="w-full">
       <TabsList className="grid w-full grid-cols-5">
@@ -166,7 +171,7 @@ export function GymDetailsContent({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => window.open(getImageUrl(doc.caminho), "_blank")}
+                    onClick={() => window.open(getDocumentUrl(doc.caminho), "_blank")}
                   >
                     <Eye className="h-4 w-4 mr-1" />
                     Visualizar
