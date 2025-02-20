@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,10 +44,12 @@ export function GymManagement() {
     queryKey: ["gymDocuments", selectedGym?.id],
     enabled: !!selectedGym?.id,
     queryFn: async () => {
+      // Modificado para incluir todos os documentos, inclusive os marcados como excluídos
       const { data, error } = await supabase
         .from("academia_documentos")
         .select("*")
-        .eq("academia_id", selectedGym?.id);
+        .eq("academia_id", selectedGym?.id)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -143,6 +146,59 @@ export function GymManagement() {
     }
   };
 
+  const handleRestoreDocument = async (docId: string) => {
+    try {
+      const { error } = await supabase
+        .from("academia_documentos")
+        .update({ 
+          deleted_at: null,
+          deleted_by_gym: false 
+        })
+        .eq("id", docId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Documento restaurado com sucesso",
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message,
+      });
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!confirm("Tem certeza que deseja excluir permanentemente este documento?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("academia_documentos")
+        .delete()
+        .eq("id", docId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Documento excluído permanentemente",
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message,
+      });
+    }
+  };
+
   const getImageUrl = (path: string) => {
     if (path?.startsWith('http')) return path;
     return `https://jlzkwcgzpfrdgcdjmjao.supabase.co/storage/v1/object/public/academy-images/${path}`;
@@ -207,6 +263,8 @@ export function GymManagement() {
                   gym={selectedGym}
                   documents={documents}
                   onDocumentStatusChange={handleDocumentStatusChange}
+                  onRestoreDocument={handleRestoreDocument}
+                  onDeleteDocument={handleDeleteDocument}
                   getImageUrl={getImageUrl}
                 />
               </DialogContent>
