@@ -1,6 +1,4 @@
 
-import { Json } from "@/integrations/supabase/types";
-
 export interface Gym {
   id: string;
   nome: string;
@@ -36,13 +34,6 @@ export interface GymDocument {
   revisado_por?: string;
   created_at?: string;
   updated_at?: string;
-}
-
-export interface GymCategory {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  active: boolean;
 }
 
 export interface CheckInCode {
