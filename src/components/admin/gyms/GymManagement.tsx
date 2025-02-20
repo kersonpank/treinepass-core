@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +46,20 @@ export function GymManagement() {
 
       if (error) throw error;
       return data as unknown as Gym[];
+    },
+  });
+
+  const { data: documents } = useQuery({
+    queryKey: ["gymDocuments", selectedGym?.id],
+    enabled: !!selectedGym?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("academia_documentos")
+        .select("*")
+        .eq("academia_id", selectedGym?.id);
+
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -272,10 +287,11 @@ export function GymManagement() {
                 <DialogTitle>Detalhes da Academia</DialogTitle>
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="info">Informações</TabsTrigger>
                   <TabsTrigger value="schedule">Horários</TabsTrigger>
                   <TabsTrigger value="modalities">Modalidades</TabsTrigger>
+                  <TabsTrigger value="documents">Documentos</TabsTrigger>
                 </TabsList>
                 <TabsContent value="info" className="space-y-4">
                   <div>
@@ -324,6 +340,43 @@ export function GymManagement() {
                     </div>
                   ) : (
                     <p className="text-muted-foreground">Nenhuma modalidade cadastrada</p>
+                  )}
+                </TabsContent>
+                <TabsContent value="documents" className="space-y-4">
+                  {documents?.length ? (
+                    <div className="space-y-4">
+                      {documents.map((doc) => (
+                        <div key={doc.id} className="flex items-start justify-between p-4 border rounded-lg">
+                          <div>
+                            <h4 className="font-semibold">{doc.tipo}</h4>
+                            <p className="text-sm text-muted-foreground">{doc.nome}</p>
+                            {doc.observacoes && (
+                              <p className="text-sm mt-2">{doc.observacoes}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={
+                              doc.status === "aprovado" 
+                                ? "default" 
+                                : doc.status === "rejeitado" 
+                                  ? "destructive" 
+                                  : "secondary"
+                            }>
+                              {doc.status}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(getImageUrl(doc.caminho), '_blank')}
+                            >
+                              Visualizar
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">Nenhum documento enviado</p>
                   )}
                 </TabsContent>
               </Tabs>
