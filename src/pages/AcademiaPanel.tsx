@@ -13,6 +13,7 @@ import { OverviewPanel } from "@/components/gym/panels/OverviewPanel";
 import { StaffPanel } from "@/components/gym/panels/StaffPanel";
 import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
 import { AutoCheckInToggle } from "@/components/gym/AutoCheckInToggle";
+import { FinancialPanel } from "@/components/admin/financial/FinancialPanel";
 
 export default function AcademiaPanel() {
   const { id } = useParams<{ id: string }>();
@@ -130,6 +131,7 @@ export default function AcademiaPanel() {
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="check-in">Check-in</TabsTrigger>
           <TabsTrigger value="access">Gestão de Acessos</TabsTrigger>
+          <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
 
@@ -143,6 +145,10 @@ export default function AcademiaPanel() {
 
         <TabsContent value="access">
           <StaffPanel staffMembers={[]} />
+        </TabsContent>
+
+        <TabsContent value="financial">
+          <FinancialPanel academiaId={academia.id} />
         </TabsContent>
 
         <TabsContent value="settings">
