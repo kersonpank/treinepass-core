@@ -1,29 +1,18 @@
+
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { 
-  Loader2, 
-  Save, 
-  Building2, 
-  Clock, 
-  Camera, 
-  CreditCard,
-  Phone,
-  Mail,
-  MapPin
-} from "lucide-react";
+import { Loader2, Save, Building2, Clock, Camera, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GymPhotosDialog } from "../admin/gyms/GymPhotosDialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import type { Gym } from "@/types/gym";
 import { BankDetailsForm } from "./forms/BankDetailsForm";
-import { Textarea } from "@/components/ui/textarea";
+import { BasicInfoTab } from "./settings/BasicInfoTab";
+import { ScheduleTab } from "./settings/ScheduleTab";
+import { PhotosTab } from "./settings/PhotosTab";
 
 interface GymSettingsFormProps {
   academia: Gym;
@@ -62,10 +51,6 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
     },
   });
 
-  const handleHorarioChange = (dia: string, tipo: 'abertura' | 'fechamento', value: string) => {
-    setValue(`horario_funcionamento.${dia}.${tipo}`, value);
-  };
-
   const onSubmit = async (data: any) => {
     try {
       setIsLoading(true);
@@ -102,18 +87,6 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
     }
   };
 
-  const diasSemana = [
-    { key: 'domingo', label: 'Domingo' },
-    { key: 'segunda', label: 'Segunda-feira' },
-    { key: 'terca', label: 'Terça-feira' },
-    { key: 'quarta', label: 'Quarta-feira' },
-    { key: 'quinta', label: 'Quinta-feira' },
-    { key: 'sexta', label: 'Sexta-feira' },
-    { key: 'sabado', label: 'Sábado' },
-  ];
-
-  const horario_funcionamento = watch("horario_funcionamento");
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Tabs value={currentTab} onValueChange={setCurrentTab}>
@@ -137,113 +110,11 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
         </TabsList>
 
         <TabsContent value="info" className="space-y-4">
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="nome" className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Nome da Academia
-              </Label>
-              <Input
-                id="nome"
-                {...register("nome", { required: "Nome é obrigatório" })}
-              />
-              {errors.nome && (
-                <p className="text-sm text-red-500">{errors.nome.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="cnpj" className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                CNPJ
-              </Label>
-              <Input
-                id="cnpj"
-                {...register("cnpj", {
-                  required: "CNPJ é obrigatório",
-                  validate: (value) => cnpj.isValid(value) || "CNPJ inválido",
-                })}
-              />
-              {errors.cnpj && (
-                <p className="text-sm text-red-500">{errors.cnpj.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="telefone" className="flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Telefone
-              </Label>
-              <Input
-                id="telefone"
-                {...register("telefone", { required: "Telefone é obrigatório" })}
-              />
-              {errors.telefone && (
-                <p className="text-sm text-red-500">{errors.telefone.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="email" className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                E-mail
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                {...register("email", {
-                  required: "E-mail é obrigatório",
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: "E-mail inválido",
-                  },
-                })}
-              />
-              {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="endereco" className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Endereço
-              </Label>
-              <Textarea
-                id="endereco"
-                {...register("endereco", { required: "Endereço é obrigatório" })}
-              />
-              {errors.endereco && (
-                <p className="text-sm text-red-500">{errors.endereco.message}</p>
-              )}
-            </div>
-          </div>
+          <BasicInfoTab register={register} errors={errors} />
         </TabsContent>
 
         <TabsContent value="schedule" className="space-y-4">
-          {diasSemana.map(({ key, label }) => (
-            <div key={key} className="grid grid-cols-3 gap-4 items-center">
-              <Label>{label}</Label>
-              <div>
-                <Label htmlFor={`${key}-abertura`}>Abertura</Label>
-                <Input
-                  id={`${key}-abertura`}
-                  type="time"
-                  value={horario_funcionamento[key]?.abertura || ""}
-                  onChange={(e) => handleHorarioChange(key, 'abertura', e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor={`${key}-fechamento`}>Fechamento</Label>
-                <Input
-                  id={`${key}-fechamento`}
-                  type="time"
-                  value={horario_funcionamento[key]?.fechamento || ""}
-                  onChange={(e) => handleHorarioChange(key, 'fechamento', e.target.value)}
-                />
-              </div>
-            </div>
-          ))}
+          <ScheduleTab watch={watch} setValue={setValue} />
         </TabsContent>
 
         <TabsContent value="bank">
@@ -253,31 +124,10 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
         </TabsContent>
 
         <TabsContent value="photos">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Fotos da Academia</h3>
-              <Button
-                type="button"
-                onClick={() => setIsPhotosDialogOpen(true)}
-                className="flex items-center gap-2"
-              >
-                <Camera className="h-4 w-4" />
-                Gerenciar Fotos
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {academia.fotos?.map((foto: string, index: number) => (
-                <div key={index} className="relative aspect-square">
-                  <img
-                    src={foto}
-                    alt={`Foto ${index + 1}`}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+          <PhotosTab 
+            fotos={academia.fotos} 
+            onOpenPhotosDialog={() => setIsPhotosDialogOpen(true)} 
+          />
         </TabsContent>
       </Tabs>
 
