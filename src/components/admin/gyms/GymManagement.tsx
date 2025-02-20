@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -110,6 +109,33 @@ export function GymManagement() {
       toast({
         title: "Sucesso",
         description: "Academia excluída com sucesso",
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message,
+      });
+    }
+  };
+
+  const handleDocumentStatusChange = async (docId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from("academia_documentos")
+        .update({ 
+          status: newStatus,
+          revisado_por: (await supabase.auth.getUser()).data.user?.id 
+        })
+        .eq("id", docId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: `Status do documento atualizado para ${newStatus}`,
       });
 
       refetch();
@@ -287,8 +313,9 @@ export function GymManagement() {
                 <DialogTitle>Detalhes da Academia</DialogTitle>
               </DialogHeader>
               <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="info">Informações</TabsTrigger>
+                  <TabsTrigger value="photos">Fotos</TabsTrigger>
                   <TabsTrigger value="schedule">Horários</TabsTrigger>
                   <TabsTrigger value="modalities">Modalidades</TabsTrigger>
                   <TabsTrigger value="documents">Documentos</TabsTrigger>
@@ -313,6 +340,19 @@ export function GymManagement() {
                   <div>
                     <h4 className="font-semibold">Endereço</h4>
                     <p>{selectedGym.endereco || "-"}</p>
+                  </div>
+                </TabsContent>
+                <TabsContent value="photos" className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    {selectedGym.fotos?.map((foto, index) => (
+                      <div key={index} className="relative aspect-square">
+                        <img
+                          src={getImageUrl(foto)}
+                          alt={`Foto ${index + 1}`}
+                          className="rounded-lg object-cover w-full h-full"
+                        />
+                      </div>
+                    ))}
                   </div>
                 </TabsContent>
                 <TabsContent value="schedule">
@@ -351,10 +391,32 @@ export function GymManagement() {
                             <h4 className="font-semibold">{doc.tipo}</h4>
                             <p className="text-sm text-muted-foreground">{doc.nome}</p>
                             {doc.observacoes && (
-                              <p className="text-sm mt-2">{doc.observacoes}</p>
+                              <p className="text-sm mt-2 text-muted-foreground">{doc.observacoes}</p>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
+                            {doc.status === "pendente" && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDocumentStatusChange(doc.id, "aprovado")}
+                                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                >
+                                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                                  Aprovar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDocumentStatusChange(doc.id, "rejeitado")}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Rejeitar
+                                </Button>
+                              </>
+                            )}
                             <Badge variant={
                               doc.status === "aprovado" 
                                 ? "default" 
@@ -369,6 +431,7 @@ export function GymManagement() {
                               size="sm"
                               onClick={() => window.open(getImageUrl(doc.caminho), '_blank')}
                             >
+                              <Eye className="h-4 w-4 mr-1" />
                               Visualizar
                             </Button>
                           </div>
