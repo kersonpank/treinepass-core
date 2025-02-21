@@ -41,36 +41,40 @@ export function GymPhotosDialog({
   ];
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
     try {
       setIsUploading(true);
+      const updatedFotos = [...fotos];
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('academy-images')
-        .upload(filePath, file);
+        const { error: uploadError } = await supabase.storage
+          .from('academy-images')
+          .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { error: documentError } = await supabase
-        .from('academia_documentos')
-        .insert({
-          academia_id: gymId,
-          tipo: selectedType,
-          nome: file.name,
-          caminho: filePath,
-          observacoes: description,
-          status: 'pendente'
-        });
+        const { error: documentError } = await supabase
+          .from('academia_documentos')
+          .insert({
+            academia_id: gymId,
+            tipo: selectedType,
+            nome: file.name,
+            caminho: filePath,
+            observacoes: description,
+            status: 'pendente'
+          });
 
-      if (documentError) throw documentError;
+        if (documentError) throw documentError;
 
-      const updatedFotos = [...fotos, filePath];
+        updatedFotos.push(filePath);
+      }
 
       const { error: updateError } = await supabase
         .from('academias')
@@ -81,7 +85,7 @@ export function GymPhotosDialog({
 
       toast({
         title: "Sucesso",
-        description: "Documento adicionado com sucesso",
+        description: "Arquivos adicionados com sucesso",
       });
 
       setSelectedType("");
@@ -124,7 +128,7 @@ export function GymPhotosDialog({
 
       toast({
         title: "Sucesso",
-        description: "Documento removido com sucesso",
+        description: "Arquivo removido com sucesso",
       });
 
       onSuccess();
@@ -146,7 +150,7 @@ export function GymPhotosDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Gerenciar Documentos</DialogTitle>
+          <DialogTitle>Gerenciar Fotos</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -172,10 +176,10 @@ export function GymPhotosDialog({
 
           <div className="space-y-4 pt-4 border-t">
             <div>
-              <Label>Tipo de Documento</Label>
+              <Label>Tipo</Label>
               <Select value={selectedType} onValueChange={setSelectedType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione o tipo de documento" />
+                  <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
                   {documentTypes.map((type) => (
@@ -188,11 +192,11 @@ export function GymPhotosDialog({
             </div>
 
             <div>
-              <Label>Descrição/Observações</Label>
+              <Label>Descrição</Label>
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Adicione uma descrição ou observações sobre o documento"
+                placeholder="Adicione uma descrição"
               />
             </div>
 
@@ -204,14 +208,15 @@ export function GymPhotosDialog({
                 onClick={() => document.getElementById('photo-upload')?.click()}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                {isUploading ? "Enviando..." : "Adicionar Documento"}
+                {isUploading ? "Enviando..." : "Adicionar Fotos"}
               </Button>
               <input
                 type="file"
                 id="photo-upload"
-                accept="image/*,.pdf"
+                accept="image/*"
                 className="hidden"
                 onChange={handleFileUpload}
+                multiple
               />
             </div>
           </div>
