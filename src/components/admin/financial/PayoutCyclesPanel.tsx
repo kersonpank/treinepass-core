@@ -38,6 +38,20 @@ export function PayoutCyclesPanel({ academiaId }: PayoutCyclesPanelProps) {
     },
   });
 
+  const { data: transferRules } = useQuery({
+    queryKey: ["transfer-rules", academiaId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("transfer_rules")
+        .select("*")
+        .eq("academia_id", academiaId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: cyclesHistory, isLoading: loadingHistory } = useQuery({
     queryKey: ["payout-cycles-history", academiaId],
     queryFn: async () => {
@@ -53,28 +67,22 @@ export function PayoutCyclesPanel({ academiaId }: PayoutCyclesPanelProps) {
     },
   });
 
-  const handleCompleteCycle = async () => {
-    if (!activeCycle?.id) return;
+  const getNextTransferDate = (days: number[]) => {
+    if (!days || days.length === 0) return null;
+    
+    const today = new Date();
+    const currentDay = today.getDate();
+    const nextDays = days
+      .map(day => {
+        const nextDate = new Date(today.getFullYear(), today.getMonth(), day);
+        if (day <= currentDay) {
+          nextDate.setMonth(nextDate.getMonth() + 1);
+        }
+        return nextDate;
+      })
+      .sort((a, b) => a.getTime() - b.getTime());
 
-    try {
-      const { data, error } = await supabase.rpc(
-        "complete_payout_cycle",
-        { p_cycle_id: activeCycle.id }
-      );
-
-      if (error) throw error;
-
-      toast({
-        title: "Ciclo finalizado",
-        description: "Um novo ciclo foi iniciado automaticamente.",
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erro ao finalizar ciclo",
-        description: error.message,
-      });
-    }
+    return nextDays[0];
   };
 
   if (loadingActive || loadingHistory) {
@@ -84,6 +92,10 @@ export function PayoutCyclesPanel({ academiaId }: PayoutCyclesPanelProps) {
       </div>
     );
   }
+
+  const nextTransferDate = transferRules?.transfer_days 
+    ? getNextTransferDate(transferRules.transfer_days)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -110,7 +122,19 @@ export function PayoutCyclesPanel({ academiaId }: PayoutCyclesPanelProps) {
                   </p>
                 </div>
               </div>
-              <Button onClick={handleCompleteCycle}>Finalizar Ciclo</Button>
+
+              {nextTransferDate && (
+                <div className="rounded-lg bg-muted p-4">
+                  <p className="text-sm font-medium">Próximo repasse previsto para:</p>
+                  <p className="text-lg font-bold">
+                    {nextTransferDate.toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-center text-muted-foreground">Nenhum ciclo ativo encontrado</p>
