@@ -37,7 +37,7 @@ export function DocumentsTab({ academiaId }: DocumentsTabProps) {
 
   const getDocumentUrl = (path: string) => {
     if (path.startsWith("http")) return path;
-    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/academy-images/${path}`;
+    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/academy-documents/${path}`;
   };
 
   return (
