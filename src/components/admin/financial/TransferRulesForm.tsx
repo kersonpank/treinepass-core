@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface TransferRulesFormProps {
@@ -19,12 +19,15 @@ interface TransferRulesFormProps {
 type TransferRulesData = {
   automatic_transfer: boolean;
   minimum_transfer_amount: number;
-  transfer_day: number;
+  transfer_days: number[];
 };
 
 export function TransferRulesForm({ academiaId, initialData, onSuccess }: TransferRulesFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [transferDays, setTransferDays] = useState<number[]>(
+    initialData?.transfer_days || [5]
+  );
 
   const {
     register,
@@ -36,11 +39,40 @@ export function TransferRulesForm({ academiaId, initialData, onSuccess }: Transf
     defaultValues: initialData || {
       automatic_transfer: true,
       minimum_transfer_amount: 20,
-      transfer_day: 5
+      transfer_days: [5]
     }
   });
 
   const automatic_transfer = watch('automatic_transfer');
+
+  const addTransferDay = () => {
+    const lastDay = transferDays[transferDays.length - 1] || 0;
+    const nextDay = Math.min(lastDay + 5, 28);
+    setTransferDays([...transferDays, nextDay]);
+  };
+
+  const removeTransferDay = (index: number) => {
+    if (transferDays.length > 1) {
+      const newDays = transferDays.filter((_, i) => i !== index);
+      setTransferDays(newDays);
+    }
+  };
+
+  const getNextTransferDate = (days: number[]) => {
+    const today = new Date();
+    const currentDay = today.getDate();
+    const nextDays = days
+      .map(day => {
+        const nextDate = new Date(today.getFullYear(), today.getMonth(), day);
+        if (day <= currentDay) {
+          nextDate.setMonth(nextDate.getMonth() + 1);
+        }
+        return nextDate;
+      })
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    return nextDays[0];
+  };
 
   const onSubmit = async (data: TransferRulesData) => {
     try {
@@ -50,7 +82,9 @@ export function TransferRulesForm({ academiaId, initialData, onSuccess }: Transf
         .from('transfer_rules')
         .upsert({
           academia_id: academiaId,
-          ...data
+          automatic_transfer: data.automatic_transfer,
+          minimum_transfer_amount: data.minimum_transfer_amount,
+          transfer_days: transferDays
         });
 
       if (error) throw error;
@@ -72,13 +106,15 @@ export function TransferRulesForm({ academiaId, initialData, onSuccess }: Transf
     }
   };
 
+  const nextTransferDate = getNextTransferDate(transferDays);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Regras de Transferência</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Transferência Automática</Label>
@@ -108,21 +144,60 @@ export function TransferRulesForm({ academiaId, initialData, onSuccess }: Transf
             )}
           </div>
 
-          <div>
-            <Label>Dia do Mês para Transferência</Label>
-            <Input
-              type="number"
-              min="1"
-              max="28"
-              {...register("transfer_day", {
-                required: "Dia é obrigatório",
-                min: { value: 1, message: "Dia deve ser entre 1 e 28" },
-                max: { value: 28, message: "Dia deve ser entre 1 e 28" }
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label>Dias de Transferência</Label>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={addTransferDay}
+                disabled={transferDays.length >= 4}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Adicionar Dia
+              </Button>
+            </div>
+            
+            <div className="space-y-2">
+              {transferDays.map((day, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="28"
+                    value={day}
+                    onChange={(e) => {
+                      const newValue = Math.max(1, Math.min(28, parseInt(e.target.value) || 1));
+                      const newDays = [...transferDays];
+                      newDays[index] = newValue;
+                      setTransferDays(newDays);
+                    }}
+                  />
+                  {transferDays.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeTransferDay(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-muted p-4">
+            <p className="text-sm font-medium">Próximo repasse previsto para:</p>
+            <p className="text-lg font-bold">
+              {nextTransferDate.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
               })}
-            />
-            {errors.transfer_day && (
-              <p className="text-sm text-red-500">{errors.transfer_day.message}</p>
-            )}
+            </p>
           </div>
 
           <Button 
