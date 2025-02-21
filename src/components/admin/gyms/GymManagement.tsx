@@ -1,43 +1,16 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Edit2, Eye, Trash2, CheckCircle2, XCircle, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { EditGymDialog } from "./EditGymDialog";
 import { GymPhotosDialog } from "./GymPhotosDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface Gym {
-  id: string;
-  nome: string;
-  cnpj: string;
-  email: string;
-  telefone: string | null;
-  endereco: string | null;
-  status: string;
-  fotos?: string[];
-  horario_funcionamento?: Record<string, any>;
-  academia_modalidades?: { 
-    modalidade: { 
-      nome: string;
-      id: string;
-    } 
-  }[];
-  usa_regras_personalizadas?: boolean;
-  categoria_id?: string | null;
-}
+import { GymList } from "./GymList";
+import { GymDetailsContent } from "./GymDetailsContent";
+import type { Gym, GymDocument } from "@/types/gym";
 
 export function GymManagement() {
   const { toast } = useToast();
@@ -55,6 +28,7 @@ export function GymManagement() {
           *,
           academia_modalidades (
             modalidade:modalidades (
+              id,
               nome
             )
           )
@@ -62,7 +36,33 @@ export function GymManagement() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Gym[];
+      return data as unknown as Gym[];
+    },
+  });
+
+  const { data: documents } = useQuery({
+    queryKey: ["gymDocuments", selectedGym?.id],
+    enabled: !!selectedGym?.id,
+    queryFn: async () => {
+      console.log("Fetching documents for gym:", selectedGym?.id);
+      
+      const { data, error } = await supabase
+        .from("academia_documentos")
+        .select("*")
+        .eq("academia_id", selectedGym?.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching documents:", error);
+        throw error;
+      }
+
+      console.log("Documents found:", data);
+
+      return (data || []).map(doc => ({
+        ...doc,
+        status: doc.status as GymDocument['status']
+      })) as GymDocument[];
     },
   });
 
@@ -94,7 +94,6 @@ export function GymManagement() {
     if (!confirm("Tem certeza que deseja excluir esta academia?")) return;
 
     try {
-      // Primeiro excluir as fotos do storage
       const gym = gyms?.find(g => g.id === gymId);
       if (gym?.fotos?.length) {
         const { error: storageError } = await supabase.storage
@@ -104,7 +103,6 @@ export function GymManagement() {
         if (storageError) throw storageError;
       }
 
-      // Depois excluir o registro da academia
       const { error } = await supabase
         .from("academias")
         .delete()
@@ -115,6 +113,86 @@ export function GymManagement() {
       toast({
         title: "Sucesso",
         description: "Academia excluída com sucesso",
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message,
+      });
+    }
+  };
+
+  const handleDocumentStatusChange = async (docId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from("academia_documentos")
+        .update({ 
+          status: newStatus,
+          revisado_por: (await supabase.auth.getUser()).data.user?.id 
+        })
+        .eq("id", docId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: `Status do documento atualizado para ${newStatus}`,
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message,
+      });
+    }
+  };
+
+  const handleRestoreDocument = async (docId: string) => {
+    try {
+      const { error } = await supabase
+        .from("academia_documentos")
+        .update({ 
+          deleted_at: null,
+          deleted_by_gym: false 
+        })
+        .eq("id", docId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Documento restaurado com sucesso",
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message,
+      });
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!confirm("Tem certeza que deseja excluir permanentemente este documento?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("academia_documentos")
+        .delete()
+        .eq("id", docId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Sucesso",
+        description: "Documento excluído permanentemente",
       });
 
       refetch();
@@ -146,211 +224,60 @@ export function GymManagement() {
         <CardTitle>Gerenciamento de Academias</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>CNPJ</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {gyms?.map((gym) => (
-                <TableRow key={gym.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {gym.fotos?.[0] && (
-                        <img
-                          src={getImageUrl(gym.fotos[0])}
-                          alt={gym.nome}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      )}
-                      {gym.nome}
-                    </div>
-                  </TableCell>
-                  <TableCell>{gym.cnpj}</TableCell>
-                  <TableCell>{gym.email}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        gym.status === "ativo" 
-                          ? "default" 
-                          : gym.status === "inativo" 
-                            ? "secondary" 
-                            : "outline"
-                      }
-                    >
-                      {gym.status === "ativo" ? "Ativo" : gym.status === "inativo" ? "Inativo" : "Pendente"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end space-x-2">
-                      {gym.status === "pendente" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleStatusChange(gym.id, "ativo")}
-                          className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {gym.status === "ativo" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleStatusChange(gym.id, "inativo")}
-                          className="h-8 w-8 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {gym.status === "inativo" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleStatusChange(gym.id, "ativo")}
-                          className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setSelectedGym(gym);
-                          setIsEditDialogOpen(true);
-                        }}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setSelectedGym(gym);
-                          setIsPhotosDialogOpen(true);
-                        }}
-                      >
-                        <Image className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setSelectedGym(gym);
-                          setIsViewDialogOpen(true);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(gym.id)}
-                        className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <GymList
+          gyms={gyms || []}
+          onStatusChange={handleStatusChange}
+          onEdit={(gym) => {
+            setSelectedGym(gym);
+            setIsEditDialogOpen(true);
+          }}
+          onView={(gym) => {
+            setSelectedGym(gym);
+            setIsViewDialogOpen(true);
+          }}
+          onPhotos={(gym) => {
+            setSelectedGym(gym);
+            setIsPhotosDialogOpen(true);
+          }}
+          onDelete={handleDelete}
+          getImageUrl={getImageUrl}
+        />
+
+        {selectedGym && (
+          <>
+            <EditGymDialog
+              gym={selectedGym}
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+              onSuccess={refetch}
+            />
+
+            <GymPhotosDialog
+              gymId={selectedGym.id}
+              fotos={selectedGym.fotos || []}
+              open={isPhotosDialogOpen}
+              onOpenChange={setIsPhotosDialogOpen}
+              onSuccess={refetch}
+            />
+
+            <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Detalhes da Academia</DialogTitle>
+                </DialogHeader>
+                <GymDetailsContent
+                  gym={selectedGym}
+                  documents={documents}
+                  onDocumentStatusChange={handleDocumentStatusChange}
+                  onRestoreDocument={handleRestoreDocument}
+                  onDeleteDocument={handleDeleteDocument}
+                  getImageUrl={getImageUrl}
+                />
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
       </CardContent>
-
-      {selectedGym && (
-        <>
-          <EditGymDialog
-            gym={selectedGym}
-            open={isEditDialogOpen}
-            onOpenChange={setIsEditDialogOpen}
-            onSuccess={refetch}
-          />
-
-          <GymPhotosDialog
-            gymId={selectedGym.id}
-            fotos={selectedGym.fotos || []}
-            open={isPhotosDialogOpen}
-            onOpenChange={setIsPhotosDialogOpen}
-            onSuccess={refetch}
-          />
-
-          <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>Detalhes da Academia</DialogTitle>
-              </DialogHeader>
-              <Tabs defaultValue="info" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="info">Informações</TabsTrigger>
-                  <TabsTrigger value="schedule">Horários</TabsTrigger>
-                  <TabsTrigger value="modalities">Modalidades</TabsTrigger>
-                </TabsList>
-                <TabsContent value="info" className="space-y-4">
-                  <div>
-                    <h4 className="font-semibold">Nome</h4>
-                    <p>{selectedGym.nome}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold">CNPJ</h4>
-                    <p>{selectedGym.cnpj}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold">Email</h4>
-                    <p>{selectedGym.email}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold">Telefone</h4>
-                    <p>{selectedGym.telefone || "-"}</p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold">Endereço</h4>
-                    <p>{selectedGym.endereco || "-"}</p>
-                  </div>
-                </TabsContent>
-                <TabsContent value="schedule">
-                  {selectedGym.horario_funcionamento ? (
-                    <div className="space-y-2">
-                      {Object.entries(selectedGym.horario_funcionamento).map(([dia, horario]: [string, any]) => (
-                        <div key={dia} className="flex justify-between">
-                          <span className="font-semibold capitalize">{dia}</span>
-                          <span>{horario.abertura} - {horario.fechamento}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">Nenhum horário cadastrado</p>
-                  )}
-                </TabsContent>
-                <TabsContent value="modalities">
-                  {selectedGym.academia_modalidades?.length ? (
-                    <div className="flex flex-wrap gap-2">
-                      {selectedGym.academia_modalidades.map((am, index) => (
-                        <Badge key={index} variant="secondary">
-                          {am.modalidade.nome}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">Nenhuma modalidade cadastrada</p>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </DialogContent>
-          </Dialog>
-        </>
-      )}
     </Card>
   );
 }

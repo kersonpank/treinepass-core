@@ -1,3 +1,4 @@
+
 import { UseFormRegister, UseFormWatch, UseFormSetValue } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,12 +37,14 @@ export function OperatingHoursForm({
     if (replicateHours && segundaAbertura && segundaFechamento) {
       diasSemana.forEach((dia) => {
         if (dia !== "segunda") {
-          setValue(`horario_funcionamento.${dia}.abertura`, segundaAbertura);
-          setValue(`horario_funcionamento.${dia}.fechamento`, segundaFechamento);
+          setValue(`horario_funcionamento.${dia}`, {
+            abertura: segundaAbertura,
+            fechamento: segundaFechamento,
+          });
         }
       });
     }
-  }, [segundaAbertura, segundaFechamento, replicateHours, setValue]);
+  }, [replicateHours, segundaAbertura, segundaFechamento, setValue]);
 
   return (
     <div className="space-y-4">

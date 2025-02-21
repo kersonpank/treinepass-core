@@ -1,4 +1,3 @@
-import { Json } from "@/integrations/supabase/types";
 
 export interface Gym {
   id: string;
@@ -8,7 +7,7 @@ export interface Gym {
   telefone: string | null;
   endereco: string | null;
   status: string;
-  horario_funcionamento: Json;
+  horario_funcionamento: Record<string, any>;
   modalidades?: string[];
   fotos?: string[];
   usa_regras_personalizadas?: boolean;
@@ -24,11 +23,25 @@ export interface Gym {
   }[];
 }
 
-export interface GymCategory {
+export interface GymDocument {
   id: string;
+  academia_id: string;
   nome: string;
-  descricao: string | null;
-  active: boolean;
+  tipo: string;
+  caminho: string;
+  observacoes?: string;
+  status: 'pendente' | 'aprovado' | 'rejeitado';
+  revisado_por?: string;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+  deleted_by_gym?: boolean;
+}
+
+export interface AuthLayoutProps {
+  children: React.ReactNode;
+  title: string;
+  subtitle?: string;
 }
 
 export interface CheckInCode {
@@ -43,12 +56,6 @@ export interface CheckInCode {
     code: string;
     academia_id: string;
   };
-}
-
-export interface AuthLayoutProps {
-  children: React.ReactNode;
-  title: string;
-  subtitle?: string;
 }
 
 export interface CheckInValidation {
