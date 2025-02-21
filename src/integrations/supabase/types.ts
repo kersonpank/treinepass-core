@@ -1591,7 +1591,7 @@ export type Database = {
           created_at: string | null
           id: string
           minimum_transfer_amount: number | null
-          transfer_day: number | null
+          transfer_days: number[] | null
           updated_at: string | null
         }
         Insert: {
@@ -1600,7 +1600,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           minimum_transfer_amount?: number | null
-          transfer_day?: number | null
+          transfer_days?: number[] | null
           updated_at?: string | null
         }
         Update: {
@@ -1609,7 +1609,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           minimum_transfer_amount?: number | null
-          transfer_day?: number | null
+          transfer_days?: number[] | null
           updated_at?: string | null
         }
         Relationships: [
