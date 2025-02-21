@@ -991,6 +991,7 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           id: string
+          payout_cycle_id: string | null
           qr_code_id: string | null
           qr_data: Json | null
           status: string
@@ -1008,6 +1009,7 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           id?: string
+          payout_cycle_id?: string | null
           qr_code_id?: string | null
           qr_data?: Json | null
           status?: string
@@ -1025,6 +1027,7 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           id?: string
+          payout_cycle_id?: string | null
           qr_code_id?: string | null
           qr_data?: Json | null
           status?: string
@@ -1049,10 +1052,74 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gym_check_ins_payout_cycle_id_fkey"
+            columns: ["payout_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "gym_payout_cycles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "gym_check_ins_qr_code_id_fkey"
             columns: ["qr_code_id"]
             isOneToOne: false
             referencedRelation: "gym_qr_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_payout_cycles: {
+        Row: {
+          academia_id: string
+          asaas_transfer_id: string | null
+          check_ins_count: number
+          created_at: string
+          end_date: string | null
+          id: string
+          payout_date: string | null
+          start_date: string
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          academia_id: string
+          asaas_transfer_id?: string | null
+          check_ins_count?: number
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          payout_date?: string | null
+          start_date?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          academia_id?: string
+          asaas_transfer_id?: string | null
+          check_ins_count?: number
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          payout_date?: string | null
+          start_date?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_payout_cycles_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_payout_cycles_asaas_transfer_id_fkey"
+            columns: ["asaas_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_transfers"
             referencedColumns: ["id"]
           },
         ]
@@ -1770,6 +1837,24 @@ export type Database = {
           p_cpf: string
         }
         Returns: string
+      }
+      complete_payout_cycle: {
+        Args: {
+          p_cycle_id: string
+        }
+        Returns: {
+          academia_id: string
+          asaas_transfer_id: string | null
+          check_ins_count: number
+          created_at: string
+          end_date: string | null
+          id: string
+          payout_date: string | null
+          start_date: string
+          status: string
+          total_amount: number
+          updated_at: string
+        }
       }
       create_academia_v2: {
         Args: {
