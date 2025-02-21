@@ -5,7 +5,14 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Loader2, Save, Building2, Clock, Camera, CreditCard, FileText } from "lucide-react";
+import { 
+  Loader2, 
+  Save, 
+  Building2, 
+  Clock, 
+  Camera, 
+  CreditCard
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GymPhotosDialog } from "../admin/gyms/GymPhotosDialog";
 import type { Gym } from "@/types/gym";
@@ -71,6 +78,33 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
 
       if (error) throw error;
 
+      // Salvar dados bancários
+      if (data.titular_nome) {
+        const bankData = {
+          academia_id: academia.id,
+          titular_tipo: data.titular_tipo,
+          titular_nome: data.titular_nome,
+          titular_cpf_cnpj: data.titular_cpf_cnpj,
+          metodo_preferencial: data.metodo_preferencial,
+          tipo_chave_pix: data.tipo_chave_pix,
+          chave_pix: data.chave_pix,
+          banco_codigo: data.banco_codigo,
+          banco_nome: data.banco_nome,
+          agencia: data.agencia,
+          agencia_digito: data.agencia_digito,
+          conta: data.conta,
+          conta_digito: data.conta_digito,
+          tipo_conta: data.tipo_conta,
+        };
+
+        const { error: bankError } = await supabase
+          .from("academia_dados_bancarios")
+          .upsert(bankData)
+          .eq("academia_id", academia.id);
+
+        if (bankError) throw bankError;
+      }
+
       toast({
         title: "Sucesso",
         description: "Informações atualizadas com sucesso",
@@ -100,13 +134,9 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
             <Clock className="h-4 w-4" />
             Horários
           </TabsTrigger>
-          <TabsTrigger value="bank" className="flex items-center gap-2">
+          <TabsTrigger value="settings" className="flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
-            Dados Bancários
-          </TabsTrigger>
-          <TabsTrigger value="media" className="flex items-center gap-2">
-            <Camera className="h-4 w-4" />
-            Fotos e Documentos
+            Configurações
           </TabsTrigger>
         </TabsList>
 
@@ -118,17 +148,20 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
           <ScheduleTab watch={watch} setValue={setValue} />
         </TabsContent>
 
-        <TabsContent value="bank">
+        <TabsContent value="settings" className="space-y-4">
           <Card className="p-6">
-            <BankDetailsForm register={register} errors={errors} />
+            <BankDetailsForm 
+              register={register} 
+              errors={errors}
+              academiaId={academia.id}
+            />
           </Card>
-        </TabsContent>
-
-        <TabsContent value="media" className="space-y-4">
+          
           <PhotosTab 
             fotos={academia.fotos} 
             onOpenPhotosDialog={() => setIsPhotosDialogOpen(true)} 
           />
+          
           <DocumentsTab academiaId={academia.id} />
         </TabsContent>
       </Tabs>
