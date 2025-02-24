@@ -2,7 +2,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RevenueOverview } from "./RevenueOverview";
 import { PaymentsList } from "./PaymentsList";
-import { BankDetailsForm } from "./BankDetailsForm";
 import { PaymentHistoryList } from "./PaymentHistoryList";
 import { PayoutCyclesPanel } from "./PayoutCyclesPanel";
 
@@ -17,7 +16,6 @@ export function FinancialPanel({ academiaId }: FinancialPanelProps) {
         <TabsTrigger value="overview">Visão Geral</TabsTrigger>
         <TabsTrigger value="cycles">Ciclos de Repasse</TabsTrigger>
         <TabsTrigger value="payments">Pagamentos</TabsTrigger>
-        <TabsTrigger value="bank">Dados Bancários</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-4">
@@ -31,10 +29,6 @@ export function FinancialPanel({ academiaId }: FinancialPanelProps) {
 
       <TabsContent value="payments">
         <PaymentsList academiaId={academiaId} />
-      </TabsContent>
-
-      <TabsContent value="bank">
-        <BankDetailsForm academiaId={academiaId} />
       </TabsContent>
     </Tabs>
   );
