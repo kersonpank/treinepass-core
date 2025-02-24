@@ -1,229 +1,249 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { corsHeaders } from '../_shared/cors.ts';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-interface CreateSubscriptionRequest {
-  customerId: string;
-  planId: string;
-  billingType: string;
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface CreateTransferRequest {
-  academiaId: string;
-  cycleId: string;
-  amount: number;
-}
+const ASAAS_API_KEY = Deno.env.get('ASAAS_API_KEY')
+const ASAAS_API_URL = 'https://api.asaas.com/v3'
 
-Deno.serve(async (req) => {
+const supabaseUrl = Deno.env.get('SUPABASE_URL')
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const supabase = createClient(supabaseUrl!, supabaseServiceKey!)
+
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const ASAAS_API_KEY = Deno.env.get('ASAAS_API_KEY');
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!ASAAS_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Missing environment variables');
-    }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const url = new URL(req.url);
-    const action = url.searchParams.get('action');
-
-    if (!action) {
-      throw new Error('Missing action parameter');
-    }
+    const { action, data } = await req.json()
+    console.log(`Processing ${action} with data:`, data)
 
     switch (action) {
       case 'createSubscription': {
-        const { customerId, planId, billingType }: CreateSubscriptionRequest = await req.json();
+        const { userId, planId, paymentMethod } = data
+        
+        // Get user data
+        const { data: userData, error: userError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+        
+        if (userError) throw userError
 
-        // Get plan details
-        const { data: plan, error: planError } = await supabase
+        // Get plan data
+        const { data: planData, error: planError } = await supabase
           .from('benefit_plans')
           .select('*')
           .eq('id', planId)
-          .single();
+          .single()
+        
+        if (planError) throw planError
 
-        if (planError || !plan) {
-          throw new Error('Plan not found');
-        }
-
-        // Get customer details
-        const { data: customer, error: customerError } = await supabase
+        // Create or get Asaas customer
+        const { data: customerData, error: customerError } = await supabase
           .from('asaas_customers')
-          .select('asaas_id, email')
-          .eq('id', customerId)
-          .single();
+          .select('*')
+          .eq('user_id', userId)
+          .single()
 
-        if (customerError || !customer) {
-          throw new Error('Customer not found');
+        let asaasCustomerId
+        if (!customerData) {
+          const customerResponse = await fetch(`${ASAAS_API_URL}/customers`, {
+            method: 'POST',
+            headers: {
+              'access_token': ASAAS_API_KEY!,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              name: userData.full_name,
+              email: userData.email,
+              cpfCnpj: userData.cpf,
+              phone: userData.phone_number
+            })
+          })
+
+          const customer = await customerResponse.json()
+          if (!customerResponse.ok) throw new Error(customer.errors[0].description)
+
+          const { error: insertError } = await supabase
+            .from('asaas_customers')
+            .insert({
+              user_id: userId,
+              asaas_id: customer.id,
+              name: userData.full_name,
+              email: userData.email,
+              cpf_cnpj: userData.cpf
+            })
+
+          if (insertError) throw insertError
+          asaasCustomerId = customer.id
+        } else {
+          asaasCustomerId = customerData.asaas_id
         }
 
-        // Create subscription in Asaas
-        const asaasResponse = await fetch('https://api.asaas.com/v3/subscriptions', {
+        // Create Asaas subscription
+        const subscriptionResponse = await fetch(`${ASAAS_API_URL}/subscriptions`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'access_token': ASAAS_API_KEY,
+            'access_token': ASAAS_API_KEY!,
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            customer: customer.asaas_id,
-            billingType: billingType,
-            value: plan.monthly_cost,
-            nextDueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tomorrow
-            cycle: 'MONTHLY',
-            description: `Assinatura do plano ${plan.name}`,
-            maxPayments: plan.validity_period ? 
-              Math.ceil(plan.validity_period.days / 30) : undefined,
-          }),
-        });
+            customer: asaasCustomerId,
+            billingType: paymentMethod,
+            value: planData.monthly_cost,
+            nextDueDate: new Date().toISOString().split('T')[0],
+            cycle: planData.period_type.toUpperCase(),
+            description: `Subscription to ${planData.name}`,
+            maxPayments: planData.minimum_contract_months
+          })
+        })
 
-        if (!asaasResponse.ok) {
-          throw new Error('Failed to create subscription in Asaas');
-        }
-
-        const asaasData = await asaasResponse.json();
+        const subscription = await subscriptionResponse.json()
+        if (!subscriptionResponse.ok) throw new Error(subscription.errors[0].description)
 
         // Create subscription record
-        const { error: subscriptionError } = await supabase
+        const { data: subscriptionRecord, error: subscriptionError } = await supabase
           .from('user_plan_subscriptions')
           .insert({
-            user_id: customerId,
+            user_id: userId,
             plan_id: planId,
             status: 'pending',
+            payment_status: 'pending',
+            asaas_subscription_id: subscription.id,
+            payment_method: paymentMethod,
             start_date: new Date().toISOString(),
-            end_date: plan.validity_period ? 
-              new Date(Date.now() + plan.validity_period.days * 24 * 60 * 60 * 1000).toISOString() : 
-              null,
-          });
+            total_value: planData.monthly_cost * (planData.minimum_contract_months || 1),
+            installments: planData.minimum_contract_months
+          })
+          .select()
+          .single()
 
-        if (subscriptionError) {
-          throw new Error('Failed to create subscription record');
-        }
+        if (subscriptionError) throw subscriptionError
 
-        // Create payment record
-        const { error: paymentError } = await supabase
-          .from('asaas_payments')
+        // Register initial payment in financial transactions
+        const { error: transactionError } = await supabase
+          .from('financial_transactions')
           .insert({
-            customer_id: customerId,
-            subscription_id: asaasData.id,
-            amount: plan.monthly_cost,
-            billing_type: billingType,
-            due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            status: 'PENDING',
-            subscription_type: plan.plan_type,
-          });
+            transaction_type: 'payment',
+            entity_type: 'user',
+            entity_id: userId,
+            amount: planData.monthly_cost,
+            status: 'pending',
+            description: `Initial payment for subscription to ${planData.name}`
+          })
 
-        if (paymentError) {
-          throw new Error('Failed to create payment record');
-        }
+        if (transactionError) throw transactionError
 
-        return new Response(JSON.stringify({
-          success: true,
-          data: asaasData,
-        }), {
+        return new Response(JSON.stringify(subscriptionRecord), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        });
+          status: 200
+        })
       }
 
-      case 'createTransfer': {
-        const { academiaId, cycleId, amount }: CreateTransferRequest = await req.json();
-
-        // Get academia bank details
-        const { data: bankDetails, error: bankError } = await supabase
-          .from('academia_dados_bancarios')
-          .select('*')
-          .eq('academia_id', academiaId)
-          .single();
-
-        if (bankError || !bankDetails) {
-          throw new Error('Bank details not found');
-        }
-
-        // Create transfer in Asaas
-        const asaasResponse = await fetch('https://api.asaas.com/v3/transfers', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'access_token': ASAAS_API_KEY,
-          },
-          body: JSON.stringify({
-            value: amount,
-            bankAccount: {
-              bank: {
-                code: bankDetails.banco_codigo,
-              },
-              accountName: bankDetails.titular_nome,
-              ownerName: bankDetails.titular_nome,
-              ownerBirthDate: null,
-              cpfCnpj: bankDetails.titular_cpf_cnpj,
-              type: bankDetails.tipo_conta,
-              agencyNumber: bankDetails.agencia,
-              accountNumber: bankDetails.conta,
-              accountDigit: bankDetails.conta_digito,
-            },
-          }),
-        });
-
-        if (!asaasResponse.ok) {
-          throw new Error('Failed to create transfer in Asaas');
-        }
-
-        const asaasData = await asaasResponse.json();
-
-        // Update transfer record
-        const { error: transferError } = await supabase
-          .from('asaas_transfers')
-          .insert({
-            academia_id: academiaId,
-            amount: amount,
-            asaas_id: asaasData.id,
-            status: 'PENDING',
-            reference_month: new Date().toISOString().split('T')[0],
-          });
-
-        if (transferError) {
-          throw new Error('Failed to create transfer record');
-        }
-
-        // Update payout cycle
-        const { error: cycleError } = await supabase
+      case 'processTransfers': {
+        // Get academias with pending transfers
+        const { data: cycles, error: cyclesError } = await supabase
           .from('gym_payout_cycles')
-          .update({
-            asaas_transfer_id: asaasData.id,
-            status: 'processing',
-          })
-          .eq('id', cycleId);
+          .select(`
+            id,
+            academia_id,
+            total_amount,
+            academias (
+              nome,
+              academia_dados_bancarios (*)
+            )
+          `)
+          .eq('status', 'active')
+          .gt('total_amount', 0)
 
-        if (cycleError) {
-          throw new Error('Failed to update payout cycle');
+        if (cyclesError) throw cyclesError
+
+        const transfers = []
+        for (const cycle of cycles) {
+          if (!cycle.academias.academia_dados_bancarios?.[0]) continue
+
+          const bankData = cycle.academias.academia_dados_bancarios[0]
+          
+          // Create transfer in Asaas
+          const transferResponse = await fetch(`${ASAAS_API_URL}/transfers`, {
+            method: 'POST',
+            headers: {
+              'access_token': ASAAS_API_KEY!,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              value: cycle.total_amount,
+              bankAccount: {
+                bank: {
+                  code: bankData.banco_codigo
+                },
+                accountName: bankData.titular_nome,
+                ownerName: bankData.titular_nome,
+                ownerBirthDate: "1985-01-01", // Required by Asaas but not used
+                cpfCnpj: bankData.titular_cpf_cnpj,
+                agency: bankData.agencia,
+                agencyDigit: bankData.agencia_digito,
+                account: bankData.conta,
+                accountDigit: bankData.conta_digito,
+                bankAccountType: bankData.tipo_conta?.toUpperCase() || "CHECKING"
+              }
+            })
+          })
+
+          const transfer = await transferResponse.json()
+          if (!transferResponse.ok) {
+            console.error(`Transfer error for academia ${cycle.academia_id}:`, transfer)
+            continue
+          }
+
+          // Register transfer
+          const { data: transferRecord, error: transferError } = await supabase
+            .from('asaas_transfers')
+            .insert({
+              academia_id: cycle.academia_id,
+              amount: cycle.total_amount,
+              asaas_id: transfer.id,
+              status: 'PENDING',
+              reference_month: new Date().toISOString().split('T')[0]
+            })
+            .select()
+            .single()
+
+          if (transferError) throw transferError
+
+          // Update cycle
+          const { error: cycleError } = await supabase
+            .from('gym_payout_cycles')
+            .update({ status: 'completed' })
+            .eq('id', cycle.id)
+
+          if (cycleError) throw cycleError
+
+          transfers.push(transferRecord)
         }
 
-        return new Response(JSON.stringify({
-          success: true,
-          data: asaasData,
-        }), {
+        return new Response(JSON.stringify({ transfers }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        });
+          status: 200
+        })
       }
 
       default:
-        throw new Error('Invalid action');
+        throw new Error(`Unknown action: ${action}`)
     }
-  } catch (error) {
-    console.error('Error:', error.message);
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    });
-  }
-});
 
+  } catch (error) {
+    console.error('Error processing request:', error)
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 400
+    })
+  }
+})
