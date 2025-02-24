@@ -86,7 +86,7 @@ serve(async (req: Request) => {
           paymentStatus = 'pending';
       }
 
-      // Update subscription
+      // Update subscription status
       const { error: updateError } = await supabase
         .from('user_plan_subscriptions')
         .update({
@@ -116,11 +116,66 @@ serve(async (req: Request) => {
           due_date: payment.dueDate,
           payment_date: payment.paymentDate,
           invoice_url: payment.invoiceUrl,
-          payment_method: payment.billingType.toLowerCase()
+          payment_method: payment.billingType.toLowerCase(),
+          total_amount: payment.totalValue,
+          payment_link: payment.paymentLink
         });
 
       if (paymentError) {
         throw paymentError;
+      }
+
+      // If payment confirmed, send notification to user
+      if (subscriptionStatus === 'active') {
+        // You could implement email/push notification here
+        console.log('Payment confirmed for subscription:', userSubscription.id);
+      }
+    }
+
+    // Process subscription events
+    if (payload.event.startsWith('SUBSCRIPTION_')) {
+      const subscription = payload.subscription;
+
+      // Find subscription by Asaas ID
+      const { data: userSubscription } = await supabase
+        .from('user_plan_subscriptions')
+        .select('*')
+        .eq('asaas_subscription_id', subscription.id)
+        .single();
+
+      if (!userSubscription) {
+        throw new Error('Subscription not found');
+      }
+
+      // Update subscription status based on event
+      let subscriptionStatus: string;
+
+      switch (payload.event) {
+        case 'SUBSCRIPTION_DELETED':
+        case 'SUBSCRIPTION_CANCELED':
+          subscriptionStatus = 'canceled';
+          break;
+        case 'SUBSCRIPTION_EXPIRED':
+          subscriptionStatus = 'expired';
+          break;
+        case 'SUBSCRIPTION_RENEWED':
+          subscriptionStatus = 'active';
+          break;
+        default:
+          return; // Don't update for other events
+      }
+
+      // Update subscription
+      const { error: updateError } = await supabase
+        .from('user_plan_subscriptions')
+        .update({
+          status: subscriptionStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userSubscription.id);
+
+      if (updateError) {
+        throw updateError;
       }
     }
 
