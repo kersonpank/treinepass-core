@@ -340,6 +340,7 @@ export type Database = {
           deleted: boolean | null
           due_date: string
           external_reference: string | null
+          fee_amount: number | null
           fine_value: number | null
           id: string
           installment: number | null
@@ -347,13 +348,16 @@ export type Database = {
           invoice_url: string | null
           net_amount: number | null
           next_due_date: string | null
+          payment_cycle_id: string | null
           payment_date: string | null
+          payment_date_limit: string | null
           payment_link: string | null
           payment_method: string | null
           status: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id: string | null
           subscription_period: string | null
           subscription_type: string | null
+          total_amount: number | null
           updated_at: string
         }
         Insert: {
@@ -365,6 +369,7 @@ export type Database = {
           deleted?: boolean | null
           due_date: string
           external_reference?: string | null
+          fee_amount?: number | null
           fine_value?: number | null
           id?: string
           installment?: number | null
@@ -372,13 +377,16 @@ export type Database = {
           invoice_url?: string | null
           net_amount?: number | null
           next_due_date?: string | null
+          payment_cycle_id?: string | null
           payment_date?: string | null
+          payment_date_limit?: string | null
           payment_link?: string | null
           payment_method?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
           subscription_period?: string | null
           subscription_type?: string | null
+          total_amount?: number | null
           updated_at?: string
         }
         Update: {
@@ -390,6 +398,7 @@ export type Database = {
           deleted?: boolean | null
           due_date?: string
           external_reference?: string | null
+          fee_amount?: number | null
           fine_value?: number | null
           id?: string
           installment?: number | null
@@ -397,13 +406,16 @@ export type Database = {
           invoice_url?: string | null
           net_amount?: number | null
           next_due_date?: string | null
+          payment_cycle_id?: string | null
           payment_date?: string | null
+          payment_date_limit?: string | null
           payment_link?: string | null
           payment_method?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
           subscription_period?: string | null
           subscription_type?: string | null
+          total_amount?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -412,6 +424,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "asaas_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asaas_payments_payment_cycle_id_fkey"
+            columns: ["payment_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "gym_payout_cycles"
             referencedColumns: ["id"]
           },
           {
@@ -460,8 +479,12 @@ export type Database = {
           asaas_id: string | null
           batch_id: string | null
           created_at: string
+          fee_amount: number | null
           id: string
+          net_amount: number | null
+          processing_date: string | null
           reference_month: string
+          scheduled_date: string | null
           status: string
           transfer_date: string | null
           updated_at: string
@@ -472,8 +495,12 @@ export type Database = {
           asaas_id?: string | null
           batch_id?: string | null
           created_at?: string
+          fee_amount?: number | null
           id?: string
+          net_amount?: number | null
+          processing_date?: string | null
           reference_month: string
+          scheduled_date?: string | null
           status?: string
           transfer_date?: string | null
           updated_at?: string
@@ -484,8 +511,12 @@ export type Database = {
           asaas_id?: string | null
           batch_id?: string | null
           created_at?: string
+          fee_amount?: number | null
           id?: string
+          net_amount?: number | null
+          processing_date?: string | null
           reference_month?: string
+          scheduled_date?: string | null
           status?: string
           transfer_date?: string | null
           updated_at?: string
@@ -544,11 +575,14 @@ export type Database = {
           check_in_rules: Json | null
           created_at: string
           description: string | null
+          early_cancellation_fee: number | null
           employee_limit: number | null
           final_user_cost: number | null
           financing_rules: Json | null
           id: string
+          late_payment_fee: number | null
           linked_plan_id: string | null
+          minimum_contract_months: number | null
           monthly_cost: number
           name: string
           payment_methods: Json | null
@@ -558,6 +592,7 @@ export type Database = {
           platform_fee: number | null
           renewal_type: string | null
           rules: Json
+          setup_fee: number | null
           status: string
           subsidy_amount: number | null
           updated_at: string
@@ -573,11 +608,14 @@ export type Database = {
           check_in_rules?: Json | null
           created_at?: string
           description?: string | null
+          early_cancellation_fee?: number | null
           employee_limit?: number | null
           final_user_cost?: number | null
           financing_rules?: Json | null
           id?: string
+          late_payment_fee?: number | null
           linked_plan_id?: string | null
+          minimum_contract_months?: number | null
           monthly_cost: number
           name: string
           payment_methods?: Json | null
@@ -587,6 +625,7 @@ export type Database = {
           platform_fee?: number | null
           renewal_type?: string | null
           rules?: Json
+          setup_fee?: number | null
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
@@ -602,11 +641,14 @@ export type Database = {
           check_in_rules?: Json | null
           created_at?: string
           description?: string | null
+          early_cancellation_fee?: number | null
           employee_limit?: number | null
           final_user_cost?: number | null
           financing_rules?: Json | null
           id?: string
+          late_payment_fee?: number | null
           linked_plan_id?: string | null
+          minimum_contract_months?: number | null
           monthly_cost?: number
           name?: string
           payment_methods?: Json | null
@@ -616,6 +658,7 @@ export type Database = {
           platform_fee?: number | null
           renewal_type?: string | null
           rules?: Json
+          setup_fee?: number | null
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
@@ -980,6 +1023,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      financial_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          fee_amount: number | null
+          id: string
+          net_amount: number | null
+          processed_at: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          fee_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          processed_at?: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["entity_type"]
+          fee_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          transaction_type?: Database["public"]["Enums"]["transaction_type"]
+        }
+        Relationships: []
       }
       gym_check_ins: {
         Row: {
@@ -1681,32 +1766,53 @@ export type Database = {
       }
       user_plan_subscriptions: {
         Row: {
+          asaas_subscription_id: string | null
           created_at: string
           end_date: string | null
           id: string
+          installments: number | null
+          last_payment_date: string | null
+          next_payment_date: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
           plan_id: string
           start_date: string
           status: Database["public"]["Enums"]["plan_subscription_status"]
+          total_value: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          asaas_subscription_id?: string | null
           created_at?: string
           end_date?: string | null
           id?: string
+          installments?: number | null
+          last_payment_date?: string | null
+          next_payment_date?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_status?: Database["public"]["Enums"]["payment_status"] | null
           plan_id: string
           start_date: string
           status?: Database["public"]["Enums"]["plan_subscription_status"]
+          total_value?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          asaas_subscription_id?: string | null
           created_at?: string
           end_date?: string | null
           id?: string
+          installments?: number | null
+          last_payment_date?: string | null
+          next_payment_date?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_status?: Database["public"]["Enums"]["payment_status"] | null
           plan_id?: string
           start_date?: string
           status?: Database["public"]["Enums"]["plan_subscription_status"]
+          total_value?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -1811,6 +1917,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_financial_metrics: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+        }
+        Returns: {
+          total_revenue: number
+          total_transfers: number
+          total_fees: number
+          net_revenue: number
+        }[]
+      }
       can_user_check_in: {
         Args: {
           p_user_id: string
@@ -2008,8 +2126,23 @@ export type Database = {
         | "CANCELED"
       check_in_validation_method: "qr_code" | "manual_code" | "qr_scan"
       employee_invite_status: "pending" | "accepted" | "rejected"
+      entity_type: "user" | "business" | "academia" | "system"
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
+      payment_method:
+        | "credit_card"
+        | "debit_card"
+        | "pix"
+        | "boleto"
+        | "transfer"
+      payment_status:
+        | "pending"
+        | "paid"
+        | "failed"
+        | "cancelled"
+        | "refunded"
+        | "processing"
       plan_subscription_status: "active" | "pending" | "expired" | "cancelled"
+      transaction_type: "payment" | "refund" | "transfer" | "fee" | "adjustment"
       user_role_type:
         | "individual"
         | "business"
