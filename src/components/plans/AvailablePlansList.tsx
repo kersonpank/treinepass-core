@@ -1,3 +1,4 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,16 +10,57 @@ import { Loader2 } from "lucide-react";
 export function AvailablePlansList() {
   const { toast } = useToast();
 
-  const { data: plans, isLoading } = useQuery({
-    queryKey: ["availablePlans"],
+  // First, check if the user has access to subsidized plans
+  const { data: userProfile } = useQuery({
+    queryKey: ["userProfile"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      return profile;
+    },
+  });
+
+  // Query to check if user's CPF is associated with any business
+  const { data: hasBusinessAccess } = useQuery({
+    queryKey: ["businessAccess", userProfile?.cpf],
+    queryFn: async () => {
+      if (!userProfile?.cpf) return false;
+
+      const { data: employees } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('cpf', userProfile.cpf)
+        .eq('status', 'active')
+        .limit(1);
+
+      return employees && employees.length > 0;
+    },
+    enabled: !!userProfile?.cpf,
+  });
+
+  const { data: plans, isLoading } = useQuery({
+    queryKey: ["availablePlans", hasBusinessAccess],
+    queryFn: async () => {
+      let query = supabase
         .from("benefit_plans")
         .select("*, business_profiles(company_name)")
-        .eq("status", "active")
-        .or("plan_type.eq.individual,plan_type.eq.corporate_subsidized")
-        .order("monthly_cost");
+        .eq("status", "active");
 
+      // If user doesn't have business access, exclude corporate_subsidized plans
+      if (!hasBusinessAccess) {
+        query = query.eq("plan_type", "individual");
+      } else {
+        query = query.or("plan_type.eq.individual,plan_type.eq.corporate_subsidized");
+      }
+
+      const { data, error } = await query.order("monthly_cost");
       if (error) throw error;
       return data;
     },
@@ -79,9 +121,9 @@ export function AvailablePlansList() {
                 <span className="text-sm font-normal text-muted-foreground">/mês</span>
               </span>
             </CardTitle>
-            {plan.plan_type === 'corporate_subsidized' && (
+            {plan.plan_type === 'corporate_subsidized' && plan.business_profiles?.company_name && (
               <div className="text-sm text-muted-foreground">
-                Plano subsidiado por {plan.business_profiles?.company_name}
+                Plano subsidiado por {plan.business_profiles.company_name}
               </div>
             )}
           </CardHeader>
