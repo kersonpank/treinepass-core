@@ -1,116 +1,173 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders } from "../_shared/cors.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
-const ASAAS_API_URL = "https://sandbox.asaas.com/api/v3";
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-interface CreateCustomerPayload {
-  name: string;
-  email: string;
-  cpfCnpj: string;
-  phone?: string;
+interface CreateSubscriptionBody {
+  userId: string;
+  planId: string;
+  paymentMethod: 'credit_card' | 'pix' | 'boleto';
 }
 
-interface CreateSubscriptionPayload {
-  customer: string;
-  billingType: string;
-  value: number;
-  nextDueDate: string;
-  cycle: string;
-  description: string;
-}
-
-serve(async (req) => {
+serve(async (req: Request) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { action, payload } = await req.json()
-    const apiKey = Deno.env.get('ASAAS_API_KEY')
+    // Get environment variables
+    const ASAAS_API_KEY = Deno.env.get('ASAAS_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!apiKey) {
-      throw new Error('ASAAS_API_KEY não configurada')
+    if (!ASAAS_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Missing environment variables');
     }
 
-    const headers = {
-      'Content-Type': 'application/json',
-      'access_token': apiKey,
-      ...corsHeaders
+    // Initialize Supabase client
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    if (req.method !== 'POST') {
+      throw new Error('Method not allowed');
     }
 
-    switch (action) {
-      case 'createCustomer': {
-        const { name, email, cpfCnpj, phone } = payload as CreateCustomerPayload
-        
-        const response = await fetch(`${ASAAS_API_URL}/customers`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            name,
-            email,
-            cpfCnpj,
-            phone,
-            notificationDisabled: false
-          })
-        })
+    // Get request body
+    const { userId, planId, paymentMethod } = await req.json() as CreateSubscriptionBody;
 
-        const data = await response.json()
-        return new Response(JSON.stringify(data), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
+    // Get user profile
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-      case 'createSubscription': {
-        const { 
-          customer,
-          billingType,
-          value,
-          nextDueDate,
-          cycle,
-          description
-        } = payload as CreateSubscriptionPayload
-
-        const response = await fetch(`${ASAAS_API_URL}/subscriptions`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            customer,
-            billingType,
-            value,
-            nextDueDate,
-            cycle,
-            description,
-            maxPayments: 0
-          })
-        })
-
-        const data = await response.json()
-        return new Response(JSON.stringify(data), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
-
-      case 'createTransfer': {
-        const response = await fetch(`${ASAAS_API_URL}/transfers`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload)
-        })
-
-        const data = await response.json()
-        return new Response(JSON.stringify(data), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
-      }
-
-      default:
-        throw new Error('Ação não suportada')
+    if (!userProfile) {
+      throw new Error('User profile not found');
     }
+
+    // Get plan details
+    const { data: plan } = await supabase
+      .from('benefit_plans')
+      .select('*')
+      .eq('id', planId)
+      .single();
+
+    if (!plan) {
+      throw new Error('Plan not found');
+    }
+
+    // Check if customer already exists in Asaas
+    const { data: existingCustomer } = await supabase
+      .from('asaas_customers')
+      .select('asaas_id')
+      .eq('user_id', userId)
+      .single();
+
+    let asaasCustomerId = existingCustomer?.asaas_id;
+
+    // If customer doesn't exist, create one
+    if (!asaasCustomerId) {
+      console.log('Creating new Asaas customer...');
+      const customerResponse = await fetch('https://sandbox.asaas.com/api/v3/customers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'access_token': ASAAS_API_KEY
+        },
+        body: JSON.stringify({
+          name: userProfile.full_name,
+          email: userProfile.email,
+          cpfCnpj: userProfile.cpf.replace(/\D/g, ''),
+          phone: userProfile.phone_number
+        })
+      });
+
+      if (!customerResponse.ok) {
+        throw new Error('Failed to create Asaas customer');
+      }
+
+      const customerData = await customerResponse.json();
+      asaasCustomerId = customerData.id;
+
+      // Save Asaas customer ID
+      await supabase.from('asaas_customers').insert({
+        user_id: userId,
+        asaas_id: asaasCustomerId,
+        name: userProfile.full_name,
+        email: userProfile.email,
+        cpf_cnpj: userProfile.cpf
+      });
+    }
+
+    // Create subscription in Asaas
+    console.log('Creating Asaas subscription...');
+    const subscriptionResponse = await fetch('https://sandbox.asaas.com/api/v3/subscriptions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'access_token': ASAAS_API_KEY
+      },
+      body: JSON.stringify({
+        customer: asaasCustomerId,
+        billingType: paymentMethod.toUpperCase(),
+        value: plan.monthly_cost,
+        nextDueDate: new Date().toISOString().split('T')[0],
+        cycle: 'MONTHLY',
+        description: `Assinatura ${plan.name}`,
+        maxPayments: 0 // infinite
+      })
+    });
+
+    if (!subscriptionResponse.ok) {
+      throw new Error('Failed to create Asaas subscription');
+    }
+
+    const subscriptionData = await subscriptionResponse.json();
+
+    // Update user_plan_subscriptions
+    const { error: subscriptionError } = await supabase
+      .from('user_plan_subscriptions')
+      .update({
+        asaas_customer_id: asaasCustomerId,
+        asaas_subscription_id: subscriptionData.id,
+        payment_method: paymentMethod,
+        status: 'pending',
+        payment_status: 'pending',
+        next_payment_date: subscriptionData.nextDueDate
+      })
+      .eq('user_id', userId)
+      .eq('plan_id', planId);
+
+    if (subscriptionError) {
+      throw subscriptionError;
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        subscription: subscriptionData
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      }
+    );
+
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    console.error('Error:', error);
+    return new Response(
+      JSON.stringify({
+        error: error.message
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      }
+    );
   }
-})
+});
