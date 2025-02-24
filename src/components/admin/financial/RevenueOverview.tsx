@@ -1,36 +1,43 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, TrendingUp, CreditCard, Calendar } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
-export function RevenueOverview() {
+interface RevenueOverviewProps {
+  academiaId: string;
+}
+
+export function RevenueOverview({ academiaId }: RevenueOverviewProps) {
   const { data: stats } = useQuery({
-    queryKey: ["revenue-stats"],
+    queryKey: ["revenue-stats", academiaId],
     queryFn: async () => {
       const today = new Date();
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-      const { data: monthlyRevenue } = await supabase
-        .from("payments")
-        .select("amount")
-        .gte("payment_date", firstDayOfMonth.toISOString())
-        .lte("payment_date", lastDayOfMonth.toISOString())
-        .eq("status", "paid");
+      const { data: financialMetrics } = await supabase.rpc(
+        'calculate_financial_metrics',
+        {
+          p_start_date: firstDayOfMonth.toISOString(),
+          p_end_date: lastDayOfMonth.toISOString()
+        }
+      );
 
-      const { data: pendingPayments } = await supabase
-        .from("payments")
-        .select("amount")
-        .eq("status", "pending");
-
-      const totalMonthly = monthlyRevenue?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
-      const totalPending = pendingPayments?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
+      const { data: cyclesData } = await supabase
+        .from('gym_payout_cycles')
+        .select('*')
+        .eq('academia_id', academiaId)
+        .eq('status', 'active')
+        .single();
 
       return {
-        monthlyRevenue: totalMonthly,
-        pendingPayments: totalPending,
-        activeBusinesses: 0, // To be implemented
-        averageTicket: totalMonthly / (monthlyRevenue?.length || 1),
+        currentCycle: cyclesData,
+        monthlyRevenue: financialMetrics?.total_revenue || 0,
+        pendingTransfers: financialMetrics?.total_transfers || 0,
+        totalFees: financialMetrics?.total_fees || 0,
+        netRevenue: financialMetrics?.net_revenue || 0
       };
     },
   });
@@ -46,7 +53,7 @@ export function RevenueOverview() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            R$ {stats?.monthlyRevenue.toFixed(2)}
+            {formatCurrency(stats?.monthlyRevenue || 0)}
           </div>
           <p className="text-xs text-muted-foreground">
             Mês atual
@@ -57,16 +64,16 @@ export function RevenueOverview() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Pagamentos Pendentes
+            Repasses Pendentes
           </CardTitle>
           <CreditCard className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            R$ {stats?.pendingPayments.toFixed(2)}
+            {formatCurrency(stats?.pendingTransfers || 0)}
           </div>
           <p className="text-xs text-muted-foreground">
-            Total pendente
+            Total a repassar
           </p>
         </CardContent>
       </Card>
@@ -74,14 +81,16 @@ export function RevenueOverview() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Empresas Ativas
+            Ciclo Atual
           </CardTitle>
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{stats?.activeBusinesses}</div>
+          <div className="text-2xl font-bold">
+            {stats?.currentCycle ? formatCurrency(stats.currentCycle.total_amount) : "R$ 0,00"}
+          </div>
           <p className="text-xs text-muted-foreground">
-            Total de clientes
+            {stats?.currentCycle?.check_ins_count || 0} check-ins
           </p>
         </CardContent>
       </Card>
@@ -89,16 +98,16 @@ export function RevenueOverview() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Ticket Médio
+            Receita Líquida
           </CardTitle>
           <Calendar className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            R$ {stats?.averageTicket.toFixed(2)}
+            {formatCurrency(stats?.netRevenue || 0)}
           </div>
           <p className="text-xs text-muted-foreground">
-            Por empresa
+            Após taxas e repasses
           </p>
         </CardContent>
       </Card>

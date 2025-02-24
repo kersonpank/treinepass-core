@@ -6,11 +6,11 @@ import { BankDetailsForm } from "./BankDetailsForm";
 import { PaymentHistoryList } from "./PaymentHistoryList";
 import { PayoutCyclesPanel } from "./PayoutCyclesPanel";
 
-interface CompProps {
+interface FinancialPanelProps {
   academiaId: string;
 }
 
-export function FinancialPanel({ academiaId }: CompProps) {
+export function FinancialPanel({ academiaId }: FinancialPanelProps) {
   return (
     <Tabs defaultValue="overview" className="space-y-4">
       <TabsList>
