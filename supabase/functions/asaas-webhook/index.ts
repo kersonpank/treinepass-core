@@ -1,80 +1,150 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
-import { corsHeaders } from "../_shared/cors.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
-serve(async (req) => {
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req: Request) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    // Get environment variables
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Variáveis de ambiente não configuradas')
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Missing environment variables');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    const webhook = await req.json()
+    // Initialize Supabase client
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Registrar evento do webhook
-    const { error: webhookError } = await supabase
+    // Get webhook payload
+    const payload = await req.json();
+    console.log('Received webhook:', payload);
+
+    // Store webhook event
+    const { data: webhookEvent, error: webhookError } = await supabase
       .from('asaas_webhook_events')
       .insert({
-        event_type: webhook.event,
-        event_data: webhook
+        event_type: payload.event,
+        event_data: payload
       })
+      .select()
+      .single();
 
-    if (webhookError) throw webhookError
+    if (webhookError) {
+      throw webhookError;
+    }
 
-    // Processar pagamento
-    if (webhook.event.startsWith('PAYMENT_')) {
-      const { data: payment, error: paymentError } = await supabase
-        .from('asaas_payments')
+    // Process payment events
+    if (payload.event.startsWith('PAYMENT_')) {
+      const payment = payload.payment;
+      const subscription = payment.subscription;
+
+      // Find subscription by Asaas ID
+      const { data: userSubscription } = await supabase
+        .from('user_plan_subscriptions')
+        .select('*')
+        .eq('asaas_subscription_id', subscription)
+        .single();
+
+      if (!userSubscription) {
+        throw new Error('Subscription not found');
+      }
+
+      // Update subscription status based on payment status
+      let subscriptionStatus: string;
+      let paymentStatus: string;
+
+      switch (payload.event) {
+        case 'PAYMENT_CONFIRMED':
+        case 'PAYMENT_RECEIVED':
+          subscriptionStatus = 'active';
+          paymentStatus = 'paid';
+          break;
+        case 'PAYMENT_OVERDUE':
+          subscriptionStatus = 'overdue';
+          paymentStatus = 'overdue';
+          break;
+        case 'PAYMENT_REFUNDED':
+          subscriptionStatus = 'canceled';
+          paymentStatus = 'refunded';
+          break;
+        case 'PAYMENT_CANCELED':
+          subscriptionStatus = 'canceled';
+          paymentStatus = 'canceled';
+          break;
+        default:
+          subscriptionStatus = 'pending';
+          paymentStatus = 'pending';
+      }
+
+      // Update subscription
+      const { error: updateError } = await supabase
+        .from('user_plan_subscriptions')
         .update({
-          status: webhook.payment.status,
-          payment_date: webhook.event === 'PAYMENT_CONFIRMED' ? new Date() : null
+          status: subscriptionStatus,
+          payment_status: paymentStatus,
+          last_payment_date: payment.paymentDate ? new Date(payment.paymentDate) : null,
+          next_payment_date: payment.dueDate ? new Date(payment.dueDate) : null
         })
-        .eq('asaas_id', webhook.payment.id)
-        .select()
-        .single()
+        .eq('id', userSubscription.id);
 
-      if (paymentError) throw paymentError
+      if (updateError) {
+        throw updateError;
+      }
 
-      // Atualizar status da assinatura
-      if (payment.subscription_id) {
-        await supabase
-          .from('user_plan_subscriptions')
-          .update({
-            payment_status: webhook.payment.status === 'CONFIRMED' ? 'paid' : 'pending',
-            last_payment_date: webhook.payment.paymentDate
-          })
-          .eq('asaas_subscription_id', payment.subscription_id)
+      // Store payment record
+      const { error: paymentError } = await supabase
+        .from('asaas_payments')
+        .insert({
+          asaas_id: payment.id,
+          customer_id: userSubscription.user_id,
+          subscription_id: userSubscription.id,
+          amount: payment.value,
+          net_amount: payment.netValue,
+          fee_amount: payment.fee,
+          billing_type: payment.billingType,
+          status: payment.status,
+          due_date: payment.dueDate,
+          payment_date: payment.paymentDate,
+          invoice_url: payment.invoiceUrl,
+          payment_method: payment.billingType.toLowerCase()
+        });
+
+      if (paymentError) {
+        throw paymentError;
       }
     }
 
-    // Processar transferência
-    if (webhook.event.startsWith('TRANSFER_')) {
-      const { error: transferError } = await supabase
-        .from('asaas_transfers')
-        .update({
-          status: webhook.transfer.status,
-          transfer_date: webhook.event === 'TRANSFER_COMPLETED' ? new Date() : null
-        })
-        .eq('asaas_id', webhook.transfer.id)
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Webhook processed successfully'
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
+    );
 
-      if (transferError) throw transferError
-    }
-
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    console.error('Error processing webhook:', error);
+    return new Response(
+      JSON.stringify({
+        error: error.message
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400 
+      }
+    );
   }
-})
+});

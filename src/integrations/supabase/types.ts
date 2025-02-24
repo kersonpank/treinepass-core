@@ -1766,6 +1766,8 @@ export type Database = {
       }
       user_plan_subscriptions: {
         Row: {
+          asaas_customer_id: string | null
+          asaas_payment_link: string | null
           asaas_subscription_id: string | null
           created_at: string
           end_date: string | null
@@ -1783,6 +1785,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asaas_customer_id?: string | null
+          asaas_payment_link?: string | null
           asaas_subscription_id?: string | null
           created_at?: string
           end_date?: string | null
@@ -1800,6 +1804,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asaas_customer_id?: string | null
+          asaas_payment_link?: string | null
           asaas_subscription_id?: string | null
           created_at?: string
           end_date?: string | null
