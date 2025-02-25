@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
@@ -30,9 +31,16 @@ export function PlanCard({
   CheckoutDialog
 }: PlanCardProps) {
   const id = useId();
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("pix");
+  const [showDialog, setShowDialog] = useState(false);
+
+  const handleConfirmPayment = () => {
+    onSubscribe(plan.id);
+    setShowDialog(false);
+  };
 
   return (
-    <Dialog>
+    <Dialog open={showDialog} onOpenChange={setShowDialog}>
       <DialogTrigger asChild>
         <Card className="flex flex-col hover:border-primary/50 cursor-pointer transition-all">
           <CardHeader>
@@ -65,21 +73,6 @@ export function PlanCard({
                 </li>
               ))}
             </ul>
-
-            <Button 
-              className="w-full"
-              onClick={() => onSubscribe(plan.id)}
-              disabled={isSubscribing}
-            >
-              {isSubscribing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processando...
-                </>
-              ) : (
-                'Contratar Plano'
-              )}
-            </Button>
           </CardContent>
         </Card>
       </DialogTrigger>
@@ -101,7 +94,12 @@ export function PlanCard({
         </div>
 
         <form className="space-y-5">
-          <RadioGroup className="gap-2" defaultValue="pix">
+          <RadioGroup 
+            className="gap-2" 
+            defaultValue="pix"
+            value={selectedPaymentMethod}
+            onValueChange={setSelectedPaymentMethod}
+          >
             <div className="relative flex w-full items-center gap-2 rounded-lg border border-input px-4 py-3 shadow-sm shadow-black/5 has-[[data-state=checked]]:border-ring has-[[data-state=checked]]:bg-accent">
               <RadioGroupItem
                 value="pix"
@@ -166,8 +164,20 @@ export function PlanCard({
           </div>
 
           <div className="grid gap-2">
-            <Button type="button" className="w-full">
-              Confirmar Pagamento
+            <Button 
+              type="button" 
+              className="w-full"
+              disabled={isSubscribing}
+              onClick={handleConfirmPayment}
+            >
+              {isSubscribing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                'Confirmar Pagamento'
+              )}
             </Button>
             <DialogClose asChild>
               <Button type="button" variant="ghost" className="w-full">
