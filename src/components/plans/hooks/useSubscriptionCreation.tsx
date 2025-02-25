@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 
 export function useSubscriptionCreation() {
   const { toast } = useToast();
@@ -34,7 +34,7 @@ export function useSubscriptionCreation() {
           plan_id: planId,
           start_date: new Date().toISOString(),
           status: "pending",
-          payment_method: "PIX"
+          payment_method: "pix"
         })
         .select()
         .single();
@@ -48,7 +48,7 @@ export function useSubscriptionCreation() {
           body: {
             subscriptionId: newSubscription.id,
             planId: planId,
-            paymentMethod: 'PIX'
+            paymentMethod: 'pix'
           }
         }
       );
