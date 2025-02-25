@@ -1,167 +1,214 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+console.log("Hello from asaas-api!");
 
-const ASAAS_BASE_URL = 'https://sandbox.asaas.com/api/v3';
+interface RequestBody {
+  userId: string;
+  planId: string;
+  paymentMethod: string;
+  proratedAmount?: number;
+  upgradeFromSubscriptionId?: string;
+}
 
 serve(async (req) => {
+  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const ASAAS_API_KEY = Deno.env.get('ASAAS_API_KEY');
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    if (!ASAAS_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Missing environment variables');
-    }
+    // Get request body
+    const { userId, planId, paymentMethod, proratedAmount, upgradeFromSubscriptionId } = await req.json() as RequestBody;
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { userId, planId, paymentMethod } = await req.json();
+    console.log("Processing subscription request:", {
+      userId,
+      planId,
+      paymentMethod,
+      proratedAmount,
+      upgradeFromSubscriptionId
+    });
 
-    // Buscar dados do usuário e do plano
-    const { data: userData, error: userError } = await supabase
+    // Fetch user profile
+    const { data: userProfile, error: userError } = await supabaseClient
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .single();
 
-    if (userError || !userData) {
-      throw new Error('User not found');
+    if (userError || !userProfile) {
+      console.error("Error fetching user profile:", userError);
+      throw new Error('User profile not found');
     }
 
-    const { data: planData, error: planError } = await supabase
+    // Fetch plan details
+    const { data: plan, error: planError } = await supabaseClient
       .from('benefit_plans')
       .select('*')
       .eq('id', planId)
       .single();
 
-    if (planError || !planData) {
+    if (planError || !plan) {
+      console.error("Error fetching plan:", planError);
       throw new Error('Plan not found');
     }
 
-    // 1. Criar ou recuperar cliente no Asaas
-    let asaasCustomerId;
+    // Get ASAAS configuration
+    const { data: asaasConfig } = await supabaseClient.rpc('get_asaas_config');
+    if (!asaasConfig) {
+      throw new Error('ASAAS configuration not found');
+    }
 
-    // Verificar se já existe um customer_id do Asaas
-    const { data: existingCustomer } = await supabase
+    const apiKey = asaasConfig.api_key;
+    const apiUrl = asaasConfig.api_url;
+
+    // Create or get ASAAS customer
+    let asaasCustomer;
+    const { data: existingCustomer } = await supabaseClient
       .from('asaas_customers')
-      .select('asaas_id')
+      .select('*')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (existingCustomer?.asaas_id) {
-      asaasCustomerId = existingCustomer.asaas_id;
-      console.log('Using existing Asaas customer:', asaasCustomerId);
+    if (existingCustomer) {
+      asaasCustomer = existingCustomer;
     } else {
-      // Criar novo cliente no Asaas
-      const customerResponse = await fetch(`${ASAAS_BASE_URL}/customers`, {
+      // Create customer in ASAAS
+      const customerResponse = await fetch(`${apiUrl}/customers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'access_token': ASAAS_API_KEY
+          'access_token': apiKey
         },
         body: JSON.stringify({
-          name: userData.full_name,
-          email: userData.email,
-          cpfCnpj: userData.cpf,
-          phone: userData.phone_number
+          name: userProfile.full_name,
+          email: userProfile.email,
+          cpfCnpj: userProfile.cpf,
+          phone: userProfile.phone_number
         })
       });
 
-      const customerData = await customerResponse.json();
-      
       if (!customerResponse.ok) {
-        throw new Error(`Error creating Asaas customer: ${JSON.stringify(customerData)}`);
+        console.error("Error creating ASAAS customer:", await customerResponse.text());
+        throw new Error('Failed to create customer in ASAAS');
       }
 
-      asaasCustomerId = customerData.id;
+      const customerData = await customerResponse.json();
 
-      // Salvar o ID do cliente do Asaas
-      await supabase.from('asaas_customers').insert({
-        user_id: userId,
-        asaas_id: asaasCustomerId,
-        name: userData.full_name,
-        email: userData.email,
-        cpf_cnpj: userData.cpf
-      });
+      // Save customer in database
+      const { data: newCustomer, error: customerError } = await supabaseClient
+        .from('asaas_customers')
+        .insert({
+          user_id: userId,
+          asaas_id: customerData.id,
+          name: userProfile.full_name,
+          email: userProfile.email,
+          cpf_cnpj: userProfile.cpf
+        })
+        .select()
+        .single();
 
-      console.log('Created new Asaas customer:', asaasCustomerId);
+      if (customerError) {
+        console.error("Error saving customer:", customerError);
+        throw new Error('Failed to save customer');
+      }
+
+      asaasCustomer = newCustomer;
     }
 
-    // 2. Criar assinatura no Asaas
-    const subscriptionResponse = await fetch(`${ASAAS_BASE_URL}/subscriptions`, {
+    // Calculate billing details
+    const amount = proratedAmount || plan.monthly_cost;
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 1); // Due tomorrow
+
+    // Create payment in ASAAS
+    const paymentResponse = await fetch(`${apiUrl}/payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'access_token': ASAAS_API_KEY
+        'access_token': apiKey
       },
       body: JSON.stringify({
-        customer: asaasCustomerId,
-        billingType: paymentMethod.toUpperCase(),
-        value: planData.monthly_cost,
-        nextDueDate: new Date().toISOString().split('T')[0],
-        cycle: 'MONTHLY',
-        description: `Assinatura - ${planData.name}`,
-        maxPayments: 0, // 0 = indefinido
-        updatePendingPayments: true
+        customer: asaasCustomer.asaas_id,
+        billingType: paymentMethod === 'credit_card' ? 'CREDIT_CARD' : 
+                     paymentMethod === 'pix' ? 'PIX' : 'BOLETO',
+        value: amount,
+        dueDate: dueDate.toISOString().split('T')[0],
+        description: `Assinatura do plano ${plan.name}${proratedAmount ? ' (valor proporcional)' : ''}`,
       })
     });
 
-    const subscriptionData = await subscriptionResponse.json();
-    
-    if (!subscriptionResponse.ok) {
-      throw new Error(`Error creating Asaas subscription: ${JSON.stringify(subscriptionData)}`);
+    if (!paymentResponse.ok) {
+      console.error("Error creating ASAAS payment:", await paymentResponse.text());
+      throw new Error('Failed to create payment');
     }
 
-    console.log('Created Asaas subscription:', subscriptionData);
+    const paymentData = await paymentResponse.json();
 
-    // 3. Criar registro da assinatura no nosso banco
-    const { data: subscription, error: subscriptionError } = await supabase
-      .from('user_plan_subscriptions')
-      .update({
-        asaas_customer_id: asaasCustomerId,
-        asaas_subscription_id: subscriptionData.id,
-        payment_method: paymentMethod,
-        status: 'pending',
-        payment_status: 'pending',
-        total_value: planData.monthly_cost,
-        asaas_payment_link: subscriptionData.paymentLink
+    // Save payment in database
+    const { data: newPayment, error: paymentError } = await supabaseClient
+      .from('asaas_payments')
+      .insert({
+        customer_id: asaasCustomer.id,
+        asaas_id: paymentData.id,
+        amount: amount,
+        status: 'PENDING',
+        billing_type: paymentMethod,
+        payment_link: paymentData.bankSlipUrl || paymentData.invoiceUrl,
+        due_date: dueDate.toISOString()
       })
-      .eq('id', planId)
       .select()
       .single();
 
-    if (subscriptionError) {
-      throw subscriptionError;
+    if (paymentError) {
+      console.error("Error saving payment:", paymentError);
+      throw new Error('Failed to save payment');
+    }
+
+    // If this is an upgrade, update the old subscription
+    if (upgradeFromSubscriptionId) {
+      await supabaseClient
+        .from('user_plan_subscriptions')
+        .update({ status: 'cancelled', end_date: new Date().toISOString() })
+        .eq('id', upgradeFromSubscriptionId);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         subscription: {
-          id: subscription.id,
-          paymentLink: subscriptionData.paymentLink
+          id: newPayment.id,
+          paymentLink: paymentData.bankSlipUrl || paymentData.invoiceUrl || paymentData.pixQrCodeUrl
         }
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        status: 200,
+      },
     );
-
-  } catch (error) {
-    console.error('Error:', error);
+  } catch (err) {
+    console.error("Error processing request:", err);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
-      }
+      JSON.stringify({
+        error: err.message
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        status: 400,
+      },
     );
   }
 });
