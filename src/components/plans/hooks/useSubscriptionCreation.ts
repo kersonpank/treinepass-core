@@ -13,37 +13,47 @@ export function useSubscriptionCreation() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      const { data: newSubscription, error } = await supabase
+      // 1. Primeiro criamos a assinatura como pending
+      const { data: newSubscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
           user_id: user.id,
           plan_id: planId,
           start_date: new Date().toISOString(),
-          status: "pending"
+          status: "pending",
+          payment_method: paymentMethod
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (subscriptionError) throw subscriptionError;
 
-      const response = await supabase.functions.invoke('asaas-api', {
-        body: {
-          userId: user.id,
-          planId: planId,
-          paymentMethod
+      // 2. Criar o cliente e o pagamento no Asaas
+      const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
+        'asaas-customer',
+        {
+          body: {
+            subscriptionId: newSubscription.id,
+            planId: planId,
+            paymentMethod
+          }
         }
-      });
+      );
 
-      if (response.error) throw new Error(response.error.message);
+      if (paymentError) throw new Error(paymentError.message);
+
+      // 3. Verificar se recebemos o link de pagamento
+      if (!paymentData?.paymentLink) {
+        throw new Error("Link de pagamento não gerado");
+      }
 
       toast({
-        title: "Plano contratado!",
+        title: "Plano reservado!",
         description: "Você será redirecionado para realizar o pagamento.",
       });
 
-      if (response.data?.subscription?.paymentLink) {
-        window.location.href = response.data.subscription.paymentLink;
-      }
+      // 4. Redirecionar para o pagamento
+      window.location.href = paymentData.paymentLink;
     } catch (error: any) {
       console.error("Error subscribing to plan:", error);
       toast({
