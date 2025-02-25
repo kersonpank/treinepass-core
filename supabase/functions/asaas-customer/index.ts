@@ -10,22 +10,7 @@ const corsHeaders = {
 
 console.log("Hello from asaas-customer!");
 
-type AsaasPaymentType = 'BOLETO' | 'CREDIT_CARD' | 'PIX';
-type PaymentMethod = 'boleto' | 'credit_card' | 'pix';
-
-const getAsaasPaymentType = (method: PaymentMethod): AsaasPaymentType => {
-  switch (method) {
-    case 'credit_card':
-      return 'CREDIT_CARD';
-    case 'pix':
-      return 'PIX';
-    default:
-      return 'BOLETO';
-  }
-};
-
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -36,11 +21,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get request body
     const { subscriptionId, planId, paymentMethod } = await req.json();
     console.log("Processing payment request:", { subscriptionId, planId, paymentMethod });
 
-    // 1. Get subscription details with user and plan info
+    // 1. Get subscription details
     const { data: subscription, error: subscriptionError } = await supabaseClient
       .from('user_plan_subscriptions')
       .select(`
@@ -85,7 +69,6 @@ serve(async (req) => {
     if (existingCustomer) {
       asaasCustomer = existingCustomer;
     } else {
-      // Create customer in ASAAS
       console.log("Creating new ASAAS customer...");
       const customerResponse = await fetch(`${apiUrl}/customers`, {
         method: 'POST',
@@ -103,15 +86,13 @@ serve(async (req) => {
       });
 
       if (!customerResponse.ok) {
-        const responseText = await customerResponse.text();
-        console.error("Error creating ASAAS customer:", responseText);
+        console.error("Error creating ASAAS customer:", await customerResponse.text());
         throw new Error('Falha ao criar cliente no ASAAS');
       }
 
       const customerData = await customerResponse.json();
       console.log("ASAAS customer created:", customerData);
 
-      // Save customer in database
       const { data: newCustomer, error: customerError } = await supabaseClient
         .from('asaas_customers')
         .insert({
@@ -132,78 +113,60 @@ serve(async (req) => {
       asaasCustomer = newCustomer;
     }
 
-    // 4. Create payment in ASAAS
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 1); // Due tomorrow
-
+    // 4. Create payment
     console.log("Creating ASAAS payment...");
-    
-    const paymentData = {
-      customer: asaasCustomer.asaas_id,
-      billingType: getAsaasPaymentType(paymentMethod as PaymentMethod),
-      value: subscription.benefit_plans.monthly_cost,
-      dueDate: dueDate.toISOString().split('T')[0],
-      description: `Assinatura do plano ${subscription.benefit_plans.name}`,
-      externalReference: subscriptionId,
-      postalService: false
-    };
-
-    console.log("Payment data:", paymentData);
-
-    const paymentResponse = await fetch(`${apiUrl}/payments`, {
+    const paymentLink = await fetch(`${apiUrl}/payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'access_token': apiKey
       },
-      body: JSON.stringify(paymentData)
+      body: JSON.stringify({
+        customer: asaasCustomer.asaas_id,
+        billingType: paymentMethod.toUpperCase(),
+        value: subscription.benefit_plans.monthly_cost,
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        description: `Assinatura do plano ${subscription.benefit_plans.name}`,
+        externalReference: subscriptionId
+      })
     });
 
-    if (!paymentResponse.ok) {
-      const responseText = await paymentResponse.text();
-      console.error("Error creating ASAAS payment:", responseText);
+    if (!paymentLink.ok) {
+      console.error("Error creating payment:", await paymentLink.text());
       throw new Error('Falha ao criar pagamento');
     }
 
-    const paymentResponseData = await paymentResponse.json();
-    console.log("ASAAS payment created:", paymentResponseData);
+    const payment = await paymentLink.json();
+    console.log("Payment created:", payment);
 
-    // Get the appropriate payment link based on the payment method
-    let paymentLink = '';
-    if (paymentMethod === 'pix') {
-      // For PIX, we need to make another request to get the PIX info
-      const pixResponse = await fetch(`${apiUrl}/payments/${paymentResponseData.id}/pixQrCode`, {
-        headers: {
-          'access_token': apiKey
-        }
-      });
-      
-      if (!pixResponse.ok) {
-        console.error("Error getting PIX info:", await pixResponse.text());
-        throw new Error('Falha ao gerar QR Code PIX');
+    // 5. Create payment link/checkout URL
+    const checkoutResponse = await fetch(`${apiUrl}/payments/${payment.id}/identificationField`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'access_token': apiKey
       }
-      
-      const pixData = await pixResponse.json();
-      paymentLink = pixData.payload || pixData.encodedImage;
-    } else if (paymentMethod === 'credit_card') {
-      paymentLink = paymentResponseData.invoiceUrl;
-    } else {
-      // For boleto
-      paymentLink = paymentResponseData.bankSlipUrl;
+    });
+
+    if (!checkoutResponse.ok) {
+      console.error("Error getting checkout info:", await checkoutResponse.text());
+      throw new Error('Falha ao gerar link de pagamento');
     }
 
-    // 5. Save payment in database
+    const checkoutData = await checkoutResponse.json();
+    console.log("Checkout data:", checkoutData);
+
+    // 6. Save payment info
     const { error: paymentError } = await supabaseClient
       .from('asaas_payments')
       .insert({
         customer_id: asaasCustomer.id,
         subscription_id: subscriptionId,
-        asaas_id: paymentResponseData.id,
+        asaas_id: payment.id,
         amount: subscription.benefit_plans.monthly_cost,
-        status: paymentResponseData.status,
+        status: payment.status,
         billing_type: paymentMethod,
-        payment_link: paymentLink,
-        due_date: dueDate.toISOString()
+        payment_link: checkoutData.identificationField,
+        due_date: payment.dueDate
       });
 
     if (paymentError) {
@@ -211,12 +174,12 @@ serve(async (req) => {
       throw new Error('Falha ao salvar pagamento');
     }
 
-    // 6. Update subscription with Asaas customer ID
+    // 7. Update subscription
     const { error: updateError } = await supabaseClient
       .from('user_plan_subscriptions')
       .update({
         asaas_customer_id: asaasCustomer.asaas_id,
-        asaas_payment_link: paymentLink
+        asaas_payment_link: checkoutData.identificationField
       })
       .eq('id', subscriptionId);
 
@@ -230,7 +193,15 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        paymentLink
+        paymentData: {
+          status: payment.status,
+          identificationField: checkoutData.identificationField,
+          value: payment.value,
+          dueDate: payment.dueDate,
+          billingType: payment.billingType,
+          invoiceUrl: payment.invoiceUrl,
+          paymentId: payment.id
+        }
       }),
       {
         headers: {
@@ -243,9 +214,7 @@ serve(async (req) => {
   } catch (err) {
     console.error("Error processing request:", err);
     return new Response(
-      JSON.stringify({
-        error: err.message
-      }),
+      JSON.stringify({ error: err.message }),
       {
         headers: {
           ...corsHeaders,
