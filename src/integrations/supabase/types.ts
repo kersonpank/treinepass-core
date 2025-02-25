@@ -1669,6 +1669,33 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          value: Json
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       transfer_rules: {
         Row: {
           academia_id: string | null
@@ -1999,6 +2026,14 @@ export type Database = {
           message: string
         }[]
       }
+      get_asaas_config: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          environment: Database["public"]["Enums"]["payment_environment"]
+          api_key: string
+          api_url: string
+        }[]
+      }
       get_date_from_timestamp: {
         Args: {
           ts: string
@@ -2134,6 +2169,7 @@ export type Database = {
       employee_invite_status: "pending" | "accepted" | "rejected"
       entity_type: "user" | "business" | "academia" | "system"
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
+      payment_environment: "sandbox" | "production"
       payment_method:
         | "credit_card"
         | "debit_card"

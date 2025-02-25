@@ -9,17 +9,10 @@ import { PlansManagement } from "@/components/admin/plans/PlansManagement";
 import { ModalitiesManagement } from "@/components/admin/modalities/ModalitiesManagement";
 import { GymManagement } from "@/components/admin/gyms/GymManagement";
 import { CategoriesManagement } from "@/components/admin/categories/CategoriesManagement";
+import { SystemSettings } from "@/components/admin/settings/SystemSettings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow 
-} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { UserManagement } from "@/components/admin/users/UserManagement";
@@ -28,7 +21,6 @@ import { BusinessManagement } from "@/components/admin/business/BusinessManageme
 export default function AdminDashboard() {
   const [selectedTab, setSelectedTab] = useState("overview");
 
-  // Fetch pending gyms
   const { data: pendingGyms = 0 } = useQuery({
     queryKey: ["pendingGyms"],
     queryFn: async () => {
@@ -42,7 +34,6 @@ export default function AdminDashboard() {
     },
   });
 
-  // Fetch active gyms count
   const { data: activeGymsCount = 0 } = useQuery({
     queryKey: ["activeGyms"],
     queryFn: async () => {
@@ -56,7 +47,6 @@ export default function AdminDashboard() {
     },
   });
 
-  // Fetch active users count
   const { data: activeUsersCount = 0 } = useQuery({
     queryKey: ["activeUsers"],
     queryFn: async () => {
@@ -69,7 +59,6 @@ export default function AdminDashboard() {
     },
   });
 
-  // Fetch total check-ins count
   const { data: checkInsCount = 0 } = useQuery({
     queryKey: ["checkIns"],
     queryFn: async () => {
@@ -82,7 +71,6 @@ export default function AdminDashboard() {
     },
   });
 
-  // Fetch active plans count
   const { data: activePlansCount = 0 } = useQuery({
     queryKey: ["activePlans"],
     queryFn: async () => {
@@ -96,18 +84,15 @@ export default function AdminDashboard() {
     },
   });
 
-  // Fetch users with their types
   const { data: users = [], isLoading: isLoadingUsers } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      // First get all user profiles
       const { data: profiles, error: profilesError } = await supabase
         .from("user_profiles")
         .select("*");
 
       if (profilesError) throw profilesError;
 
-      // Then get user types for each profile
       const usersWithTypes = await Promise.all(
         profiles.map(async (profile) => {
           const { data: types, error: typesError } = await supabase
@@ -201,7 +186,7 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8 lg:w-[800px]">
+        <TabsList className="grid w-full grid-cols-9 lg:w-[900px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="business">Empresas</TabsTrigger>
@@ -210,6 +195,7 @@ export default function AdminDashboard() {
           <TabsTrigger value="modalities">Modalidades</TabsTrigger>
           <TabsTrigger value="categories">Categorias</TabsTrigger>
           <TabsTrigger value="gyms">Academias</TabsTrigger>
+          <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -249,6 +235,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="gyms">
           <GymManagement />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <SystemSettings />
         </TabsContent>
       </Tabs>
     </div>
