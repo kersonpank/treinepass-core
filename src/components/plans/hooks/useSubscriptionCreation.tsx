@@ -11,11 +11,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+export type PaymentData = {
+  status: string;
+  identificationField?: string;
+  value: number;
+  dueDate: string;
+  billingType: string;
+  invoiceUrl?: string;
+  paymentId: string;
+};
+
 export function useSubscriptionCreation() {
   const { toast } = useToast();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutData, setCheckoutData] = useState<any>(null);
+  const [checkoutData, setCheckoutData] = useState<PaymentData | null>(null);
 
   const handleSubscribe = async (planId: string, paymentMethod: string) => {
     try {
@@ -39,7 +49,7 @@ export function useSubscriptionCreation() {
       if (subscriptionError) throw subscriptionError;
 
       // 2. Criar cliente e pagamento no Asaas
-      const { data: paymentData, error: paymentError } = await supabase.functions.invoke(
+      const { data, error: paymentError } = await supabase.functions.invoke(
         'asaas-customer',
         {
           body: {
@@ -51,9 +61,14 @@ export function useSubscriptionCreation() {
       );
 
       if (paymentError) throw new Error(paymentError.message);
+      
+      if (!data?.success) {
+        throw new Error('Falha ao criar pagamento');
+      }
 
       // 3. Mostrar checkout em um modal
-      setCheckoutData(paymentData.paymentData);
+      console.log("Payment data received:", data);
+      setCheckoutData(data.paymentData);
       setShowCheckout(true);
 
       toast({
@@ -91,18 +106,33 @@ export function useSubscriptionCreation() {
                   <code className="text-sm break-all">{checkoutData.identificationField}</code>
                 </div>
                 <button
-                  onClick={() => navigator.clipboard.writeText(checkoutData.identificationField)}
+                  onClick={() => {
+                    if (checkoutData.identificationField) {
+                      navigator.clipboard.writeText(checkoutData.identificationField);
+                      toast({
+                        title: "Código copiado!",
+                        description: "Cole o código no seu aplicativo de pagamento.",
+                      });
+                    }
+                  }}
                   className="mt-2 px-4 py-2 bg-primary text-white rounded hover:bg-primary/90"
                 >
                   Copiar código
                 </button>
               </div>
             ) : (
-              <iframe
-                src={checkoutData.invoiceUrl}
-                className="w-full h-full min-h-[500px]"
-                frameBorder="0"
-              />
+              checkoutData.invoiceUrl ? (
+                <iframe
+                  src={checkoutData.invoiceUrl}
+                  className="w-full h-full min-h-[600px]"
+                  style={{ height: "calc(80vh - 100px)" }}
+                  frameBorder="0"
+                />
+              ) : (
+                <div className="text-center text-red-500">
+                  URL de pagamento não disponível
+                </div>
+              )
             )}
           </div>
         )}

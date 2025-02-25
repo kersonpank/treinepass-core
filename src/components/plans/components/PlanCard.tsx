@@ -17,6 +17,7 @@ interface PlanCardProps {
   selectedPaymentMethod: string;
   onPaymentMethodChange: (value: string) => void;
   onSubscribe: (plan: any) => void;
+  CheckoutDialog: React.ComponentType;
 }
 
 export function PlanCard({
@@ -25,6 +26,7 @@ export function PlanCard({
   selectedPaymentMethod,
   onPaymentMethodChange,
   onSubscribe,
+  CheckoutDialog
 }: PlanCardProps) {
   return (
     <Card className="flex flex-col">
@@ -66,16 +68,16 @@ export function PlanCard({
               <SelectValue placeholder="Selecione a forma de pagamento" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-              <SelectItem value="pix">PIX</SelectItem>
-              <SelectItem value="boleto">Boleto</SelectItem>
+              <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
+              <SelectItem value="PIX">PIX</SelectItem>
+              <SelectItem value="BOLETO">Boleto</SelectItem>
             </SelectContent>
           </Select>
 
           <Button 
             className="w-full" 
             onClick={() => onSubscribe(plan)}
-            disabled={isSubscribing}
+            disabled={isSubscribing || !selectedPaymentMethod}
           >
             {isSubscribing ? (
               <>
@@ -88,6 +90,8 @@ export function PlanCard({
           </Button>
         </div>
       </CardContent>
+
+      <CheckoutDialog />
     </Card>
   );
 }
