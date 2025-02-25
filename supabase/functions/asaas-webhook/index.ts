@@ -48,6 +48,15 @@ serve(async (req: Request) => {
       const payment = payload.payment;
       const subscription = payment.subscription;
 
+      // Se não tiver subscription ID, não é um pagamento de assinatura
+      if (!subscription) {
+        console.log('Payment not associated with a subscription:', payment.id);
+        return new Response(
+          JSON.stringify({ success: true, message: 'Non-subscription payment processed' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
       // Find subscription by Asaas ID
       const { data: userSubscription } = await supabase
         .from('user_plan_subscriptions')
@@ -77,28 +86,36 @@ serve(async (req: Request) => {
           subscriptionStatus = 'canceled';
           paymentStatus = 'refunded';
           break;
-        case 'PAYMENT_CANCELED':
-          subscriptionStatus = 'canceled';
+        case 'PAYMENT_DELETED':
+          // Não alteramos o status da assinatura quando um pagamento é deletado
           paymentStatus = 'canceled';
           break;
-        default:
-          subscriptionStatus = 'pending';
+        case 'PAYMENT_CREATED':
           paymentStatus = 'pending';
+          break;
+        default:
+          console.log('Unhandled payment event:', payload.event);
+          return new Response(
+            JSON.stringify({ success: true, message: 'Event logged but not processed' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
       }
 
-      // Update subscription status
-      const { error: updateError } = await supabase
-        .from('user_plan_subscriptions')
-        .update({
-          status: subscriptionStatus,
-          payment_status: paymentStatus,
-          last_payment_date: payment.paymentDate ? new Date(payment.paymentDate) : null,
-          next_payment_date: payment.dueDate ? new Date(payment.dueDate) : null
-        })
-        .eq('id', userSubscription.id);
+      // Only update subscription if we have a new status
+      if (subscriptionStatus) {
+        const { error: updateError } = await supabase
+          .from('user_plan_subscriptions')
+          .update({
+            status: subscriptionStatus,
+            payment_status: paymentStatus,
+            last_payment_date: payment.paymentDate ? new Date(payment.paymentDate) : null,
+            next_payment_date: payment.dueDate ? new Date(payment.dueDate) : null
+          })
+          .eq('id', userSubscription.id);
 
-      if (updateError) {
-        throw updateError;
+        if (updateError) {
+          throw updateError;
+        }
       }
 
       // Store payment record
@@ -125,15 +142,14 @@ serve(async (req: Request) => {
         throw paymentError;
       }
 
-      // If payment confirmed, send notification to user
+      // If payment confirmed, log for future notifications implementation
       if (subscriptionStatus === 'active') {
-        // You could implement email/push notification here
         console.log('Payment confirmed for subscription:', userSubscription.id);
       }
     }
 
-    // Process subscription events
-    if (payload.event.startsWith('SUBSCRIPTION_')) {
+    // Process subscription deletion (only event available)
+    if (payload.event === 'SUBSCRIPTION_DELETED') {
       const subscription = payload.subscription;
 
       // Find subscription by Asaas ID
@@ -147,29 +163,11 @@ serve(async (req: Request) => {
         throw new Error('Subscription not found');
       }
 
-      // Update subscription status based on event
-      let subscriptionStatus: string;
-
-      switch (payload.event) {
-        case 'SUBSCRIPTION_DELETED':
-        case 'SUBSCRIPTION_CANCELED':
-          subscriptionStatus = 'canceled';
-          break;
-        case 'SUBSCRIPTION_EXPIRED':
-          subscriptionStatus = 'expired';
-          break;
-        case 'SUBSCRIPTION_RENEWED':
-          subscriptionStatus = 'active';
-          break;
-        default:
-          return; // Don't update for other events
-      }
-
-      // Update subscription
+      // Update subscription to canceled status
       const { error: updateError } = await supabase
         .from('user_plan_subscriptions')
         .update({
-          status: subscriptionStatus,
+          status: 'canceled',
           updated_at: new Date().toISOString()
         })
         .eq('id', userSubscription.id);
