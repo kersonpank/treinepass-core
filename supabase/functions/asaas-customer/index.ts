@@ -1,14 +1,35 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "../_shared/cors.ts";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
 
 console.log("Hello from asaas-customer!");
 
 serve(async (req) => {
-  // Handle CORS
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Only allow POST requests
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({
+        error: 'Method not allowed',
+      }),
+      {
+        status: 405,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
   }
 
   try {
@@ -68,6 +89,7 @@ serve(async (req) => {
       asaasCustomer = existingCustomer;
     } else {
       // Create customer in ASAAS
+      console.log("Creating new ASAAS customer...");
       const customerResponse = await fetch(`${apiUrl}/customers`, {
         method: 'POST',
         headers: {
@@ -83,11 +105,13 @@ serve(async (req) => {
       });
 
       if (!customerResponse.ok) {
-        console.error("Error creating ASAAS customer:", await customerResponse.text());
+        const responseText = await customerResponse.text();
+        console.error("Error creating ASAAS customer:", responseText);
         throw new Error('Falha ao criar cliente no ASAAS');
       }
 
       const customerData = await customerResponse.json();
+      console.log("ASAAS customer created:", customerData);
 
       // Save customer in database
       const { data: newCustomer, error: customerError } = await supabaseClient
@@ -114,6 +138,7 @@ serve(async (req) => {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 1); // Due tomorrow
 
+    console.log("Creating ASAAS payment...");
     const paymentResponse = await fetch(`${apiUrl}/payments`, {
       method: 'POST',
       headers: {
@@ -131,11 +156,13 @@ serve(async (req) => {
     });
 
     if (!paymentResponse.ok) {
-      console.error("Error creating ASAAS payment:", await paymentResponse.text());
+      const responseText = await paymentResponse.text();
+      console.error("Error creating ASAAS payment:", responseText);
       throw new Error('Falha ao criar pagamento');
     }
 
     const paymentData = await paymentResponse.json();
+    console.log("ASAAS payment created:", paymentData);
 
     // 5. Save payment in database
     const { error: paymentError } = await supabaseClient
@@ -147,7 +174,7 @@ serve(async (req) => {
         amount: subscription.benefit_plans.monthly_cost,
         status: 'PENDING',
         billing_type: paymentMethod,
-        payment_link: paymentData.bankSlipUrl || paymentData.invoiceUrl || paymentData.pixCodeQr,
+        payment_link: paymentData.bankSlipUrl || paymentData.invoiceUrl || paymentData.pixQrCodeUrl,
         due_date: dueDate.toISOString()
       });
 
@@ -156,10 +183,12 @@ serve(async (req) => {
       throw new Error('Falha ao salvar pagamento');
     }
 
+    console.log("Payment process completed successfully");
+
     return new Response(
       JSON.stringify({
         success: true,
-        paymentLink: paymentData.bankSlipUrl || paymentData.invoiceUrl || paymentData.pixCodeQr
+        paymentLink: paymentData.bankSlipUrl || paymentData.invoiceUrl || paymentData.pixQrCodeUrl
       }),
       {
         headers: {
