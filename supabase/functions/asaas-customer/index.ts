@@ -10,26 +10,24 @@ const corsHeaders = {
 
 console.log("Hello from asaas-customer!");
 
+type AsaasPaymentType = 'BOLETO' | 'CREDIT_CARD' | 'PIX';
+type PaymentMethod = 'boleto' | 'credit_card' | 'pix';
+
+const getAsaasPaymentType = (method: PaymentMethod): AsaasPaymentType => {
+  switch (method) {
+    case 'credit_card':
+      return 'CREDIT_CARD';
+    case 'pix':
+      return 'PIX';
+    default:
+      return 'BOLETO';
+  }
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
-  }
-
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({
-        error: 'Method not allowed',
-      }),
-      {
-        status: 405,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
   }
 
   try {
@@ -40,8 +38,7 @@ serve(async (req) => {
 
     // Get request body
     const { subscriptionId, planId, paymentMethod } = await req.json();
-
-    console.log("Processing subscription payment:", { subscriptionId, planId, paymentMethod });
+    console.log("Processing payment request:", { subscriptionId, planId, paymentMethod });
 
     // 1. Get subscription details with user and plan info
     const { data: subscription, error: subscriptionError } = await supabaseClient
@@ -65,13 +62,13 @@ serve(async (req) => {
 
     if (subscriptionError || !subscription) {
       console.error("Error fetching subscription:", subscriptionError);
-      throw new Error('Subscription not found');
+      throw new Error('Assinatura não encontrada');
     }
 
     // 2. Get ASAAS configuration
     const { data: asaasConfig } = await supabaseClient.rpc('get_asaas_config');
     if (!asaasConfig) {
-      throw new Error('ASAAS configuration not found');
+      throw new Error('Configuração do ASAAS não encontrada');
     }
 
     const apiKey = asaasConfig.api_key;
@@ -100,7 +97,8 @@ serve(async (req) => {
           name: subscription.user_profiles.full_name,
           email: subscription.user_profiles.email,
           cpfCnpj: subscription.user_profiles.cpf,
-          phone: subscription.user_profiles.phone_number
+          phone: subscription.user_profiles.phone_number,
+          notificationDisabled: false
         })
       });
 
@@ -139,20 +137,26 @@ serve(async (req) => {
     dueDate.setDate(dueDate.getDate() + 1); // Due tomorrow
 
     console.log("Creating ASAAS payment...");
+    
+    const paymentData = {
+      customer: asaasCustomer.asaas_id,
+      billingType: getAsaasPaymentType(paymentMethod as PaymentMethod),
+      value: subscription.benefit_plans.monthly_cost,
+      dueDate: dueDate.toISOString().split('T')[0],
+      description: `Assinatura do plano ${subscription.benefit_plans.name}`,
+      externalReference: subscriptionId,
+      postalService: false
+    };
+
+    console.log("Payment data:", paymentData);
+
     const paymentResponse = await fetch(`${apiUrl}/payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'access_token': apiKey
       },
-      body: JSON.stringify({
-        customer: asaasCustomer.asaas_id,
-        billingType: paymentMethod === 'credit_card' ? 'CREDIT_CARD' : 
-                     paymentMethod === 'pix' ? 'PIX' : 'BOLETO',
-        value: subscription.benefit_plans.monthly_cost,
-        dueDate: dueDate.toISOString().split('T')[0],
-        description: `Assinatura do plano ${subscription.benefit_plans.name}`,
-      })
+      body: JSON.stringify(paymentData)
     });
 
     if (!paymentResponse.ok) {
@@ -161,8 +165,32 @@ serve(async (req) => {
       throw new Error('Falha ao criar pagamento');
     }
 
-    const paymentData = await paymentResponse.json();
-    console.log("ASAAS payment created:", paymentData);
+    const paymentResponseData = await paymentResponse.json();
+    console.log("ASAAS payment created:", paymentResponseData);
+
+    // Get the appropriate payment link based on the payment method
+    let paymentLink = '';
+    if (paymentMethod === 'pix') {
+      // For PIX, we need to make another request to get the PIX info
+      const pixResponse = await fetch(`${apiUrl}/payments/${paymentResponseData.id}/pixQrCode`, {
+        headers: {
+          'access_token': apiKey
+        }
+      });
+      
+      if (!pixResponse.ok) {
+        console.error("Error getting PIX info:", await pixResponse.text());
+        throw new Error('Falha ao gerar QR Code PIX');
+      }
+      
+      const pixData = await pixResponse.json();
+      paymentLink = pixData.payload || pixData.encodedImage;
+    } else if (paymentMethod === 'credit_card') {
+      paymentLink = paymentResponseData.invoiceUrl;
+    } else {
+      // For boleto
+      paymentLink = paymentResponseData.bankSlipUrl;
+    }
 
     // 5. Save payment in database
     const { error: paymentError } = await supabaseClient
@@ -170,11 +198,11 @@ serve(async (req) => {
       .insert({
         customer_id: asaasCustomer.id,
         subscription_id: subscriptionId,
-        asaas_id: paymentData.id,
+        asaas_id: paymentResponseData.id,
         amount: subscription.benefit_plans.monthly_cost,
-        status: 'PENDING',
+        status: paymentResponseData.status,
         billing_type: paymentMethod,
-        payment_link: paymentData.bankSlipUrl || paymentData.invoiceUrl || paymentData.pixQrCodeUrl,
+        payment_link: paymentLink,
         due_date: dueDate.toISOString()
       });
 
@@ -183,12 +211,26 @@ serve(async (req) => {
       throw new Error('Falha ao salvar pagamento');
     }
 
+    // 6. Update subscription with Asaas customer ID
+    const { error: updateError } = await supabaseClient
+      .from('user_plan_subscriptions')
+      .update({
+        asaas_customer_id: asaasCustomer.asaas_id,
+        asaas_payment_link: paymentLink
+      })
+      .eq('id', subscriptionId);
+
+    if (updateError) {
+      console.error("Error updating subscription:", updateError);
+      throw new Error('Falha ao atualizar assinatura');
+    }
+
     console.log("Payment process completed successfully");
 
     return new Response(
       JSON.stringify({
         success: true,
-        paymentLink: paymentData.bankSlipUrl || paymentData.invoiceUrl || paymentData.pixQrCodeUrl
+        paymentLink
       }),
       {
         headers: {
