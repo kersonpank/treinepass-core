@@ -1,4 +1,5 @@
 
+import * as React from "react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,7 +72,7 @@ export function useSubscriptionCreation() {
     }
   };
 
-  const CheckoutDialog = () => (
+  const CheckoutDialog: React.FC = () => (
     <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
       <DialogContent className="max-w-4xl h-[80vh]">
         <DialogHeader>
