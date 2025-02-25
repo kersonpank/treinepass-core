@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 interface RegisterData {
@@ -6,6 +7,7 @@ interface RegisterData {
   password: string;
   cpf: string;
   birth_date: string;
+  phone_number: string;
 }
 
 export async function registerUser(data: RegisterData) {
@@ -66,6 +68,9 @@ export async function registerUser(data: RegisterData) {
       const [day, month, year] = data.birth_date.split('/');
       const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
+      // Formata o número de telefone removendo caracteres não numéricos
+      const formattedPhone = data.phone_number.replace(/\D/g, "");
+
       // Create/update user profile
       const { error: profileError } = await supabase
         .from("user_profiles")
@@ -75,6 +80,7 @@ export async function registerUser(data: RegisterData) {
           email: data.email,
           cpf: data.cpf.replace(/\D/g, ""),
           birth_date: formattedDate,
+          phone_number: formattedPhone
         });
 
       if (profileError) {
