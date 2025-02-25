@@ -7,6 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const ASAAS_SANDBOX_URL = 'https://sandbox.asaas.com/api/v3';
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -24,27 +26,35 @@ serve(async (req) => {
       throw new Error("Invalid action")
     }
 
+    console.log("Creating payment for subscription:", { subscriptionId, userId, planId, paymentMethod });
+
     // 1. Obter dados do plano
-    const { data: plan } = await supabaseClient
+    const { data: plan, error: planError } = await supabaseClient
       .from('benefit_plans')
       .select('*')
       .eq('id', planId)
       .single()
 
-    if (!plan) {
-      throw new Error("Plan not found")
+    if (planError) {
+      console.error("Error fetching plan:", planError);
+      throw new Error("Plan not found");
     }
 
+    console.log("Plan data:", plan);
+
     // 2. Obter ou criar cliente no Asaas
-    const { data: userProfile } = await supabaseClient
+    const { data: userProfile, error: userError } = await supabaseClient
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
-    if (!userProfile) {
-      throw new Error("User profile not found")
+    if (userError) {
+      console.error("Error fetching user profile:", userError);
+      throw new Error("User profile not found");
     }
+
+    console.log("User profile:", userProfile);
 
     let asaasCustomerId
 
@@ -57,9 +67,11 @@ serve(async (req) => {
 
     if (existingCustomer) {
       asaasCustomerId = existingCustomer.asaas_id
+      console.log("Using existing Asaas customer:", asaasCustomerId);
     } else {
+      console.log("Creating new Asaas customer");
       // Criar novo cliente no Asaas
-      const customerResponse = await fetch('https://api.asaas.com/v3/customers', {
+      const customerResponse = await fetch(`${ASAAS_SANDBOX_URL}/customers`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,13 +86,15 @@ serve(async (req) => {
       })
 
       const customerData = await customerResponse.json()
+      console.log("Asaas customer response:", customerData);
 
       if (!customerData.id) {
-        throw new Error("Failed to create Asaas customer")
+        console.error("Failed to create Asaas customer:", customerData);
+        throw new Error("Failed to create Asaas customer");
       }
 
       // Salvar customer_id
-      await supabaseClient
+      const { error: customerSaveError } = await supabaseClient
         .from('asaas_customers')
         .insert({
           user_id: userId,
@@ -90,6 +104,11 @@ serve(async (req) => {
           cpf_cnpj: userProfile.cpf,
         })
 
+      if (customerSaveError) {
+        console.error("Error saving customer:", customerSaveError);
+        throw customerSaveError;
+      }
+
       asaasCustomerId = customerData.id
     }
 
@@ -97,7 +116,8 @@ serve(async (req) => {
     const dueDate = new Date()
     dueDate.setDate(dueDate.getDate() + 1) // Vencimento em 1 dia
 
-    const paymentResponse = await fetch('https://api.asaas.com/v3/payments', {
+    console.log("Creating Asaas payment");
+    const paymentResponse = await fetch(`${ASAAS_SANDBOX_URL}/payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -113,13 +133,16 @@ serve(async (req) => {
     })
 
     const paymentData = await paymentResponse.json()
+    console.log("Asaas payment response:", paymentData);
 
     if (!paymentData.id) {
-      throw new Error("Failed to create Asaas payment")
+      console.error("Failed to create Asaas payment:", paymentData);
+      throw new Error("Failed to create Asaas payment");
     }
 
     // 4. Gerar QR Code PIX
-    const qrCodeResponse = await fetch(`https://api.asaas.com/v3/payments/${paymentData.id}/pixQrCode`, {
+    console.log("Generating PIX QR Code");
+    const qrCodeResponse = await fetch(`${ASAAS_SANDBOX_URL}/payments/${paymentData.id}/pixQrCode`, {
       headers: {
         'Content-Type': 'application/json',
         'access_token': Deno.env.get('ASAAS_API_KEY') ?? '',
@@ -127,6 +150,7 @@ serve(async (req) => {
     })
 
     const qrCodeData = await qrCodeResponse.json()
+    console.log("PIX QR Code generated:", qrCodeData);
 
     // 5. Salvar informações do pagamento
     const { data: payment, error: paymentError } = await supabaseClient
@@ -145,8 +169,11 @@ serve(async (req) => {
       .single()
 
     if (paymentError) {
-      throw paymentError
+      console.error("Error saving payment:", paymentError);
+      throw paymentError;
     }
+
+    console.log("Payment saved successfully:", payment);
 
     return new Response(
       JSON.stringify({
@@ -166,6 +193,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
+    console.error("Error processing request:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
