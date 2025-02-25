@@ -10,12 +10,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Check, Copy, Loader2 } from "lucide-react";
 
 export function useSubscriptionCreation() {
   const { toast } = useToast();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutData, setCheckoutData] = useState<any>(null);
+  const [hasCopied, setHasCopied] = useState(false);
 
   const handleSubscribe = async (planId: string) => {
     try {
@@ -30,7 +33,8 @@ export function useSubscriptionCreation() {
           user_id: user.id,
           plan_id: planId,
           start_date: new Date().toISOString(),
-          status: "pending"
+          status: "pending",
+          payment_method: "PIX"
         })
         .select()
         .single();
@@ -43,7 +47,8 @@ export function useSubscriptionCreation() {
         {
           body: {
             subscriptionId: newSubscription.id,
-            planId: planId
+            planId: planId,
+            paymentMethod: 'PIX'
           }
         }
       );
@@ -60,8 +65,8 @@ export function useSubscriptionCreation() {
       setShowCheckout(true);
 
       toast({
-        title: "Redirecionando para o pagamento",
-        description: "Complete o pagamento para ativar sua assinatura.",
+        title: "Plano reservado!",
+        description: "Por favor, complete o pagamento para ativar sua assinatura.",
       });
     } catch (error: any) {
       console.error("Error subscribing to plan:", error);
@@ -75,27 +80,72 @@ export function useSubscriptionCreation() {
     }
   };
 
+  const handleCopyPix = async () => {
+    if (checkoutData?.pixCode) {
+      await navigator.clipboard.writeText(checkoutData.pixCode);
+      setHasCopied(true);
+      toast({
+        title: "Código PIX copiado!",
+        description: "Cole o código no seu aplicativo de pagamento.",
+      });
+      
+      setTimeout(() => {
+        setHasCopied(false);
+      }, 2000);
+    }
+  };
+
   const CheckoutDialog = React.memo(() => (
     <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
-      <DialogContent className="max-w-4xl h-[80vh]">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Finalizar Pagamento</DialogTitle>
+          <DialogTitle>Pagamento via PIX</DialogTitle>
           <DialogDescription>
-            Complete o pagamento para ativar sua assinatura
+            Escaneie o QR Code ou copie o código PIX para pagar
           </DialogDescription>
         </DialogHeader>
-        {checkoutData && checkoutData.invoiceUrl ? (
-          <iframe
-            src={checkoutData.invoiceUrl}
-            className="w-full h-full min-h-[600px]"
-            style={{ height: "calc(80vh - 100px)" }}
-            frameBorder="0"
-          />
-        ) : (
-          <div className="text-center text-red-500">
-            URL de pagamento não disponível
+
+        <div className="flex flex-col items-center space-y-6 p-4">
+          {checkoutData?.pixQrCode && (
+            <div className="bg-white p-4 rounded-lg">
+              <img 
+                src={`data:image/png;base64,${checkoutData.pixQrCode}`}
+                alt="QR Code PIX"
+                className="w-48 h-48"
+              />
+            </div>
+          )}
+
+          {checkoutData?.pixCode && (
+            <div className="w-full space-y-2">
+              <p className="text-sm text-center text-muted-foreground">
+                Ou copie o código PIX abaixo:
+              </p>
+              <div className="relative flex items-center">
+                <div className="w-full p-3 text-sm bg-muted rounded-lg break-all">
+                  {checkoutData.pixCode}
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute right-2"
+                  onClick={handleCopyPix}
+                >
+                  {hasCopied ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="text-sm text-center text-muted-foreground">
+            <p>Após o pagamento, sua assinatura será ativada automaticamente.</p>
+            <p>Valor: R$ {checkoutData?.value?.toFixed(2)}</p>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   ));

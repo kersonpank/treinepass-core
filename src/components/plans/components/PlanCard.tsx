@@ -59,7 +59,7 @@ export function PlanCard({
               Processando...
             </>
           ) : (
-            'Contratar Plano'
+            'Contratar com PIX'
           )}
         </Button>
       </CardContent>
