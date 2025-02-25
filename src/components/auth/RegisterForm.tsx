@@ -22,7 +22,13 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
 
   const handleFormSubmit = async (data: UserFormData) => {
     try {
-      await onSubmit(data);
+      // Format phone number before submission (remove any non-digit characters)
+      const formattedData = {
+        ...data,
+        phone_number: data.phone_number.replace(/\D/g, '')
+      };
+      
+      await onSubmit(formattedData);
     } catch (error: any) {
       console.error("Registration error:", error);
       
@@ -35,6 +41,23 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
         throw error;
       }
     }
+  };
+
+  const formatPhoneNumber = (value: string) => {
+    // Remove any non-digit characters
+    const digits = value.replace(/\D/g, '');
+    
+    // Format as (XX) XXXXX-XXXX
+    if (digits.length <= 11) {
+      return digits.replace(/(\d{2})?(\d{5})?(\d{4})?/, (_, p1, p2, p3) => {
+        let formatted = '';
+        if (p1) formatted += `(${p1}`;
+        if (p2) formatted += `) ${p2}`;
+        if (p3) formatted += `-${p3}`;
+        return formatted;
+      });
+    }
+    return value;
   };
 
   return (
@@ -65,8 +88,11 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
           {...register("phone_number", {
             required: "Número de celular é obrigatório",
             pattern: {
-              value: /^(\(\d{2}\)\s?)?\d{5}-\d{4}$/,
+              value: /^\(\d{2}\)\s\d{5}-\d{4}$/,
               message: "Formato inválido. Use: (11) 99999-9999",
+            },
+            onChange: (e) => {
+              e.target.value = formatPhoneNumber(e.target.value);
             },
           })}
         />

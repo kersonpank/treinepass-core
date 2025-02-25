@@ -1805,10 +1805,12 @@ export type Database = {
           payment_method: Database["public"]["Enums"]["payment_method"] | null
           payment_status: Database["public"]["Enums"]["payment_status"] | null
           plan_id: string
+          proration_credit: number | null
           start_date: string
           status: Database["public"]["Enums"]["plan_subscription_status"]
           total_value: number | null
           updated_at: string
+          upgrade_from_subscription_id: string | null
           user_id: string
         }
         Insert: {
@@ -1824,10 +1826,12 @@ export type Database = {
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           plan_id: string
+          proration_credit?: number | null
           start_date: string
           status?: Database["public"]["Enums"]["plan_subscription_status"]
           total_value?: number | null
           updated_at?: string
+          upgrade_from_subscription_id?: string | null
           user_id: string
         }
         Update: {
@@ -1843,10 +1847,12 @@ export type Database = {
           payment_method?: Database["public"]["Enums"]["payment_method"] | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
           plan_id?: string
+          proration_credit?: number | null
           start_date?: string
           status?: Database["public"]["Enums"]["plan_subscription_status"]
           total_value?: number | null
           updated_at?: string
+          upgrade_from_subscription_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1855,6 +1861,13 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_plan_subscriptions_upgrade_from_subscription_id_fkey"
+            columns: ["upgrade_from_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_plan_subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -1897,7 +1910,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
-          phone_number: string | null
+          phone_number: string
           updated_at: string
         }
         Insert: {
@@ -1908,7 +1921,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
-          phone_number?: string | null
+          phone_number: string
           updated_at?: string
         }
         Update: {
@@ -1919,7 +1932,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
-          phone_number?: string | null
+          phone_number?: string
           updated_at?: string
         }
         Relationships: []
@@ -1960,6 +1973,18 @@ export type Database = {
           total_transfers: number
           total_fees: number
           net_revenue: number
+        }[]
+      }
+      calculate_plan_proration: {
+        Args: {
+          current_plan_id: string
+          new_plan_id: string
+          current_subscription_id: string
+        }
+        Returns: {
+          prorated_amount: number
+          days_remaining: number
+          credit_amount: number
         }[]
       }
       can_user_check_in: {
