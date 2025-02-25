@@ -32,7 +32,6 @@ export function useSubscriptionCreation() {
   const [hasCopied, setHasCopied] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
 
-  // Verificar o status do pagamento a cada 5 segundos
   useInterval(
     async () => {
       if (!checkoutData?.paymentId) return;
@@ -51,7 +50,6 @@ export function useSubscriptionCreation() {
           });
           setShowCheckout(false);
           setIsVerifyingPayment(false);
-          // Atualizar a UI ou redirecionar o usuário
         }
       } catch (error) {
         console.error("Error checking payment status:", error);
@@ -66,7 +64,8 @@ export function useSubscriptionCreation() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // 1. Criar assinatura como pending
+      console.log("Creating subscription for plan:", planId);
+
       const { data: newSubscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
@@ -81,7 +80,8 @@ export function useSubscriptionCreation() {
 
       if (subscriptionError) throw subscriptionError;
 
-      // 2. Criar pagamento no Asaas via edge function
+      console.log("Subscription created:", newSubscription);
+
       const { data, error: paymentError } = await supabase.functions.invoke(
         'asaas-api',
         {
@@ -95,13 +95,18 @@ export function useSubscriptionCreation() {
         }
       );
 
-      if (paymentError) throw new Error(paymentError.message);
+      console.log("Payment response:", data);
+
+      if (paymentError) {
+        console.error("Payment error:", paymentError);
+        throw new Error(paymentError.message);
+      }
       
-      if (!data?.success) {
-        throw new Error('Falha ao criar pagamento');
+      if (!data?.success || !data?.paymentData) {
+        console.error("Invalid payment response:", data);
+        throw new Error('Falha ao criar pagamento: Resposta inválida do servidor');
       }
 
-      // 3. Mostrar checkout e iniciar verificação
       setCheckoutData(data.paymentData);
       setShowCheckout(true);
       setIsVerifyingPayment(true);
@@ -143,82 +148,71 @@ export function useSubscriptionCreation() {
   };
 
   const CheckoutDialog = React.memo(() => (
-    <Dialog open={showCheckout} onOpenChange={handleCloseCheckout}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Pagamento via PIX</DialogTitle>
-          <DialogDescription>
-            Escaneie o QR Code ou copie o código PIX para pagar
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col items-center space-y-6 py-4">
-          {isVerifyingPayment && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-50">
-              <div className="text-center space-y-2">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                <p className="text-sm text-muted-foreground">
-                  Aguardando confirmação do pagamento...
-                </p>
-              </div>
-            </div>
-          )}
-
-          {checkoutData?.pixQrCode && (
-            <div className="bg-white p-4 rounded-lg">
-              <img 
-                src={`data:image/png;base64,${checkoutData.pixQrCode}`}
-                alt="QR Code PIX"
-                className="w-48 h-48"
-              />
-            </div>
-          )}
-
-          {checkoutData?.pixCode && (
-            <div className="w-full space-y-2">
-              <p className="text-sm text-center text-muted-foreground">
-                Ou copie o código PIX abaixo:
-              </p>
-              <div className="relative flex items-center">
-                <div className="w-full p-3 text-sm bg-muted rounded-lg break-all">
-                  {checkoutData.pixCode}
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="absolute right-2"
-                  onClick={handleCopyPix}
-                >
-                  {hasCopied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div className="text-sm text-center text-muted-foreground">
-            <p>Após o pagamento, sua assinatura será ativada automaticamente.</p>
-            <p className="font-medium">
-              Valor: {new Intl.NumberFormat('pt-BR', { 
-                style: 'currency', 
-                currency: 'BRL'
-              }).format(checkoutData?.value || 0)}
+    <div className="flex flex-col items-center space-y-6 py-4">
+      {isVerifyingPayment && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-50">
+          <div className="text-center space-y-2">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+            <p className="text-sm text-muted-foreground">
+              Aguardando confirmação do pagamento...
             </p>
           </div>
+        </div>
+      )}
 
-          <div className="flex flex-col gap-2 w-full">
-            <DialogClose asChild>
-              <Button variant="ghost" className="w-full">
-                Fechar
-              </Button>
-            </DialogClose>
+      {checkoutData?.pixQrCode && (
+        <div className="bg-white p-4 rounded-lg">
+          <img 
+            src={`data:image/png;base64,${checkoutData.pixQrCode}`}
+            alt="QR Code PIX"
+            className="w-48 h-48"
+          />
+        </div>
+      )}
+
+      {checkoutData?.pixCode && (
+        <div className="w-full space-y-2">
+          <p className="text-sm text-center text-muted-foreground">
+            Ou copie o código PIX abaixo:
+          </p>
+          <div className="relative flex items-center">
+            <div className="w-full p-3 text-sm bg-muted rounded-lg break-all">
+              {checkoutData.pixCode}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute right-2"
+              onClick={handleCopyPix}
+            >
+              {hasCopied ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+
+      <div className="text-sm text-center text-muted-foreground">
+        <p>Após o pagamento, sua assinatura será ativada automaticamente.</p>
+        <p className="font-medium">
+          Valor: {new Intl.NumberFormat('pt-BR', { 
+            style: 'currency', 
+            currency: 'BRL'
+          }).format(checkoutData?.value || 0)}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2 w-full">
+        <DialogClose asChild>
+          <Button variant="ghost" className="w-full">
+            Fechar
+          </Button>
+        </DialogClose>
+      </div>
+    </div>
   ));
 
   return {
