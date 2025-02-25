@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,25 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
         />
         {errors.full_name && (
           <p className="text-sm text-red-500 mt-1">{errors.full_name.message}</p>
+        )}
+      </div>
+
+      <div>
+        <Label htmlFor="phone_number">WhatsApp/Celular</Label>
+        <Input
+          id="phone_number"
+          type="tel"
+          placeholder="(11) 99999-9999"
+          {...register("phone_number", {
+            required: "Número de celular é obrigatório",
+            pattern: {
+              value: /^(\(\d{2}\)\s?)?\d{5}-\d{4}$/,
+              message: "Formato inválido. Use: (11) 99999-9999",
+            },
+          })}
+        />
+        {errors.phone_number && (
+          <p className="text-sm text-red-500 mt-1">{errors.phone_number.message}</p>
         )}
       </div>
 
