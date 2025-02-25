@@ -11,19 +11,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export type PaymentData = {
-  status: string;
-  value: number;
-  dueDate: string;
-  invoiceUrl: string;
-  paymentId: string;
-};
-
 export function useSubscriptionCreation() {
   const { toast } = useToast();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutData, setCheckoutData] = useState<PaymentData | null>(null);
+  const [checkoutData, setCheckoutData] = useState<any>(null);
 
   const handleSubscribe = async (planId: string) => {
     try {
@@ -83,7 +75,7 @@ export function useSubscriptionCreation() {
     }
   };
 
-  const CheckoutDialog = () => (
+  const CheckoutDialog = React.memo(() => (
     <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
       <DialogContent className="max-w-4xl h-[80vh]">
         <DialogHeader>
@@ -106,7 +98,7 @@ export function useSubscriptionCreation() {
         )}
       </DialogContent>
     </Dialog>
-  );
+  ));
 
   return {
     isSubscribing,

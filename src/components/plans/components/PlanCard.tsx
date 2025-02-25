@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 interface PlanCardProps {
   plan: any;
   isSubscribing: boolean;
-  onSubscribe: (plan: any) => void;
+  onSubscribe: (planId: string) => void;
   CheckoutDialog: React.ComponentType;
 }
 
@@ -50,7 +50,7 @@ export function PlanCard({
 
         <Button 
           className="w-full" 
-          onClick={() => onSubscribe(plan)}
+          onClick={() => onSubscribe(plan.id)}
           disabled={isSubscribing}
         >
           {isSubscribing ? (
