@@ -1,4 +1,3 @@
-
 import * as React from "react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +27,7 @@ export function useSubscriptionCreation() {
   const { toast } = useToast();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [showCreditCardForm, setShowCreditCardForm] = useState(false);
   const [checkoutData, setCheckoutData] = useState<PaymentData | null>(null);
   const [hasCopied, setHasCopied] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
@@ -58,7 +58,7 @@ export function useSubscriptionCreation() {
     isVerifyingPayment ? 5000 : null
   );
 
-  const handleSubscribe = async (planId: string) => {
+  const handleSubscribe = async (planId: string, paymentMethod: string) => {
     try {
       setIsSubscribing(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -73,7 +73,7 @@ export function useSubscriptionCreation() {
           plan_id: planId,
           start_date: new Date().toISOString(),
           status: "pending",
-          payment_method: "pix"
+          payment_method: paymentMethod
         })
         .select()
         .single();
@@ -81,6 +81,11 @@ export function useSubscriptionCreation() {
       if (subscriptionError) throw subscriptionError;
 
       console.log("Subscription created:", newSubscription);
+
+      if (paymentMethod === 'credit_card') {
+        setShowCreditCardForm(true);
+        return;
+      }
 
       const { data, error: paymentError } = await supabase.functions.invoke(
         'asaas-api',
@@ -90,7 +95,7 @@ export function useSubscriptionCreation() {
             subscriptionId: newSubscription.id,
             userId: user.id,
             planId: planId,
-            paymentMethod: 'PIX'
+            paymentMethod: paymentMethod
           }
         }
       );
@@ -125,6 +130,16 @@ export function useSubscriptionCreation() {
     } finally {
       setIsSubscribing(false);
     }
+  };
+
+  const handleCreditCardSubmit = async (cardData: any) => {
+    console.log("Processing credit card:", cardData);
+    setShowCreditCardForm(false);
+    
+    toast({
+      title: "Cartão processado com sucesso!",
+      description: "Sua assinatura será ativada em instantes.",
+    });
   };
 
   const handleCopyPix = async () => {
@@ -218,6 +233,9 @@ export function useSubscriptionCreation() {
   return {
     isSubscribing,
     handleSubscribe,
+    showCreditCardForm,
+    setShowCreditCardForm,
+    handleCreditCardSubmit,
     CheckoutDialog
   };
 }

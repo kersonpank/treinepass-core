@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,20 +131,6 @@ export function PlanCard({
                   <Label htmlFor={`${id}-credit_card`}>Cartão de Crédito</Label>
                   <p id={`${id}-credit_card-description`} className="text-xs text-muted-foreground">
                     Pagamento recorrente
-                  </p>
-                </div>
-              </div>
-              <div className="relative flex w-full items-center gap-2 rounded-lg border border-input px-4 py-3 shadow-sm shadow-black/5 has-[[data-state=checked]]:border-ring has-[[data-state=checked]]:bg-accent">
-                <RadioGroupItem
-                  value="boleto"
-                  id={`${id}-boleto`}
-                  aria-describedby={`${id}-boleto-description`}
-                  className="order-1 after:absolute after:inset-0"
-                />
-                <div className="grid grow gap-1">
-                  <Label htmlFor={`${id}-boleto`}>Boleto Bancário</Label>
-                  <p id={`${id}-boleto-description`} className="text-xs text-muted-foreground">
-                    Vencimento em 3 dias úteis
                   </p>
                 </div>
               </div>
