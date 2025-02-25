@@ -20,8 +20,6 @@ export function AvailablePlansList() {
     showCancelDialog,
     selectedPlan,
     proratedAmount,
-    selectedPaymentMethod,
-    setSelectedPaymentMethod,
     setShowUpgradeDialog,
     setShowCancelDialog,
     handlePlanChange,
@@ -83,9 +81,8 @@ export function AvailablePlansList() {
             key={plan.id}
             plan={plan}
             isSubscribing={isSubscribing}
-            selectedPaymentMethod={selectedPaymentMethod}
-            onPaymentMethodChange={setSelectedPaymentMethod}
             onSubscribe={handlePlanChange}
+            CheckoutDialog={CancelDialog}
           />
         ))}
       </div>
