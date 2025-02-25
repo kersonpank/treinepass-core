@@ -1,21 +1,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 
 interface PlanCardProps {
   plan: any;
   isSubscribing: boolean;
-  selectedPaymentMethod: string;
-  onPaymentMethodChange: (value: string) => void;
   onSubscribe: (plan: any) => void;
   CheckoutDialog: React.ComponentType;
 }
@@ -23,8 +14,6 @@ interface PlanCardProps {
 export function PlanCard({
   plan,
   isSubscribing,
-  selectedPaymentMethod,
-  onPaymentMethodChange,
   onSubscribe,
   CheckoutDialog
 }: PlanCardProps) {
@@ -59,36 +48,20 @@ export function PlanCard({
           </ul>
         </div>
 
-        <div className="space-y-4">
-          <Select
-            value={selectedPaymentMethod}
-            onValueChange={onPaymentMethodChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a forma de pagamento" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
-              <SelectItem value="PIX">PIX</SelectItem>
-              <SelectItem value="BOLETO">Boleto</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button 
-            className="w-full" 
-            onClick={() => onSubscribe(plan)}
-            disabled={isSubscribing || !selectedPaymentMethod}
-          >
-            {isSubscribing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processando...
-              </>
-            ) : (
-              'Contratar Plano'
-            )}
-          </Button>
-        </div>
+        <Button 
+          className="w-full" 
+          onClick={() => onSubscribe(plan)}
+          disabled={isSubscribing}
+        >
+          {isSubscribing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Processando...
+            </>
+          ) : (
+            'Contratar Plano'
+          )}
+        </Button>
       </CardContent>
 
       <CheckoutDialog />
