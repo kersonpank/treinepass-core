@@ -83,15 +83,25 @@ serve(async (req: Request) => {
           paymentStatus = 'overdue';
           break;
         case 'PAYMENT_REFUNDED':
+        case 'PAYMENT_REFUND_IN_PROGRESS':
           subscriptionStatus = 'canceled';
           paymentStatus = 'refunded';
           break;
         case 'PAYMENT_DELETED':
-          // Não alteramos o status da assinatura quando um pagamento é deletado
-          paymentStatus = 'canceled';
+        case 'PAYMENT_RESTORED':
+          // Apenas logamos estes eventos sem alterar status
+          console.log(`Payment ${payload.event.toLowerCase()}: ${payment.id}`);
+          paymentStatus = payload.event.toLowerCase().replace('payment_', '');
           break;
         case 'PAYMENT_CREATED':
+        case 'PAYMENT_UPDATED':
+        case 'PAYMENT_APPROVED_BY_RISK_ANALYSIS':
+        case 'PAYMENT_AWAITING_RISK_ANALYSIS':
           paymentStatus = 'pending';
+          break;
+        case 'PAYMENT_REPROVED_BY_RISK_ANALYSIS':
+        case 'PAYMENT_DUNNING_RECEIVED':
+          paymentStatus = 'failed';
           break;
         default:
           console.log('Unhandled payment event:', payload.event);
@@ -141,15 +151,10 @@ serve(async (req: Request) => {
       if (paymentError) {
         throw paymentError;
       }
-
-      // If payment confirmed, log for future notifications implementation
-      if (subscriptionStatus === 'active') {
-        console.log('Payment confirmed for subscription:', userSubscription.id);
-      }
     }
 
-    // Process subscription deletion (only event available)
-    if (payload.event === 'SUBSCRIPTION_DELETED') {
+    // Process subscription events
+    if (payload.event.startsWith('SUBSCRIPTION_')) {
       const subscription = payload.subscription;
 
       // Find subscription by Asaas ID
@@ -163,18 +168,39 @@ serve(async (req: Request) => {
         throw new Error('Subscription not found');
       }
 
-      // Update subscription to canceled status
-      const { error: updateError } = await supabase
-        .from('user_plan_subscriptions')
-        .update({
-          status: 'canceled',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userSubscription.id);
+      // Handle subscription events
+      switch (payload.event) {
+        case 'SUBSCRIPTION_DELETED':
+        case 'SUBSCRIPTION_INACTIVATED':
+          await supabase
+            .from('user_plan_subscriptions')
+            .update({
+              status: 'canceled',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', userSubscription.id);
+          break;
+        
+        case 'SUBSCRIPTION_CREATED':
+        case 'SUBSCRIPTION_UPDATED':
+          console.log(`Subscription ${payload.event.toLowerCase()}: ${subscription.id}`);
+          break;
 
-      if (updateError) {
-        throw updateError;
+        default:
+          console.log('Unhandled subscription event:', payload.event);
       }
+    }
+
+    // Process invoice events
+    if (payload.event.startsWith('INVOICE_')) {
+      console.log('Invoice event received:', payload.event);
+      // Podemos implementar lógica específica para notas fiscais no futuro
+    }
+
+    // Process transfer events
+    if (payload.event.startsWith('TRANSFER_')) {
+      console.log('Transfer event received:', payload.event);
+      // Podemos implementar lógica específica para transferências no futuro
     }
 
     return new Response(
