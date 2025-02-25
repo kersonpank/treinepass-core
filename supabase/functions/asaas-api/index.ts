@@ -1,214 +1,177 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "../_shared/cors.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
-console.log("Hello from asaas-api!");
-
-interface RequestBody {
-  userId: string;
-  planId: string;
-  paymentMethod: string;
-  proratedAmount?: number;
-  upgradeFromSubscriptionId?: string;
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    )
 
-    // Get request body
-    const { userId, planId, paymentMethod, proratedAmount, upgradeFromSubscriptionId } = await req.json() as RequestBody;
+    const { action, subscriptionId, userId, planId, paymentMethod } = await req.json()
 
-    console.log("Processing subscription request:", {
-      userId,
-      planId,
-      paymentMethod,
-      proratedAmount,
-      upgradeFromSubscriptionId
-    });
-
-    // Fetch user profile
-    const { data: userProfile, error: userError } = await supabaseClient
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !userProfile) {
-      console.error("Error fetching user profile:", userError);
-      throw new Error('User profile not found');
+    if (action !== "createPayment") {
+      throw new Error("Invalid action")
     }
 
-    // Fetch plan details
-    const { data: plan, error: planError } = await supabaseClient
+    // 1. Obter dados do plano
+    const { data: plan } = await supabaseClient
       .from('benefit_plans')
       .select('*')
       .eq('id', planId)
-      .single();
+      .single()
 
-    if (planError || !plan) {
-      console.error("Error fetching plan:", planError);
-      throw new Error('Plan not found');
+    if (!plan) {
+      throw new Error("Plan not found")
     }
 
-    // Get ASAAS configuration
-    const { data: asaasConfig } = await supabaseClient.rpc('get_asaas_config');
-    if (!asaasConfig) {
-      throw new Error('ASAAS configuration not found');
+    // 2. Obter ou criar cliente no Asaas
+    const { data: userProfile } = await supabaseClient
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (!userProfile) {
+      throw new Error("User profile not found")
     }
 
-    const apiKey = asaasConfig.api_key;
-    const apiUrl = asaasConfig.api_url;
+    let asaasCustomerId
 
-    // Create or get ASAAS customer
-    let asaasCustomer;
+    // Verificar se já existe um customer_id
     const { data: existingCustomer } = await supabaseClient
       .from('asaas_customers')
-      .select('*')
+      .select('asaas_id')
       .eq('user_id', userId)
-      .maybeSingle();
+      .single()
 
     if (existingCustomer) {
-      asaasCustomer = existingCustomer;
+      asaasCustomerId = existingCustomer.asaas_id
     } else {
-      // Create customer in ASAAS
-      const customerResponse = await fetch(`${apiUrl}/customers`, {
+      // Criar novo cliente no Asaas
+      const customerResponse = await fetch('https://api.asaas.com/v3/customers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'access_token': apiKey
+          'access_token': Deno.env.get('ASAAS_API_KEY') ?? '',
         },
         body: JSON.stringify({
           name: userProfile.full_name,
           email: userProfile.email,
           cpfCnpj: userProfile.cpf,
-          phone: userProfile.phone_number
-        })
-      });
+          phone: userProfile.phone_number,
+        }),
+      })
 
-      if (!customerResponse.ok) {
-        console.error("Error creating ASAAS customer:", await customerResponse.text());
-        throw new Error('Failed to create customer in ASAAS');
+      const customerData = await customerResponse.json()
+
+      if (!customerData.id) {
+        throw new Error("Failed to create Asaas customer")
       }
 
-      const customerData = await customerResponse.json();
-
-      // Save customer in database
-      const { data: newCustomer, error: customerError } = await supabaseClient
+      // Salvar customer_id
+      await supabaseClient
         .from('asaas_customers')
         .insert({
           user_id: userId,
           asaas_id: customerData.id,
           name: userProfile.full_name,
           email: userProfile.email,
-          cpf_cnpj: userProfile.cpf
+          cpf_cnpj: userProfile.cpf,
         })
-        .select()
-        .single();
 
-      if (customerError) {
-        console.error("Error saving customer:", customerError);
-        throw new Error('Failed to save customer');
-      }
-
-      asaasCustomer = newCustomer;
+      asaasCustomerId = customerData.id
     }
 
-    // Calculate billing details
-    const amount = proratedAmount || plan.monthly_cost;
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 1); // Due tomorrow
+    // 3. Criar pagamento no Asaas
+    const dueDate = new Date()
+    dueDate.setDate(dueDate.getDate() + 1) // Vencimento em 1 dia
 
-    // Create payment in ASAAS
-    const paymentResponse = await fetch(`${apiUrl}/payments`, {
+    const paymentResponse = await fetch('https://api.asaas.com/v3/payments', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'access_token': apiKey
+        'access_token': Deno.env.get('ASAAS_API_KEY') ?? '',
       },
       body: JSON.stringify({
-        customer: asaasCustomer.asaas_id,
-        billingType: paymentMethod === 'credit_card' ? 'CREDIT_CARD' : 
-                     paymentMethod === 'pix' ? 'PIX' : 'BOLETO',
-        value: amount,
+        customer: asaasCustomerId,
+        billingType: 'PIX',
+        value: plan.monthly_cost,
         dueDate: dueDate.toISOString().split('T')[0],
-        description: `Assinatura do plano ${plan.name}${proratedAmount ? ' (valor proporcional)' : ''}`,
-      })
-    });
+        description: `Assinatura do plano ${plan.name}`,
+      }),
+    })
 
-    if (!paymentResponse.ok) {
-      console.error("Error creating ASAAS payment:", await paymentResponse.text());
-      throw new Error('Failed to create payment');
+    const paymentData = await paymentResponse.json()
+
+    if (!paymentData.id) {
+      throw new Error("Failed to create Asaas payment")
     }
 
-    const paymentData = await paymentResponse.json();
+    // 4. Gerar QR Code PIX
+    const qrCodeResponse = await fetch(`https://api.asaas.com/v3/payments/${paymentData.id}/pixQrCode`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'access_token': Deno.env.get('ASAAS_API_KEY') ?? '',
+      },
+    })
 
-    // Save payment in database
-    const { data: newPayment, error: paymentError } = await supabaseClient
+    const qrCodeData = await qrCodeResponse.json()
+
+    // 5. Salvar informações do pagamento
+    const { data: payment, error: paymentError } = await supabaseClient
       .from('asaas_payments')
       .insert({
-        customer_id: asaasCustomer.id,
+        subscription_id: subscriptionId,
+        customer_id: userId,
         asaas_id: paymentData.id,
-        amount: amount,
+        amount: plan.monthly_cost,
+        due_date: dueDate.toISOString(),
         status: 'PENDING',
-        billing_type: paymentMethod,
-        payment_link: paymentData.bankSlipUrl || paymentData.invoiceUrl,
-        due_date: dueDate.toISOString()
+        billing_type: 'PIX',
+        payment_method: 'pix',
       })
       .select()
-      .single();
+      .single()
 
     if (paymentError) {
-      console.error("Error saving payment:", paymentError);
-      throw new Error('Failed to save payment');
-    }
-
-    // If this is an upgrade, update the old subscription
-    if (upgradeFromSubscriptionId) {
-      await supabaseClient
-        .from('user_plan_subscriptions')
-        .update({ status: 'cancelled', end_date: new Date().toISOString() })
-        .eq('id', upgradeFromSubscriptionId);
+      throw paymentError
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        subscription: {
-          id: newPayment.id,
-          paymentLink: paymentData.bankSlipUrl || paymentData.invoiceUrl || paymentData.pixQrCodeUrl
-        }
+        paymentData: {
+          pixQrCode: qrCodeData.encodedImage,
+          pixCode: qrCodeData.payload,
+          value: plan.monthly_cost,
+          dueDate: dueDate.toISOString(),
+          subscriptionId,
+          paymentId: payment.id,
+        },
       }),
       {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       },
-    );
-  } catch (err) {
-    console.error("Error processing request:", err);
+    )
+  } catch (error) {
     return new Response(
-      JSON.stringify({
-        error: err.message
-      }),
+      JSON.stringify({ error: error.message }),
       {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       },
-    );
+    )
   }
-});
+})
