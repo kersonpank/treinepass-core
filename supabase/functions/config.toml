@@ -1,0 +1,5 @@
+
+project_id = "jlzkwcgzpfrdgcdjmjao"
+
+[functions.asaas-api]
+verify_jwt = true

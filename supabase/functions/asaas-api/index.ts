@@ -21,12 +21,11 @@ serve(async (req) => {
     )
 
     const { action, subscriptionId, userId, planId, paymentMethod } = await req.json()
+    console.log("Received request:", { action, subscriptionId, userId, planId, paymentMethod });
 
     if (action !== "createPayment") {
       throw new Error("Invalid action")
     }
-
-    console.log("Creating payment for subscription:", { subscriptionId, userId, planId, paymentMethod });
 
     // 1. Obter dados do plano
     const { data: plan, error: planError } = await supabaseClient
@@ -125,7 +124,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         customer: asaasCustomerId,
-        billingType: 'PIX',
+        billingType: paymentMethod.toUpperCase(),
         value: plan.monthly_cost,
         dueDate: dueDate.toISOString().split('T')[0],
         description: `Assinatura do plano ${plan.name}`,
@@ -140,17 +139,20 @@ serve(async (req) => {
       throw new Error("Failed to create Asaas payment");
     }
 
-    // 4. Gerar QR Code PIX
-    console.log("Generating PIX QR Code");
-    const qrCodeResponse = await fetch(`${ASAAS_SANDBOX_URL}/payments/${paymentData.id}/pixQrCode`, {
-      headers: {
-        'Content-Type': 'application/json',
-        'access_token': Deno.env.get('ASAAS_API_KEY') ?? '',
-      },
-    })
+    // 4. Gerar QR Code PIX (se for pagamento PIX)
+    let qrCodeData = null;
+    if (paymentMethod.toUpperCase() === 'PIX') {
+      console.log("Generating PIX QR Code");
+      const qrCodeResponse = await fetch(`${ASAAS_SANDBOX_URL}/payments/${paymentData.id}/pixQrCode`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'access_token': Deno.env.get('ASAAS_API_KEY') ?? '',
+        },
+      })
 
-    const qrCodeData = await qrCodeResponse.json()
-    console.log("PIX QR Code generated:", qrCodeData);
+      qrCodeData = await qrCodeResponse.json()
+      console.log("PIX QR Code generated:", qrCodeData);
+    }
 
     // 5. Salvar informações do pagamento
     const { data: payment, error: paymentError } = await supabaseClient
@@ -162,8 +164,8 @@ serve(async (req) => {
         amount: plan.monthly_cost,
         due_date: dueDate.toISOString(),
         status: 'PENDING',
-        billing_type: 'PIX',
-        payment_method: 'pix',
+        billing_type: paymentMethod.toUpperCase(),
+        payment_method: paymentMethod.toLowerCase(),
       })
       .select()
       .single()
@@ -179,8 +181,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         paymentData: {
-          pixQrCode: qrCodeData.encodedImage,
-          pixCode: qrCodeData.payload,
+          pixQrCode: qrCodeData?.encodedImage,
+          pixCode: qrCodeData?.payload,
           value: plan.monthly_cost,
           dueDate: dueDate.toISOString(),
           subscriptionId,
