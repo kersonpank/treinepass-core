@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,17 @@ import {
 import { useId } from "react";
 
 interface PlanCardProps {
-  plan: any;
+  plan: {
+    id: string;
+    name: string;
+    description?: string;
+    monthly_cost: number;
+    rules?: Record<string, any>;
+    plan_type?: string;
+    business_profiles?: {
+      company_name?: string;
+    };
+  };
   isSubscribing: boolean;
   onSubscribe: (planId: string, paymentMethod: string) => void;
   CheckoutDialog: React.ComponentType;
@@ -35,6 +46,7 @@ export function PlanCard({
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
 
   const handleConfirmPayment = async () => {
+    console.log("Confirming payment for plan:", plan.id, "with method:", selectedPaymentMethod);
     await onSubscribe(plan.id, selectedPaymentMethod);
     setShowDialog(false);
     setShowCheckoutDialog(true);

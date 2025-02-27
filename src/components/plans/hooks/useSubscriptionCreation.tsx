@@ -1,3 +1,4 @@
+
 import * as React from "react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -37,11 +38,16 @@ export function useSubscriptionCreation() {
       if (!checkoutData?.paymentId) return;
 
       try {
-        const { data: payment } = await supabase
+        const { data: payment, error } = await supabase
           .from("asaas_payments")
           .select("status")
           .eq("id", checkoutData.paymentId)
           .single();
+
+        if (error) {
+          console.error("Error checking payment status:", error);
+          return;
+        }
 
         if (payment?.status === "CONFIRMED" || payment?.status === "RECEIVED") {
           toast({
@@ -66,6 +72,10 @@ export function useSubscriptionCreation() {
 
       console.log("Creating subscription for plan:", planId, "with payment method:", paymentMethod);
 
+      if (!planId) {
+        throw new Error("ID do plano não fornecido");
+      }
+
       const { data: newSubscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
@@ -73,7 +83,7 @@ export function useSubscriptionCreation() {
           plan_id: planId,
           start_date: new Date().toISOString(),
           status: "pending",
-          payment_method: paymentMethod
+          payment_method: paymentMethod,
         })
         .select()
         .single();
