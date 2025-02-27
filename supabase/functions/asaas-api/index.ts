@@ -10,6 +10,9 @@ const corsHeaders = {
 const ASAAS_SANDBOX_URL = 'https://sandbox.asaas.com/api/v3';
 
 serve(async (req) => {
+  // Log da requisição recebida
+  console.log("Nova requisição recebida:", new Date().toISOString());
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -20,14 +23,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Log das variáveis de ambiente (sem expor as chaves)
+    console.log("Ambiente Supabase configurado:", {
+      url: !!Deno.env.get('SUPABASE_URL'),
+      serviceRole: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+      asaasKey: !!Deno.env.get('ASAAS_API_KEY')
+    });
+
     const { action, subscriptionId, userId, planId, paymentMethod } = await req.json()
-    console.log("Received request:", { action, subscriptionId, userId, planId, paymentMethod });
+    console.log("Dados recebidos:", { action, subscriptionId, userId, planId, paymentMethod });
 
     if (action !== "createPayment") {
       throw new Error("Invalid action")
     }
 
     // 1. Obter dados do plano
+    console.log("Buscando dados do plano:", planId);
     const { data: plan, error: planError } = await supabaseClient
       .from('benefit_plans')
       .select('*')
@@ -35,13 +46,14 @@ serve(async (req) => {
       .single()
 
     if (planError) {
-      console.error("Error fetching plan:", planError);
+      console.error("Erro ao buscar plano:", planError);
       throw new Error("Plan not found");
     }
 
-    console.log("Plan data:", plan);
+    console.log("Dados do plano encontrados:", plan);
 
     // 2. Obter ou criar cliente no Asaas
+    console.log("Buscando perfil do usuário:", userId);
     const { data: userProfile, error: userError } = await supabaseClient
       .from('user_profiles')
       .select('*')
@@ -49,11 +61,15 @@ serve(async (req) => {
       .single()
 
     if (userError) {
-      console.error("Error fetching user profile:", userError);
+      console.error("Erro ao buscar perfil do usuário:", userError);
       throw new Error("User profile not found");
     }
 
-    console.log("User profile:", userProfile);
+    console.log("Perfil do usuário encontrado:", {
+      name: userProfile.full_name,
+      email: userProfile.email,
+      cpf: userProfile.cpf
+    });
 
     let asaasCustomerId
 
@@ -66,9 +82,9 @@ serve(async (req) => {
 
     if (existingCustomer) {
       asaasCustomerId = existingCustomer.asaas_id
-      console.log("Using existing Asaas customer:", asaasCustomerId);
+      console.log("Cliente Asaas existente encontrado:", asaasCustomerId);
     } else {
-      console.log("Creating new Asaas customer");
+      console.log("Criando novo cliente no Asaas");
       // Criar novo cliente no Asaas
       const customerResponse = await fetch(`${ASAAS_SANDBOX_URL}/customers`, {
         method: 'POST',
@@ -85,10 +101,10 @@ serve(async (req) => {
       })
 
       const customerData = await customerResponse.json()
-      console.log("Asaas customer response:", customerData);
+      console.log("Resposta da criação do cliente Asaas:", customerData);
 
       if (!customerData.id) {
-        console.error("Failed to create Asaas customer:", customerData);
+        console.error("Falha ao criar cliente no Asaas:", customerData);
         throw new Error("Failed to create Asaas customer");
       }
 
@@ -104,18 +120,25 @@ serve(async (req) => {
         })
 
       if (customerSaveError) {
-        console.error("Error saving customer:", customerSaveError);
+        console.error("Erro ao salvar cliente:", customerSaveError);
         throw customerSaveError;
       }
 
       asaasCustomerId = customerData.id
+      console.log("Novo cliente Asaas criado e salvo:", asaasCustomerId);
     }
 
     // 3. Criar pagamento no Asaas
     const dueDate = new Date()
     dueDate.setDate(dueDate.getDate() + 1) // Vencimento em 1 dia
 
-    console.log("Creating Asaas payment");
+    console.log("Criando pagamento no Asaas:", {
+      customer: asaasCustomerId,
+      billingType: paymentMethod.toUpperCase(),
+      value: plan.monthly_cost,
+      dueDate: dueDate.toISOString().split('T')[0]
+    });
+
     const paymentResponse = await fetch(`${ASAAS_SANDBOX_URL}/payments`, {
       method: 'POST',
       headers: {
@@ -132,17 +155,17 @@ serve(async (req) => {
     })
 
     const paymentData = await paymentResponse.json()
-    console.log("Asaas payment response:", paymentData);
+    console.log("Resposta da criação do pagamento Asaas:", paymentData);
 
     if (!paymentData.id) {
-      console.error("Failed to create Asaas payment:", paymentData);
+      console.error("Falha ao criar pagamento no Asaas:", paymentData);
       throw new Error("Failed to create Asaas payment");
     }
 
     // 4. Gerar QR Code PIX (se for pagamento PIX)
     let qrCodeData = null;
     if (paymentMethod.toUpperCase() === 'PIX') {
-      console.log("Generating PIX QR Code");
+      console.log("Gerando QR Code PIX para pagamento:", paymentData.id);
       const qrCodeResponse = await fetch(`${ASAAS_SANDBOX_URL}/payments/${paymentData.id}/pixQrCode`, {
         headers: {
           'Content-Type': 'application/json',
@@ -151,10 +174,14 @@ serve(async (req) => {
       })
 
       qrCodeData = await qrCodeResponse.json()
-      console.log("PIX QR Code generated:", qrCodeData);
+      console.log("QR Code PIX gerado:", {
+        success: !!qrCodeData.encodedImage,
+        payload: !!qrCodeData.payload
+      });
     }
 
     // 5. Salvar informações do pagamento
+    console.log("Salvando informações do pagamento no banco de dados");
     const { data: payment, error: paymentError } = await supabaseClient
       .from('asaas_payments')
       .insert({
@@ -171,11 +198,11 @@ serve(async (req) => {
       .single()
 
     if (paymentError) {
-      console.error("Error saving payment:", paymentError);
+      console.error("Erro ao salvar pagamento:", paymentError);
       throw paymentError;
     }
 
-    console.log("Payment saved successfully:", payment);
+    console.log("Pagamento salvo com sucesso:", payment);
 
     return new Response(
       JSON.stringify({
@@ -195,7 +222,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.error("Error processing request:", error);
+    console.error("Erro ao processar requisição:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
