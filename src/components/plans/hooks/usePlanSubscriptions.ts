@@ -10,7 +10,7 @@ interface UsePlanSubscriptionsProps {
 
 export function usePlanSubscriptions({ userProfile }: UsePlanSubscriptionsProps) {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("pix");
-  const { isSubscribing, handleSubscribe } = useSubscriptionCreation();
+  const { isSubscribing, handleSubscribe, CheckoutDialog } = useSubscriptionCreation();
   const { 
     showUpgradeDialog,
     selectedPlan,
@@ -32,7 +32,7 @@ export function usePlanSubscriptions({ userProfile }: UsePlanSubscriptionsProps)
         throw new Error("Dados do plano inválidos ou ID não encontrado");
       }
       
-      console.log("Handling plan change for plan:", plan.id);
+      console.log("Handling plan change for plan:", plan.id, "with method:", selectedPaymentMethod);
       
       const needsUpgrade = await checkUpgradeEligibility(plan);
       if (!needsUpgrade) {
@@ -44,6 +44,11 @@ export function usePlanSubscriptions({ userProfile }: UsePlanSubscriptionsProps)
   };
 
   const handleUpgradePlan = () => {
+    if (!selectedPlan) {
+      console.error("Nenhum plano selecionado para upgrade");
+      return;
+    }
+    console.log("Upgrading to plan:", selectedPlan.id, "with method:", selectedPaymentMethod);
     handleUpgrade(selectedPaymentMethod);
   };
 
@@ -59,6 +64,7 @@ export function usePlanSubscriptions({ userProfile }: UsePlanSubscriptionsProps)
     setShowCancelDialog,
     handlePlanChange,
     handleCancelPlan,
-    handleUpgradePlan
+    handleUpgradePlan,
+    CheckoutDialog
   };
 }

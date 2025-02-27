@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,15 +30,13 @@ import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { planFormSchema } from "./types/plan";
+import { planFormSchema, PlanFormValues } from "./types/plan";
 import { MultipleSelect, TTag } from "@/components/ui/multiple-select";
-
-type PlanFormValues = z.infer<typeof planFormSchema>;
 
 const defaultValues: Partial<PlanFormValues> = {
   name: "",
   description: "",
-  monthly_cost: "",
+  monthly_cost: 0,
   plan_type: "corporate",
   period_type: "monthly",
   status: "active",
@@ -121,11 +120,16 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
         businessId = businessProfile.id;
       }
 
+      // Convertendo monthly_cost para número
+      const monthlyCost = typeof data.monthly_cost === 'string' 
+        ? parseFloat(data.monthly_cost) 
+        : data.monthly_cost;
+
       // Create plan-category relationships for each selected category
       const planData = {
         name: data.name,
         description: data.description,
-        monthly_cost: Number(data.monthly_cost),
+        monthly_cost: monthlyCost,
         plan_type: data.plan_type,
         period_type: data.period_type,
         status: data.status,
@@ -146,7 +150,7 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
       if (error) throw error;
 
       // Create plan-category relationships
-      if (data.category_ids.length > 0) {
+      if (data.category_ids && data.category_ids.length > 0) {
         const planCategories = data.category_ids.map(categoryId => ({
           plan_id: newPlan.id,
           category_id: categoryId
@@ -236,6 +240,12 @@ export function CreatePlanForm({ onSuccess }: CreatePlanFormProps) {
                         min="0"
                         placeholder="0.00"
                         {...field}
+                        onChange={(e) => {
+                          // Converte o valor para número
+                          const value = e.target.value === "" ? 0 : parseFloat(e.target.value);
+                          field.onChange(value);
+                        }}
+                        value={field.value}
                       />
                     </FormControl>
                     <FormMessage />

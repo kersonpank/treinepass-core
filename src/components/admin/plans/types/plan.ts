@@ -99,7 +99,8 @@ export const planFormSchema = z.object({
   early_cancellation_fee: z.number().optional(),
   minimum_contract_months: z.number().optional(),
   setup_fee: z.number().optional(),
-  late_payment_fee: z.number().optional()
+  late_payment_fee: z.number().optional(),
+  category_ids: z.array(z.string()).optional()
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;
