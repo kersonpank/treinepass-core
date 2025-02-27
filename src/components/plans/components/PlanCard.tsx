@@ -16,6 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useId } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlanCardProps {
   plan: {
@@ -28,6 +29,7 @@ interface PlanCardProps {
     business_profiles?: {
       company_name?: string;
     };
+    final_user_cost?: number;
   };
   isSubscribing: boolean;
   onSubscribe: (planId: string, paymentMethod: string) => void;
@@ -41,15 +43,37 @@ export function PlanCard({
   CheckoutDialog
 }: PlanCardProps) {
   const id = useId();
+  const { toast } = useToast();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("pix");
   const [showDialog, setShowDialog] = useState(false);
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
 
   const handleConfirmPayment = async () => {
-    console.log("Confirming payment for plan:", plan.id, "with method:", selectedPaymentMethod);
-    await onSubscribe(plan.id, selectedPaymentMethod);
-    setShowDialog(false);
-    setShowCheckoutDialog(true);
+    try {
+      if (!plan.id) {
+        toast({
+          variant: "destructive",
+          title: "Erro no plano",
+          description: "ID do plano não encontrado. Por favor, tente novamente.",
+        });
+        return;
+      }
+      
+      console.log("Confirming payment for plan:", plan.id, "with method:", selectedPaymentMethod);
+      await onSubscribe(plan.id, selectedPaymentMethod);
+      setShowDialog(false);
+      
+      if (selectedPaymentMethod === 'pix') {
+        setShowCheckoutDialog(true);
+      }
+    } catch (error) {
+      console.error("Error confirming payment:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar pagamento",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+      });
+    }
   };
 
   const handleCloseCheckout = () => {
@@ -65,7 +89,8 @@ export function PlanCard({
               <CardTitle className="flex items-center justify-between">
                 <span>{plan.name}</span>
                 <span className="text-2xl font-bold">
-                  {formatCurrency(plan.plan_type === 'corporate_subsidized' ? plan.final_user_cost : plan.monthly_cost)}
+                  {formatCurrency(plan.plan_type === 'corporate_subsidized' ? 
+                    (plan.final_user_cost || 0) : plan.monthly_cost)}
                   <span className="text-sm font-normal text-muted-foreground">/mês</span>
                 </span>
               </CardTitle>

@@ -10,6 +10,9 @@ const corsHeaders = {
 const ASAAS_SANDBOX_URL = 'https://sandbox.asaas.com/api/v3';
 
 serve(async (req) => {
+  // Para depuração
+  console.log("Nova requisição recebida:", new Date().toISOString());
+  
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -28,11 +31,25 @@ serve(async (req) => {
       asaasKey: !!Deno.env.get('ASAAS_API_KEY')
     });
 
-    const { action, subscriptionId, userId, planId, paymentMethod } = await req.json()
+    const requestData = await req.json();
+    const { action, subscriptionId, userId, planId, paymentMethod } = requestData;
+    
     console.log("Dados recebidos:", { action, subscriptionId, userId, planId, paymentMethod });
 
     if (action !== "createPayment") {
-      throw new Error("Ação inválida")
+      throw new Error("Ação inválida");
+    }
+
+    if (!planId) {
+      throw new Error("ID do plano não fornecido");
+    }
+
+    if (!userId) {
+      throw new Error("ID do usuário não fornecido");
+    }
+
+    if (!subscriptionId) {
+      throw new Error("ID da assinatura não fornecido");
     }
 
     // 1. Obter dados do plano
@@ -41,9 +58,9 @@ serve(async (req) => {
       .from('benefit_plans')
       .select('*')
       .eq('id', planId)
-      .single()
+      .single();
 
-    if (planError) {
+    if (planError || !plan) {
       console.error("Erro ao buscar plano:", planError);
       throw new Error("Plano não encontrado");
     }
@@ -56,9 +73,9 @@ serve(async (req) => {
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
-      .single()
+      .single();
 
-    if (userError) {
+    if (userError || !userProfile) {
       console.error("Erro ao buscar perfil do usuário:", userError);
       throw new Error("Perfil do usuário não encontrado");
     }
@@ -69,20 +86,25 @@ serve(async (req) => {
       cpf: userProfile.cpf
     });
 
-    let asaasCustomerId
+    let asaasCustomerId;
 
     // Verificar se já existe um customer_id
     const { data: existingCustomer } = await supabaseClient
       .from('asaas_customers')
       .select('asaas_id')
       .eq('user_id', userId)
-      .single()
+      .single();
 
     if (existingCustomer) {
-      asaasCustomerId = existingCustomer.asaas_id
+      asaasCustomerId = existingCustomer.asaas_id;
       console.log("Cliente Asaas existente encontrado:", asaasCustomerId);
     } else {
       console.log("Criando novo cliente no Asaas");
+      
+      if (!userProfile.full_name || !userProfile.email || !userProfile.cpf) {
+        throw new Error("Dados do usuário incompletos para criar cliente no Asaas");
+      }
+      
       // Criar novo cliente no Asaas
       const customerResponse = await fetch(`${ASAAS_SANDBOX_URL}/customers`, {
         method: 'POST',
@@ -96,9 +118,15 @@ serve(async (req) => {
           cpfCnpj: userProfile.cpf,
           phone: userProfile.phone_number,
         }),
-      })
+      });
 
-      const customerData = await customerResponse.json()
+      if (!customerResponse.ok) {
+        const errorData = await customerResponse.text();
+        console.error("Resposta de erro do Asaas ao criar cliente:", errorData);
+        throw new Error(`Erro ao criar cliente no Asaas: ${customerResponse.status} ${customerResponse.statusText}`);
+      }
+
+      const customerData = await customerResponse.json();
       console.log("Resposta da criação do cliente Asaas:", customerData);
 
       if (!customerData.id) {
@@ -115,20 +143,20 @@ serve(async (req) => {
           name: userProfile.full_name,
           email: userProfile.email,
           cpf_cnpj: userProfile.cpf,
-        })
+        });
 
       if (customerSaveError) {
         console.error("Erro ao salvar cliente:", customerSaveError);
         throw customerSaveError;
       }
 
-      asaasCustomerId = customerData.id
+      asaasCustomerId = customerData.id;
       console.log("Novo cliente Asaas criado e salvo:", asaasCustomerId);
     }
 
     // 3. Criar pagamento no Asaas
-    const dueDate = new Date()
-    dueDate.setDate(dueDate.getDate() + 1) // Vencimento em 1 dia
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 1); // Vencimento em 1 dia
 
     console.log("Criando pagamento no Asaas:", {
       customer: asaasCustomerId,
@@ -150,9 +178,15 @@ serve(async (req) => {
         dueDate: dueDate.toISOString().split('T')[0],
         description: `Assinatura do plano ${plan.name}`,
       }),
-    })
+    });
 
-    const paymentData = await paymentResponse.json()
+    if (!paymentResponse.ok) {
+      const errorData = await paymentResponse.text();
+      console.error("Resposta de erro do Asaas ao criar pagamento:", errorData);
+      throw new Error(`Erro ao criar pagamento no Asaas: ${paymentResponse.status} ${paymentResponse.statusText}`);
+    }
+
+    const paymentData = await paymentResponse.json();
     console.log("Resposta da criação do pagamento Asaas:", paymentData);
 
     if (!paymentData.id) {
@@ -169,13 +203,21 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'access_token': Deno.env.get('ASAAS_API_KEY') ?? '',
         },
-      })
-
-      qrCodeData = await qrCodeResponse.json()
-      console.log("QR Code PIX gerado:", {
-        success: !!qrCodeData.encodedImage,
-        payload: !!qrCodeData.payload
       });
+
+      if (!qrCodeResponse.ok) {
+        const errorData = await qrCodeResponse.text();
+        console.error("Resposta de erro do Asaas ao gerar QR code:", errorData);
+        throw new Error(`Erro ao gerar QR Code PIX: ${qrCodeResponse.status} ${qrCodeResponse.statusText}`);
+      }
+
+      qrCodeData = await qrCodeResponse.json();
+      console.log("QR Code PIX gerado - propriedades:", Object.keys(qrCodeData));
+      
+      if (!qrCodeData.encodedImage || !qrCodeData.payload) {
+        console.error("Dados do QR Code PIX incompletos:", qrCodeData);
+        throw new Error("QR Code PIX não gerado corretamente");
+      }
     }
 
     // 5. Salvar informações do pagamento
@@ -193,7 +235,7 @@ serve(async (req) => {
         payment_method: paymentMethod.toLowerCase(),
       })
       .select()
-      .single()
+      .single();
 
     if (paymentError) {
       console.error("Erro ao salvar pagamento:", paymentError);
@@ -202,31 +244,43 @@ serve(async (req) => {
 
     console.log("Pagamento salvo com sucesso:", payment);
 
+    // 6. Montar e retornar resposta
+    const responseData = {
+      success: true,
+      paymentData: {
+        pixQrCode: qrCodeData?.encodedImage,
+        pixCode: qrCodeData?.payload,
+        value: plan.monthly_cost,
+        dueDate: dueDate.toISOString(),
+        subscriptionId,
+        paymentId: payment.id,
+      },
+    };
+
+    console.log("Resposta sendo enviada:", {
+      success: responseData.success,
+      hasPixQrCode: !!responseData.paymentData.pixQrCode,
+      hasPixCode: !!responseData.paymentData.pixCode,
+    });
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        paymentData: {
-          pixQrCode: qrCodeData?.encodedImage,
-          pixCode: qrCodeData?.payload,
-          value: plan.monthly_cost,
-          dueDate: dueDate.toISOString(),
-          subscriptionId,
-          paymentId: payment.id,
-        },
-      }),
+      JSON.stringify(responseData),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       },
-    )
+    );
   } catch (error) {
     console.error("Erro ao processar requisição:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        success: false
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
       },
-    )
+    );
   }
-})
+});

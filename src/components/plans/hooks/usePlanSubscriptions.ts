@@ -9,7 +9,7 @@ interface UsePlanSubscriptionsProps {
 }
 
 export function usePlanSubscriptions({ userProfile }: UsePlanSubscriptionsProps) {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("credit_card");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("pix");
   const { isSubscribing, handleSubscribe } = useSubscriptionCreation();
   const { 
     showUpgradeDialog,
@@ -27,9 +27,19 @@ export function usePlanSubscriptions({ userProfile }: UsePlanSubscriptionsProps)
   } = usePlanCancellation();
 
   const handlePlanChange = async (plan: any) => {
-    const needsUpgrade = await checkUpgradeEligibility(plan);
-    if (!needsUpgrade) {
-      handleSubscribe(plan.id, selectedPaymentMethod);
+    try {
+      if (!plan || !plan.id) {
+        throw new Error("Dados do plano inválidos ou ID não encontrado");
+      }
+      
+      console.log("Handling plan change for plan:", plan.id);
+      
+      const needsUpgrade = await checkUpgradeEligibility(plan);
+      if (!needsUpgrade) {
+        await handleSubscribe(plan.id, selectedPaymentMethod);
+      }
+    } catch (error) {
+      console.error("Error in handlePlanChange:", error);
     }
   };
 

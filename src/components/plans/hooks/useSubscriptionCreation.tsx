@@ -66,16 +66,29 @@ export function useSubscriptionCreation() {
 
   const handleSubscribe = async (planId: string, paymentMethod: string) => {
     try {
-      setIsSubscribing(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      console.log("Creating subscription for plan:", planId, "with payment method:", paymentMethod);
-
       if (!planId) {
         throw new Error("ID do plano não fornecido");
       }
 
+      setIsSubscribing(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      console.log("Creating subscription for plan:", planId, "with payment method:", paymentMethod);
+
+      // Verificar se o plano existe antes de criar a assinatura
+      const { data: planData, error: planError } = await supabase
+        .from("benefit_plans")
+        .select("id, name, monthly_cost")
+        .eq("id", planId)
+        .single();
+
+      if (planError || !planData) {
+        console.error("Erro ao verificar plano:", planError);
+        throw new Error("Plano não encontrado ou inválido");
+      }
+
+      // Criar assinatura
       const { data: newSubscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
@@ -100,6 +113,7 @@ export function useSubscriptionCreation() {
         return;
       }
 
+      // Criar pagamento via edge function
       const { data, error: paymentError } = await supabase.functions.invoke(
         'asaas-api',
         {
@@ -117,7 +131,7 @@ export function useSubscriptionCreation() {
 
       if (paymentError) {
         console.error("Payment error:", paymentError);
-        throw new Error(paymentError.message);
+        throw new Error(`Erro no processamento do pagamento: ${paymentError.message}`);
       }
       
       if (!data?.success || !data?.paymentData) {
@@ -125,9 +139,10 @@ export function useSubscriptionCreation() {
         throw new Error('Falha ao criar pagamento: Resposta inválida do servidor');
       }
 
-      if (!data.paymentData.pixQrCode || !data.paymentData.pixCode) {
+      // Validar dados do PIX
+      if (paymentMethod === 'pix' && (!data.paymentData.pixQrCode || !data.paymentData.pixCode)) {
         console.error("Missing PIX data in response:", data.paymentData);
-        throw new Error('Dados do PIX não gerados corretamente');
+        throw new Error('Dados do PIX não gerados corretamente. Tente novamente.');
       }
 
       setCheckoutData(data.paymentData);
@@ -143,8 +158,13 @@ export function useSubscriptionCreation() {
       toast({
         variant: "destructive",
         title: "Erro ao contratar plano",
-        description: error.message,
+        description: error.message || "Ocorreu um erro ao processar sua solicitação",
       });
+
+      // Limpar dados em caso de erro
+      setCheckoutData(null);
+      setShowCheckout(false);
+      setIsVerifyingPayment(false);
     } finally {
       setIsSubscribing(false);
     }
@@ -162,16 +182,25 @@ export function useSubscriptionCreation() {
 
   const handleCopyPix = async () => {
     if (checkoutData?.pixCode) {
-      await navigator.clipboard.writeText(checkoutData.pixCode);
-      setHasCopied(true);
-      toast({
-        title: "Código PIX copiado!",
-        description: "Cole o código no seu aplicativo de pagamento.",
-      });
-      
-      setTimeout(() => {
-        setHasCopied(false);
-      }, 2000);
+      try {
+        await navigator.clipboard.writeText(checkoutData.pixCode);
+        setHasCopied(true);
+        toast({
+          title: "Código PIX copiado!",
+          description: "Cole o código no seu aplicativo de pagamento.",
+        });
+        
+        setTimeout(() => {
+          setHasCopied(false);
+        }, 2000);
+      } catch (err) {
+        console.error("Erro ao copiar código PIX:", err);
+        toast({
+          variant: "destructive",
+          title: "Erro ao copiar",
+          description: "Não foi possível copiar o código. Tente copiar manualmente.",
+        });
+      }
     }
   };
 
@@ -193,12 +222,25 @@ export function useSubscriptionCreation() {
         </div>
       )}
 
+      {!checkoutData && (
+        <div className="text-center p-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">
+            Gerando dados de pagamento...
+          </p>
+        </div>
+      )}
+
       {checkoutData?.pixQrCode && (
         <div className="bg-white p-4 rounded-lg">
           <img 
             src={`data:image/png;base64,${checkoutData.pixQrCode}`}
             alt="QR Code PIX"
             className="w-48 h-48"
+            onError={(e) => {
+              console.error("Erro ao carregar QR Code:", e);
+              e.currentTarget.src = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23f5f5f5'/%3E%3Ctext x='50' y='50' font-size='10' text-anchor='middle' alignment-baseline='middle' fill='%23999'%3EErro ao carregar QR Code%3C/text%3E%3C/svg%3E";
+            }}
           />
         </div>
       )}
