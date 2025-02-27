@@ -19,7 +19,7 @@ import { useId } from "react";
 interface PlanCardProps {
   plan: any;
   isSubscribing: boolean;
-  onSubscribe: (planId: string) => void;
+  onSubscribe: (planId: string, paymentMethod: string) => void;
   CheckoutDialog: React.ComponentType;
 }
 
@@ -35,7 +35,7 @@ export function PlanCard({
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
 
   const handleConfirmPayment = async () => {
-    await onSubscribe(plan.id);
+    await onSubscribe(plan.id, selectedPaymentMethod);
     setShowDialog(false);
     setShowCheckoutDialog(true);
   };

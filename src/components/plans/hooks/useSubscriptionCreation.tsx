@@ -64,7 +64,7 @@ export function useSubscriptionCreation() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      console.log("Creating subscription for plan:", planId);
+      console.log("Creating subscription for plan:", planId, "with payment method:", paymentMethod);
 
       const { data: newSubscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
@@ -78,7 +78,10 @@ export function useSubscriptionCreation() {
         .select()
         .single();
 
-      if (subscriptionError) throw subscriptionError;
+      if (subscriptionError) {
+        console.error("Subscription error:", subscriptionError);
+        throw subscriptionError;
+      }
 
       console.log("Subscription created:", newSubscription);
 
@@ -110,6 +113,11 @@ export function useSubscriptionCreation() {
       if (!data?.success || !data?.paymentData) {
         console.error("Invalid payment response:", data);
         throw new Error('Falha ao criar pagamento: Resposta inválida do servidor');
+      }
+
+      if (!data.paymentData.pixQrCode || !data.paymentData.pixCode) {
+        console.error("Missing PIX data in response:", data.paymentData);
+        throw new Error('Dados do PIX não gerados corretamente');
       }
 
       setCheckoutData(data.paymentData);
@@ -222,7 +230,7 @@ export function useSubscriptionCreation() {
 
       <div className="flex flex-col gap-2 w-full">
         <DialogClose asChild>
-          <Button variant="ghost" className="w-full">
+          <Button variant="ghost" className="w-full" onClick={handleCloseCheckout}>
             Fechar
           </Button>
         </DialogClose>
