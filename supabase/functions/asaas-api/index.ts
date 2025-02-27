@@ -10,9 +10,7 @@ const corsHeaders = {
 const ASAAS_SANDBOX_URL = 'https://sandbox.asaas.com/api/v3';
 
 serve(async (req) => {
-  // Log da requisição recebida
-  console.log("Nova requisição recebida:", new Date().toISOString());
-
+  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -24,7 +22,7 @@ serve(async (req) => {
     )
 
     // Log das variáveis de ambiente (sem expor as chaves)
-    console.log("Ambiente Supabase configurado:", {
+    console.log("Ambiente configurado:", {
       url: !!Deno.env.get('SUPABASE_URL'),
       serviceRole: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
       asaasKey: !!Deno.env.get('ASAAS_API_KEY')
@@ -34,7 +32,7 @@ serve(async (req) => {
     console.log("Dados recebidos:", { action, subscriptionId, userId, planId, paymentMethod });
 
     if (action !== "createPayment") {
-      throw new Error("Invalid action")
+      throw new Error("Ação inválida")
     }
 
     // 1. Obter dados do plano
@@ -47,7 +45,7 @@ serve(async (req) => {
 
     if (planError) {
       console.error("Erro ao buscar plano:", planError);
-      throw new Error("Plan not found");
+      throw new Error("Plano não encontrado");
     }
 
     console.log("Dados do plano encontrados:", plan);
@@ -62,7 +60,7 @@ serve(async (req) => {
 
     if (userError) {
       console.error("Erro ao buscar perfil do usuário:", userError);
-      throw new Error("User profile not found");
+      throw new Error("Perfil do usuário não encontrado");
     }
 
     console.log("Perfil do usuário encontrado:", {
@@ -105,7 +103,7 @@ serve(async (req) => {
 
       if (!customerData.id) {
         console.error("Falha ao criar cliente no Asaas:", customerData);
-        throw new Error("Failed to create Asaas customer");
+        throw new Error("Falha ao criar cliente no Asaas");
       }
 
       // Salvar customer_id
@@ -159,7 +157,7 @@ serve(async (req) => {
 
     if (!paymentData.id) {
       console.error("Falha ao criar pagamento no Asaas:", paymentData);
-      throw new Error("Failed to create Asaas payment");
+      throw new Error("Falha ao criar pagamento no Asaas");
     }
 
     // 4. Gerar QR Code PIX (se for pagamento PIX)
