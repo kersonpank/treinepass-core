@@ -1,83 +1,129 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Follow this setup guide to integrate the Deno language server with your editor:
+// https://deno.land/manual/getting_started/setup_your_environment
+// This enables autocomplete, go to definition, etc.
 
-const WEBHOOK_TOKEN = Deno.env.get('ASAAS_WEBHOOK_TOKEN') || 'seu-token-secreto';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, asaas-access-token',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, asaas-access-token",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const WEBHOOK_TOKEN = Deno.env.get("ASAAS_WEBHOOK_TOKEN") || "";
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // Handle CORS preflight request
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 204,
+    });
   }
 
   try {
-    // Validar token de acesso do Asaas
-    const asaasToken = req.headers.get('asaas-access-token');
-    if (asaasToken !== WEBHOOK_TOKEN) {
-      console.error('Token inválido');
+    // Validate webhook request
+    const requestToken = req.headers.get("asaas-access-token");
+    
+    // Only validate token if webhook token is configured
+    if (WEBHOOK_TOKEN && requestToken !== WEBHOOK_TOKEN) {
+      console.error("Invalid webhook token");
       return new Response(
-        JSON.stringify({ success: false, message: 'Invalid webhook token' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+        JSON.stringify({
+          success: false,
+          message: "Unauthorized: Invalid webhook token",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 401,
+        }
       );
     }
 
-    // Processar o payload
+    // Parse request body
     const payload = await req.json();
-    console.log('Webhook recebido:', JSON.stringify(payload));
+    console.log("Received webhook payload:", JSON.stringify(payload));
 
-    // Validar estrutura do payload
-    const eventType = payload.event;
-    if (!eventType) {
-      console.error('Estrutura de payload inválida: event não encontrado');
+    // Validate payload
+    if (!payload.event) {
+      console.error("Invalid payload: missing event field");
       return new Response(
-        JSON.stringify({ success: false, message: 'Invalid payload structure' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({
+          success: false,
+          message: "Invalid payload structure",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
       );
     }
 
-    // Para eventos de pagamento, verificar a estrutura do objeto payment
-    if (eventType.startsWith('PAYMENT_') && !payload.payment) {
-      console.error('Estrutura de payload inválida: payment não encontrado para evento de pagamento');
+    // For payment events, validate payment data
+    if (payload.event.startsWith("PAYMENT_") && !payload.payment) {
+      console.error("Invalid payload: missing payment data for payment event");
       return new Response(
-        JSON.stringify({ success: false, message: 'Invalid payment payload structure' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({
+          success: false,
+          message: "Invalid payload: missing payment data",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
       );
     }
 
-    // Inicializar cliente Supabase
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Chamar a função de processamento do webhook
-    const { data, error } = await supabase
-      .rpc('process_asaas_webhook', { payload })
-      .single();
+    // Process webhook using the SQL function
+    const { data, error } = await supabase.rpc("process_asaas_webhook", {
+      payload,
+    });
 
     if (error) {
-      console.error('Erro ao processar webhook:', error);
+      console.error("Error processing webhook:", error);
       return new Response(
-        JSON.stringify({ success: false, message: error.message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({
+          success: false,
+          message: `Error processing webhook: ${error.message}`,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
       );
     }
 
-    console.log('Webhook processado com sucesso:', data);
+    console.log("Webhook processed successfully:", data);
     return new Response(
-      JSON.stringify(data),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({
+        success: true,
+        message: "Webhook processed successfully",
+        data,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
     );
   } catch (error) {
-    console.error('Erro ao processar webhook:', error.message);
+    console.error("Unexpected error:", error);
     return new Response(
-      JSON.stringify({ success: false, message: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({
+        success: false,
+        message: `Unexpected error: ${error.message}`,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      }
     );
   }
 });
