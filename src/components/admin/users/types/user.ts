@@ -7,6 +7,7 @@ export interface User {
   full_name: string;
   email: string;
   cpf: string;
+  phone: string;
   created_at: string;
   user_types: UserType[];
   active: boolean;

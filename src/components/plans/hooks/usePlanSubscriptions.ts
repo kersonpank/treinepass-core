@@ -1,70 +1,67 @@
-
 import { useState } from "react";
 import { useSubscriptionCreation } from "./useSubscriptionCreation";
 import { useUpgradePlan } from "./useUpgradePlan";
 import { usePlanCancellation } from "./usePlanCancellation";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UsePlanSubscriptionsProps {
   userProfile: any;
 }
 
-export function usePlanSubscriptions({ userProfile }: UsePlanSubscriptionsProps) {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("pix");
-  const { isSubscribing, handleSubscribe, CheckoutDialog } = useSubscriptionCreation();
-  const { 
-    showUpgradeDialog,
-    selectedPlan,
-    proratedAmount,
-    isUpgrading,
-    setShowUpgradeDialog,
-    checkUpgradeEligibility,
-    handleUpgrade
-  } = useUpgradePlan({ userProfile });
-  const {
-    showCancelDialog,
-    setShowCancelDialog,
-    handleCancelPlan
-  } = usePlanCancellation();
+interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  features: string[];
+  plan_type: string;
+}
 
-  const handlePlanChange = async (plan: any) => {
-    try {
-      if (!plan || !plan.id) {
-        throw new Error("Dados do plano inválidos ou ID não encontrado");
-      }
-      
-      console.log("Handling plan change for plan:", plan.id, "with method:", selectedPaymentMethod);
-      
-      const needsUpgrade = await checkUpgradeEligibility(plan);
-      if (!needsUpgrade) {
-        await handleSubscribe(plan.id, selectedPaymentMethod);
-      }
-    } catch (error) {
-      console.error("Error in handlePlanChange:", error);
-    }
-  };
+interface RawPlan {
+  id: string;
+  name: string;
+  description: string;
+  monthly_cost: number;
+  rules: string[];
+  plan_type: string;
+}
 
-  const handleUpgradePlan = () => {
-    if (!selectedPlan) {
-      console.error("Nenhum plano selecionado para upgrade");
-      return;
+export function usePlanSubscriptions() {
+  const { data: plans, isLoading } = useQuery<Plan[]>({
+    queryKey: ["plans"],
+    queryFn: async () => {
+      const { data: rawPlans, error } = await supabase
+        .from("benefit_plans")
+        .select(`
+          id,
+          name,
+          description,
+          monthly_cost,
+          rules,
+          plan_type
+        `)
+        .eq("is_active", true)
+        .order("monthly_cost");
+
+      if (error) {
+        console.error("Error fetching plans:", error);
+        throw error;
+      }
+
+      return (rawPlans as RawPlan[]).map(plan => ({
+        id: plan.id,
+        name: plan.name,
+        description: plan.description,
+        price: plan.monthly_cost,
+        features: plan.rules,
+        plan_type: plan.plan_type
+      }));
     }
-    console.log("Upgrading to plan:", selectedPlan.id, "with method:", selectedPaymentMethod);
-    handleUpgrade(selectedPaymentMethod);
-  };
+  });
 
   return {
-    isSubscribing: isSubscribing || isUpgrading,
-    showUpgradeDialog,
-    showCancelDialog,
-    selectedPlan,
-    proratedAmount,
-    selectedPaymentMethod,
-    setSelectedPaymentMethod,
-    setShowUpgradeDialog,
-    setShowCancelDialog,
-    handlePlanChange,
-    handleCancelPlan,
-    handleUpgradePlan,
-    CheckoutDialog
+    plans,
+    isLoading
   };
 }

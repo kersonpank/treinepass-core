@@ -1,11 +1,11 @@
 
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Loader2, Save, Building2, Clock, Camera, CreditCard, FileText } from "lucide-react";
+import { Loader2, Save, Building2, Clock, Camera, CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { GymPhotosDialog } from "../admin/gyms/GymPhotosDialog";
 import type { Gym } from "@/types/gym";
@@ -13,7 +13,6 @@ import { BankDetailsForm } from "./forms/BankDetailsForm";
 import { BasicInfoTab } from "./settings/BasicInfoTab";
 import { ScheduleTab } from "./settings/ScheduleTab";
 import { PhotosTab } from "./settings/PhotosTab";
-import { DocumentsTab } from "./settings/DocumentsTab";
 
 interface GymSettingsFormProps {
   academia: Gym;
@@ -104,9 +103,9 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
             <CreditCard className="h-4 w-4" />
             Dados Bancários
           </TabsTrigger>
-          <TabsTrigger value="media" className="flex items-center gap-2">
+          <TabsTrigger value="photos" className="flex items-center gap-2">
             <Camera className="h-4 w-4" />
-            Fotos e Documentos
+            Fotos
           </TabsTrigger>
         </TabsList>
 
@@ -124,12 +123,11 @@ export function GymSettingsForm({ academia, onSuccess }: GymSettingsFormProps) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="media" className="space-y-4">
+        <TabsContent value="photos">
           <PhotosTab 
             fotos={academia.fotos} 
             onOpenPhotosDialog={() => setIsPhotosDialogOpen(true)} 
           />
-          <DocumentsTab academiaId={academia.id} />
         </TabsContent>
       </Tabs>
 

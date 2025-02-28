@@ -1,229 +1,136 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, asaas-access-token',
 };
 
-serve(async (req: Request) => {
-  // Handle CORS preflight
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+);
+
+async function getAsaasConfig() {
+  const { data, error } = await supabase
+    .from('system_settings')
+    .select('value')
+    .eq('key', 'asaas_settings')
+    .single();
+
+  if (error) throw error;
+  return data.value;
+}
+
+serve(async (req) => {
+  // Permitir preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      }
+    });
   }
 
   try {
-    // Get environment variables
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Missing environment variables');
-    }
-
-    // Initialize Supabase client
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    // Get webhook payload
-    const payload = await req.json();
-    console.log('Received webhook:', payload);
-
-    // Store webhook event
-    const { data: webhookEvent, error: webhookError } = await supabase
-      .from('asaas_webhook_events')
-      .insert({
-        event_type: payload.event,
-        event_data: payload
-      })
-      .select()
-      .single();
-
-    if (webhookError) {
-      throw webhookError;
-    }
-
-    // Process payment events
-    if (payload.event.startsWith('PAYMENT_')) {
-      const payment = payload.payment;
-      const subscription = payment.subscription;
-
-      // Se não tiver subscription ID, não é um pagamento de assinatura
-      if (!subscription) {
-        console.log('Payment not associated with a subscription:', payment.id);
-        return new Response(
-          JSON.stringify({ success: true, message: 'Non-subscription payment processed' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-        );
-      }
-
-      // Find subscription by Asaas ID
-      const { data: userSubscription } = await supabase
-        .from('user_plan_subscriptions')
-        .select('*')
-        .eq('asaas_subscription_id', subscription)
-        .single();
-
-      if (!userSubscription) {
-        throw new Error('Subscription not found');
-      }
-
-      // Update subscription status based on payment status
-      let subscriptionStatus: string;
-      let paymentStatus: string;
-
-      switch (payload.event) {
-        case 'PAYMENT_CONFIRMED':
-        case 'PAYMENT_RECEIVED':
-          subscriptionStatus = 'active';
-          paymentStatus = 'paid';
-          break;
-        case 'PAYMENT_OVERDUE':
-          subscriptionStatus = 'overdue';
-          paymentStatus = 'overdue';
-          break;
-        case 'PAYMENT_REFUNDED':
-        case 'PAYMENT_REFUND_IN_PROGRESS':
-          subscriptionStatus = 'canceled';
-          paymentStatus = 'refunded';
-          break;
-        case 'PAYMENT_DELETED':
-        case 'PAYMENT_RESTORED':
-          // Apenas logamos estes eventos sem alterar status
-          console.log(`Payment ${payload.event.toLowerCase()}: ${payment.id}`);
-          paymentStatus = payload.event.toLowerCase().replace('payment_', '');
-          break;
-        case 'PAYMENT_CREATED':
-        case 'PAYMENT_UPDATED':
-        case 'PAYMENT_APPROVED_BY_RISK_ANALYSIS':
-        case 'PAYMENT_AWAITING_RISK_ANALYSIS':
-          paymentStatus = 'pending';
-          break;
-        case 'PAYMENT_REPROVED_BY_RISK_ANALYSIS':
-        case 'PAYMENT_DUNNING_RECEIVED':
-          paymentStatus = 'failed';
-          break;
-        default:
-          console.log('Unhandled payment event:', payload.event);
-          return new Response(
-            JSON.stringify({ success: true, message: 'Event logged but not processed' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-          );
-      }
-
-      // Only update subscription if we have a new status
-      if (subscriptionStatus) {
-        const { error: updateError } = await supabase
-          .from('user_plan_subscriptions')
-          .update({
-            status: subscriptionStatus,
-            payment_status: paymentStatus,
-            last_payment_date: payment.paymentDate ? new Date(payment.paymentDate) : null,
-            next_payment_date: payment.dueDate ? new Date(payment.dueDate) : null
-          })
-          .eq('id', userSubscription.id);
-
-        if (updateError) {
-          throw updateError;
+    // Validar método
+    if (req.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ error: 'Método não permitido' }),
+        { 
+          status: 405,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      }
-
-      // Store payment record
-      const { error: paymentError } = await supabase
-        .from('asaas_payments')
-        .insert({
-          asaas_id: payment.id,
-          customer_id: userSubscription.user_id,
-          subscription_id: userSubscription.id,
-          amount: payment.value,
-          net_amount: payment.netValue,
-          fee_amount: payment.fee,
-          billing_type: payment.billingType,
-          status: payment.status,
-          due_date: payment.dueDate,
-          payment_date: payment.paymentDate,
-          invoice_url: payment.invoiceUrl,
-          payment_method: payment.billingType.toLowerCase(),
-          total_amount: payment.totalValue,
-          payment_link: payment.paymentLink
-        });
-
-      if (paymentError) {
-        throw paymentError;
-      }
+      );
     }
 
-    // Process subscription events
-    if (payload.event.startsWith('SUBSCRIPTION_')) {
-      const subscription = payload.subscription;
+    const body = await req.json();
+    console.log('Webhook recebido:', JSON.stringify(body, null, 2));
 
-      // Find subscription by Asaas ID
-      const { data: userSubscription } = await supabase
-        .from('user_plan_subscriptions')
-        .select('*')
-        .eq('asaas_subscription_id', subscription.id)
-        .single();
-
-      if (!userSubscription) {
-        throw new Error('Subscription not found');
-      }
-
-      // Handle subscription events
-      switch (payload.event) {
-        case 'SUBSCRIPTION_DELETED':
-        case 'SUBSCRIPTION_INACTIVATED':
-          await supabase
-            .from('user_plan_subscriptions')
-            .update({
-              status: 'canceled',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', userSubscription.id);
-          break;
-        
-        case 'SUBSCRIPTION_CREATED':
-        case 'SUBSCRIPTION_UPDATED':
-          console.log(`Subscription ${payload.event.toLowerCase()}: ${subscription.id}`);
-          break;
-
-        default:
-          console.log('Unhandled subscription event:', payload.event);
-      }
+    // Validar token do webhook
+    const config = await getAsaasConfig();
+    const webhookToken = req.headers.get('asaas-access-token') || req.headers.get('access_token');
+    
+    console.log('Token recebido:', webhookToken);
+    console.log('Token esperado:', config.webhook_token);
+    
+    if (!webhookToken) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Token do webhook não encontrado',
+          headers: Object.fromEntries(req.headers.entries())
+        }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // Process invoice events
-    if (payload.event.startsWith('INVOICE_')) {
-      console.log('Invoice event received:', payload.event);
-      // Podemos implementar lógica específica para notas fiscais no futuro
+    if (webhookToken !== config.webhook_token) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Token do webhook inválido',
+          received: webhookToken,
+          expected: config.webhook_token
+        }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    // Process transfer events
-    if (payload.event.startsWith('TRANSFER_')) {
-      console.log('Transfer event received:', payload.event);
-      // Podemos implementar lógica específica para transferências no futuro
+    // Processar o webhook usando a função do banco
+    const { data: result, error: processError } = await supabase
+      .rpc('process_asaas_webhook', {
+        payload: body
+      });
+
+    if (processError) {
+      console.error('Erro ao processar webhook:', processError);
+      throw processError;
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Webhook processed successfully'
-      }),
+      JSON.stringify(result),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
-
   } catch (error) {
-    console.error('Error processing webhook:', error);
+    console.error('Erro no webhook do Asaas:', error);
     return new Response(
-      JSON.stringify({
-        error: error.message
-      }),
+      JSON.stringify({ error: error.message }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }
 });
+
+function mapAsaasStatus(asaasStatus: string): string {
+  switch (asaasStatus) {
+    case 'CONFIRMED':
+    case 'RECEIVED':
+    case 'RECEIVED_IN_CASH':
+      return 'paid';
+    case 'PENDING':
+    case 'AWAITING_RISK_ANALYSIS':
+      return 'pending';
+    case 'OVERDUE':
+      return 'overdue';
+    case 'REFUNDED':
+    case 'REFUND_REQUESTED':
+    case 'CHARGEBACK_REQUESTED':
+    case 'CHARGEBACK_DISPUTE':
+      return 'refunded';
+    case 'CANCELLED':
+      return 'cancelled';
+    default:
+      return 'pending';
+  }
+}

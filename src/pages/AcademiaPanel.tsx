@@ -1,3 +1,4 @@
+
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +14,7 @@ import { StaffPanel } from "@/components/gym/panels/StaffPanel";
 import { CheckInManager } from "@/components/gym/check-in/CheckInManager";
 import { AutoCheckInToggle } from "@/components/gym/AutoCheckInToggle";
 import { FinancialPanel } from "@/components/admin/financial/FinancialPanel";
+import { GymDocumentsManager } from "@/components/gym/documents/GymDocumentsManager";
 
 export default function AcademiaPanel() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +22,7 @@ export default function AcademiaPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Verificar autenticação e permissões ao carregar o componente
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -34,6 +37,7 @@ export default function AcademiaPanel() {
         return;
       }
 
+      // Verificar se o usuário tem permissão para acessar esta academia
       const { data: userGymRoles } = await supabase
         .from("user_gym_roles")
         .select("*")
@@ -48,6 +52,7 @@ export default function AcademiaPanel() {
         .eq("id", id)
         .single();
 
+      // Permitir acesso apenas se for dono da academia ou tiver um papel ativo
       if (!userGymRoles && (!academia || academia.user_id !== session.user.id)) {
         toast({
           variant: "destructive",
@@ -127,6 +132,7 @@ export default function AcademiaPanel() {
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="check-in">Check-in</TabsTrigger>
           <TabsTrigger value="access">Gestão de Acessos</TabsTrigger>
+          <TabsTrigger value="documents">Documentos</TabsTrigger>
           <TabsTrigger value="financial">Financeiro</TabsTrigger>
           <TabsTrigger value="settings">Configurações</TabsTrigger>
         </TabsList>
@@ -141,6 +147,10 @@ export default function AcademiaPanel() {
 
         <TabsContent value="access">
           <StaffPanel staffMembers={[]} />
+        </TabsContent>
+
+        <TabsContent value="documents">
+          {academia && <GymDocumentsManager academiaId={academia.id} />}
         </TabsContent>
 
         <TabsContent value="financial">

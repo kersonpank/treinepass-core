@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type PlanType = "corporate" | "individual" | "corporate_subsidized";
@@ -21,15 +20,11 @@ export interface CancellationRules {
   notice_period_days: number;
 }
 
-export interface PaymentRules {
-  continue_without_use: boolean;
-}
-
 export interface Plan {
   id: string;
   name: string;
   description?: string;
-  monthly_cost: number;
+  monthly_cost: string;
   plan_type: PlanType;
   period_type: PeriodType;
   status: PlanStatus;
@@ -39,7 +34,10 @@ export interface Plan {
   base_price?: number | null;
   platform_fee?: number | null;
   renewal_type: RenewalType;
-  payment_rules: PaymentRules;
+  payment_rules?: {
+    continue_without_use: boolean;
+  };
+  category_ids?: string[];
   payment_methods: PaymentMethod[];
   check_in_rules: CheckInRules;
   validity_period?: string;
@@ -47,16 +45,14 @@ export interface Plan {
   cancellation_rules: CancellationRules;
   employee_limit?: number | null;
   user_final_cost?: number | null;
-  early_cancellation_fee?: number;
-  minimum_contract_months?: number;
-  setup_fee?: number;
-  late_payment_fee?: number;
 }
 
 export const planFormSchema = z.object({
   name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   description: z.string().optional(),
-  monthly_cost: z.number().min(0, "Custo mensal deve ser um número maior que 0"),
+  monthly_cost: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+    message: "Custo mensal deve ser um número maior que 0",
+  }),
   plan_type: z.enum(["corporate", "individual", "corporate_subsidized"]),
   period_type: z.enum(["monthly", "quarterly", "semiannual", "annual"]),
   status: z.enum(["active", "inactive"]),
@@ -69,6 +65,7 @@ export const planFormSchema = z.object({
   payment_rules: z.object({
     continue_without_use: z.boolean()
   }).default({ continue_without_use: true }),
+  category_ids: z.array(z.string().uuid()).default([]),
   payment_methods: z.array(z.enum(["credit_card", "pix", "boleto"])).default(["credit_card", "pix", "boleto"]),
   check_in_rules: z.object({
     daily_limit: z.number().nullable(),
@@ -95,12 +92,7 @@ export const planFormSchema = z.object({
     notice_period_days: 30
   }),
   employee_limit: z.number().nullable().optional(),
-  user_final_cost: z.number().nullable().optional(),
-  early_cancellation_fee: z.number().optional(),
-  minimum_contract_months: z.number().optional(),
-  setup_fee: z.number().optional(),
-  late_payment_fee: z.number().optional(),
-  category_ids: z.array(z.string()).optional()
+  user_final_cost: z.number().nullable().optional()
 });
 
 export type PlanFormValues = z.infer<typeof planFormSchema>;

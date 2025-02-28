@@ -34,6 +34,7 @@ export function UserEditDialog({
               full_name: formData.get("full_name") as string,
               email: formData.get("email") as string,
               cpf: formData.get("cpf") as string,
+              phone: formData.get("phone") as string,
               active: formData.get("active") === "true",
             });
           }}
@@ -64,6 +65,17 @@ export function UserEditDialog({
               id="cpf"
               name="cpf"
               defaultValue={user.cpf}
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="phone">Telefone</Label>
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              defaultValue={user.phone}
+              placeholder="(99) 99999-9999"
               required
             />
           </div>
