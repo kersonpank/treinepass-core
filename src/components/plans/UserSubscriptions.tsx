@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 const statusColors = {
   active: "bg-green-100 text-green-700",
@@ -28,7 +29,7 @@ const statusLabels = {
 export function UserSubscriptions() {
   const { toast } = useToast();
 
-  const { data: subscriptions, isLoading, error } = useQuery({
+  const { data: subscriptions, isLoading, error, refetch } = useQuery({
     queryKey: ["userSubscriptions"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -47,7 +48,8 @@ export function UserSubscriptions() {
             billing_type,
             status,
             due_date,
-            payment_link
+            payment_link,
+            invoice_url
           )
         `)
         .order("created_at", { ascending: false });
@@ -92,50 +94,146 @@ export function UserSubscriptions() {
     );
   }
 
+  const refreshSubscriptions = async () => {
+    toast({
+      title: "Atualizando...",
+      description: "Verificando status de suas assinaturas",
+    });
+    
+    await refetch();
+    
+    toast({
+      title: "Atualizado",
+      description: "Status de assinaturas atualizado",
+    });
+  };
+
   return (
     <div className="space-y-4">
-      {subscriptions.map((subscription) => (
-        <Card key={subscription.id}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>{subscription.benefit_plans.name}</CardTitle>
-              <Badge className={statusColors[subscription.status] || statusColors.pending}>
-                {statusLabels[subscription.status] || "Pendente"}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Valor mensal:</span>
-              <span className="font-medium">
-                {formatCurrency(subscription.benefit_plans.monthly_cost)}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Início:</span>
-              <span>{new Date(subscription.start_date).toLocaleDateString()}</span>
-            </div>
-            {subscription.end_date && (
+      <div className="flex justify-end mb-4">
+        <Button onClick={refreshSubscriptions} variant="outline" size="sm">
+          Atualizar Status
+        </Button>
+      </div>
+      
+      {subscriptions.map((subscription) => {
+        // Find the latest payment
+        const latestPayment = subscription.asaas_payments?.length > 0 
+          ? subscription.asaas_payments.reduce((latest, current) => {
+              return new Date(current.due_date) > new Date(latest.due_date) ? current : latest;
+            })
+          : null;
+        
+        return (
+          <Card key={subscription.id}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>{subscription.benefit_plans.name}</CardTitle>
+                <Badge className={statusColors[subscription.status] || statusColors.pending}>
+                  {statusLabels[subscription.status] || "Pendente"}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Término:</span>
-                <span>{new Date(subscription.end_date).toLocaleDateString()}</span>
+                <span className="text-muted-foreground">Valor mensal:</span>
+                <span className="font-medium">
+                  {formatCurrency(subscription.benefit_plans.monthly_cost)}
+                </span>
               </div>
-            )}
-            {subscription.payment_status === 'pending' && subscription.asaas_payments?.length > 0 && (
-              <div className="mt-4">
-                <a 
-                  href={subscription.asaas_payments[0]?.payment_link} 
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
-                >
-                  Realizar Pagamento
-                </a>
+              
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Status de pagamento:</span>
+                <span className="font-medium">
+                  {subscription.payment_status === 'paid' ? 'Pago' : 
+                   subscription.payment_status === 'pending' ? 'Pendente' :
+                   subscription.payment_status === 'overdue' ? 'Atrasado' :
+                   subscription.payment_status}
+                </span>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+              
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Início:</span>
+                <span>{new Date(subscription.start_date).toLocaleDateString()}</span>
+              </div>
+              
+              {subscription.end_date && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Término:</span>
+                  <span>{new Date(subscription.end_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              
+              {subscription.last_payment_date && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Último pagamento:</span>
+                  <span>{new Date(subscription.last_payment_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              
+              {subscription.next_payment_date && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Próximo pagamento:</span>
+                  <span>{new Date(subscription.next_payment_date).toLocaleDateString()}</span>
+                </div>
+              )}
+              
+              {/* Display payment button if payment is pending */}
+              {subscription.payment_status === 'pending' && (
+                <div className="mt-4">
+                  {subscription.asaas_payment_link ? (
+                    <a 
+                      href={subscription.asaas_payment_link} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
+                    >
+                      Realizar Pagamento
+                    </a>
+                  ) : latestPayment?.payment_link ? (
+                    <a 
+                      href={latestPayment.payment_link} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
+                    >
+                      Realizar Pagamento
+                    </a>
+                  ) : latestPayment?.invoice_url ? (
+                    <a 
+                      href={latestPayment.invoice_url} 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
+                    >
+                      Realizar Pagamento
+                    </a>
+                  ) : null}
+                </div>
+              )}
+              
+              {/* Display payment history button if subscription is active and has payments */}
+              {subscription.status === 'active' && subscription.asaas_payments?.length > 0 && (
+                <div className="mt-2 text-right">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => {
+                      toast({
+                        title: "Em breve",
+                        description: "Histórico de pagamentos estará disponível em breve",
+                      });
+                    }}
+                  >
+                    Ver histórico de pagamentos
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

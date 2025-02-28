@@ -14,6 +14,7 @@ DECLARE
   webhook_event_id uuid;
   asaas_payment_id text;
   event_type text;
+  asaas_subscription_id text;
 BEGIN
   -- Initial logging
   RAISE NOTICE 'Processing Asaas webhook: %', payload;
@@ -50,19 +51,16 @@ BEGIN
   END IF;
 
   asaas_payment_id := payment_data->>'id';
+  asaas_subscription_id := payment_data->>'subscription';
   
   -- Register the webhook event
   INSERT INTO public.asaas_webhook_events (
-    payment_id,
     event_type,
-    status,
-    payload,
+    event_data,
     processed,
     processed_at
   ) VALUES (
-    asaas_payment_id,
     event_type,
-    payment_data->>'status',
     payload,
     false,
     NULL
@@ -98,20 +96,58 @@ BEGIN
   WHERE asaas_id = asaas_payment_id;
 
   IF NOT FOUND THEN
-    -- Log the issue but don't fail the webhook
-    RAISE NOTICE 'Payment not found in database: %', asaas_payment_id;
+    -- Try to find payment by external reference (subscription ID)
+    IF payment_data->>'externalReference' IS NOT NULL THEN
+      SELECT * INTO payment_record
+      FROM asaas_payments
+      WHERE external_reference = payment_data->>'externalReference';
+    END IF;
     
-    UPDATE public.asaas_webhook_events
-    SET 
-      processed = true,
-      processed_at = NOW()
-    WHERE id = webhook_event_id;
-    
-    RETURN jsonb_build_object(
-      'success', false,
-      'message', 'Payment not found: ' || asaas_payment_id,
-      'webhook_event_id', webhook_event_id
-    );
+    -- If still not found, create a new payment record
+    IF NOT FOUND THEN
+      INSERT INTO asaas_payments (
+        asaas_id,
+        status,
+        billing_type,
+        amount,
+        net_amount,
+        due_date,
+        payment_date,
+        external_reference,
+        invoice_url,
+        payment_link
+      ) VALUES (
+        asaas_payment_id,
+        payment_data->>'status',
+        payment_data->>'billingType',
+        (payment_data->>'value')::numeric,
+        (payment_data->>'netValue')::numeric,
+        (payment_data->>'dueDate')::date,
+        CASE 
+          WHEN payment_status = 'paid' THEN NOW()
+          ELSE NULL
+        END,
+        payment_data->>'externalReference',
+        payment_data->>'invoiceUrl',
+        payment_data->>'invoiceUrl'
+      ) RETURNING * INTO payment_record;
+      
+      -- Try to link to subscription if external reference exists
+      IF payment_data->>'externalReference' IS NOT NULL THEN
+        UPDATE asaas_payments 
+        SET subscription_id = (
+          SELECT id FROM user_plan_subscriptions 
+          WHERE id::text = payment_data->>'externalReference'
+          LIMIT 1
+        )
+        WHERE id = payment_record.id;
+        
+        -- Reload payment record to get subscription_id
+        SELECT * INTO payment_record
+        FROM asaas_payments
+        WHERE id = payment_record.id;
+      END IF;
+    END IF;
   END IF;
 
   -- Update payment status
@@ -123,19 +159,50 @@ BEGIN
       WHEN payment_status = 'paid' THEN NOW()
       ELSE payment_date
     END,
+    invoice_url = COALESCE(payment_data->>'invoiceUrl', invoice_url),
+    payment_link = COALESCE(payment_data->>'invoiceUrl', payment_link),
     updated_at = NOW()
-  WHERE id = payment_record.id;
+  WHERE id = payment_record.id
+  RETURNING subscription_id INTO subscription_id;
+
+  -- If no subscription_id in payment record but we have subscription in webhook
+  IF subscription_id IS NULL AND asaas_subscription_id IS NOT NULL THEN
+    -- Find subscription by Asaas ID
+    SELECT id INTO subscription_id
+    FROM user_plan_subscriptions
+    WHERE asaas_subscription_id = asaas_subscription_id;
+    
+    -- If found, update payment record with subscription_id
+    IF subscription_id IS NOT NULL THEN
+      UPDATE asaas_payments
+      SET subscription_id = subscription_id
+      WHERE id = payment_record.id;
+    END IF;
+  END IF;
+  
+  -- Alternatively use external reference to find subscription
+  IF subscription_id IS NULL AND payment_data->>'externalReference' IS NOT NULL THEN
+    -- Try to find by external reference which should be the subscription ID
+    SELECT id INTO subscription_id
+    FROM user_plan_subscriptions
+    WHERE id::text = payment_data->>'externalReference';
+    
+    -- If found, update payment record with subscription_id
+    IF subscription_id IS NOT NULL THEN
+      UPDATE asaas_payments
+      SET subscription_id = subscription_id
+      WHERE id = payment_record.id;
+    END IF;
+  END IF;
 
   -- If payment is confirmed, update the subscription
-  IF payment_status = 'paid' THEN
+  IF payment_status = 'paid' AND subscription_id IS NOT NULL THEN
     -- Find the subscription
     SELECT * INTO subscription_record
     FROM user_plan_subscriptions
-    WHERE id = payment_record.subscription_id;
+    WHERE id = subscription_id;
 
-    IF NOT FOUND THEN
-      RAISE NOTICE 'Subscription not found: %', payment_record.subscription_id;
-    ELSE
+    IF FOUND THEN
       -- Update subscription status
       UPDATE user_plan_subscriptions
       SET 
@@ -144,15 +211,15 @@ BEGIN
         last_payment_date = NOW(),
         next_payment_date = (NOW() + interval '1 month')::timestamp,
         updated_at = NOW()
-      WHERE id = subscription_record.id;
+      WHERE id = subscription_id;
       
-      RAISE NOTICE 'Subscription activated: %', subscription_record.id;
+      RAISE NOTICE 'Subscription activated: %', subscription_id;
     END IF;
   -- If payment is refunded or cancelled, update subscription accordingly
-  ELSIF payment_status IN ('refunded', 'cancelled') THEN
+  ELSIF payment_status IN ('refunded', 'cancelled') AND subscription_id IS NOT NULL THEN
     SELECT * INTO subscription_record
     FROM user_plan_subscriptions
-    WHERE id = payment_record.subscription_id;
+    WHERE id = subscription_id;
     
     IF FOUND THEN
       UPDATE user_plan_subscriptions
@@ -164,10 +231,19 @@ BEGIN
         END,
         payment_status = payment_status,
         updated_at = NOW()
-      WHERE id = subscription_record.id;
+      WHERE id = subscription_id;
       
-      RAISE NOTICE 'Subscription status updated to %: %', payment_status, subscription_record.id;
+      RAISE NOTICE 'Subscription status updated to %: %', payment_status, subscription_id;
     END IF;
+  -- If payment is overdue, update subscription accordingly
+  ELSIF payment_status = 'overdue' AND subscription_id IS NOT NULL THEN
+    UPDATE user_plan_subscriptions
+    SET 
+      payment_status = 'overdue',
+      updated_at = NOW()
+    WHERE id = subscription_id;
+    
+    RAISE NOTICE 'Subscription marked as overdue: %', subscription_id;
   END IF;
 
   -- Mark webhook event as processed
@@ -180,8 +256,10 @@ BEGIN
   RETURN jsonb_build_object(
     'success', true,
     'message', 'Webhook processed successfully',
-    'payment_id', payment_record.id,
-    'subscription_id', COALESCE(subscription_record.id, NULL),
+    'event', event_type,
+    'status', payment_data->>'status',
+    'payment_id', asaas_payment_id,
+    'subscription_id', COALESCE(subscription_id::text, NULL),
     'payment_status', payment_status,
     'webhook_event_id', webhook_event_id
   );
@@ -201,7 +279,9 @@ EXCEPTION WHEN OTHERS THEN
   RETURN jsonb_build_object(
     'success', false,
     'message', SQLERRM,
-    'webhook_event_id', webhook_event_id
+    'event', event_type,
+    'status', COALESCE(payment_data->>'status', NULL),
+    'payment_id', asaas_payment_id
   );
 END;
 $$;
