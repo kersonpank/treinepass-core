@@ -1,127 +1,283 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";
+
+// Define CORS headers
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-);
-
-async function getAsaasConfig() {
-  const { data, error } = await supabase
-    .from('system_settings')
-    .select('value')
-    .eq('key', 'asaas_settings')
-    .single();
-
-  if (error) throw error;
-  return data.value;
+interface AsaasResponse {
+  success: boolean;
+  payment?: any;
+  pix?: any;
+  message?: string;
+  error?: string;
 }
 
-async function asaasRequest(endpoint: string, method = 'GET', data?: any) {
-  const config = await getAsaasConfig();
-  const ASAAS_API_KEY = config.environment === 'production' ? config.production_api_key : config.sandbox_api_key;
-  const ASAAS_API_URL = config.environment === 'production' 
-    ? 'https://api.asaas.com/api/v3'
-    : 'https://sandbox.asaas.com/api/v3';
-
-  const response = await fetch(`${ASAAS_API_URL}${endpoint}`, {
-    method,
-    headers: {
-      'access_token': ASAAS_API_KEY,
-      'Content-Type': 'application/json',
-    },
-    body: data ? JSON.stringify(data) : undefined,
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.errors?.[0]?.description || 'Erro na requisição ao Asaas');
+const getAsaasApiKey = async (supabase: any) => {
+  try {
+    // Get Asaas settings from the database
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'asaas_settings')
+      .single();
+    
+    if (error) throw error;
+    
+    const asaasSettings = data.value;
+    const environment = asaasSettings.environment || 'sandbox';
+    const apiKey = environment === 'production' 
+      ? asaasSettings.production_api_key 
+      : asaasSettings.sandbox_api_key;
+    
+    if (!apiKey) {
+      throw new Error(`API key not configured for ${environment} environment`);
+    }
+    
+    return { 
+      apiKey,
+      environment,
+      baseUrl: environment === 'production' 
+        ? 'https://api.asaas.com/v3' 
+        : 'https://api-sandbox.asaas.com/v3'
+    };
+  } catch (error) {
+    console.error('Error getting Asaas API key:', error);
+    throw error;
   }
-
-  return response.json();
-}
+};
 
 serve(async (req) => {
-  // Handle CORS
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get request body
     const { action, data } = await req.json();
+    console.log(`Processing ${action} with data:`, data);
+
+    // Get Asaas API configuration
+    const { apiKey, baseUrl } = await getAsaasApiKey(supabase);
+    console.log(`Using Asaas API: ${baseUrl}`);
+
+    let response: AsaasResponse = {
+      success: false
+    };
 
     switch (action) {
-      case 'createCustomer':
-        const customer = await asaasRequest('/customers', 'POST', {
-          name: data.name,
-          email: data.email,
-          cpfCnpj: data.cpfCnpj,
-          ...data
-        });
-        return new Response(JSON.stringify(customer), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      case 'createCustomer': {
+        console.log(`Creating customer with data:`, data);
+        
+        // Validate required fields
+        if (!data.name || !data.email || !data.cpfCnpj) {
+          throw new Error('Customer data incomplete. Name, email, and cpfCnpj are required.');
+        }
+
+        // Make API request to Asaas
+        const asaasResponse = await fetch(`${baseUrl}/customers`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'access_token': apiKey
+          },
+          body: JSON.stringify(data)
         });
 
-      case 'createTransfer':
-        const transfer = await asaasRequest('/transfers', 'POST', {
-          value: data.value,
-          bankAccount: data.bankAccount
-        });
-        return new Response(JSON.stringify(transfer), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        // Parse response
+        const asaasData = await asaasResponse.json();
+        console.log(`Asaas response:`, asaasData);
+
+        if (!asaasResponse.ok) {
+          throw new Error(`Asaas API error: ${asaasData.errors?.[0]?.description || 'Unknown error'}`);
+        }
+
+        // Return customer data
+        response = {
+          success: true,
+          ...asaasData
+        };
+        
+        break;
+      }
+
+      case 'createPayment': {
+        console.log(`Creating payment with data:`, data);
+        
+        // Validate required fields
+        if (!data.customer || !data.value) {
+          throw new Error('Payment data incomplete. Customer and value are required.');
+        }
+
+        // Set default billing type if not provided
+        if (!data.billingType) {
+          data.billingType = 'UNDEFINED';
+        }
+
+        // Make API request to Asaas
+        const asaasResponse = await fetch(`${baseUrl}/payments`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'access_token': apiKey
+          },
+          body: JSON.stringify(data)
         });
 
-      case 'createPayment':
-        const paymentData = {
-          customer: data.customerId,
-          billingType: data.billingType,
-          value: data.value,
-          dueDate: data.dueDate,
-          description: data.description,
-          externalReference: data.externalReference,
-          ...data
+        // Parse response
+        const paymentData = await asaasResponse.json();
+        console.log(`Asaas payment response:`, paymentData);
+
+        if (!asaasResponse.ok) {
+          throw new Error(`Asaas API error: ${paymentData.errors?.[0]?.description || 'Unknown error'}`);
+        }
+
+        response = {
+          success: true,
+          payment: paymentData
         };
 
-        // Configurações específicas para PIX
+        // If it's a PIX payment, get the QR code
         if (data.billingType === 'PIX') {
-          paymentData.postalService = false;
-          paymentData.interest = {
-            value: 2
-          };
-          paymentData.fine = {
-            value: 1
-          };
+          console.log(`Getting PIX QR code for payment ${paymentData.id}`);
+          
+          const pixResponse = await fetch(`${baseUrl}/payments/${paymentData.id}/pixQrCode`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'access_token': apiKey
+            }
+          });
+
+          // Parse PIX response
+          const pixData = await pixResponse.json();
+          console.log(`Asaas PIX response:`, pixData);
+
+          if (!pixResponse.ok) {
+            console.error(`Error getting PIX QR code: ${pixData.errors?.[0]?.description || 'Unknown error'}`);
+          } else {
+            response.pix = pixData;
+          }
         }
 
-        const payment = await asaasRequest('/payments', 'POST', paymentData);
+        break;
+      }
+
+      case 'createSubscription': {
+        console.log(`Creating subscription with data:`, data);
         
-        // Se for PIX, buscar o QR Code
-        if (data.billingType === 'PIX' && payment.id) {
-          const pixInfo = await asaasRequest(`/payments/${payment.id}/pixQrCode`, 'GET');
-          payment.pixQrCode = pixInfo.encodedImage;
-          payment.pixKey = pixInfo.payload;
+        // Validate required fields
+        if (!data.customer || !data.value) {
+          throw new Error('Subscription data incomplete. Customer and value are required.');
         }
 
-        return new Response(JSON.stringify(payment), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        // Make API request to Asaas
+        const asaasResponse = await fetch(`${baseUrl}/subscriptions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'access_token': apiKey
+          },
+          body: JSON.stringify(data)
         });
 
+        // Parse response
+        const subscriptionData = await asaasResponse.json();
+        console.log(`Asaas subscription response:`, subscriptionData);
+
+        if (!asaasResponse.ok) {
+          throw new Error(`Asaas API error: ${subscriptionData.errors?.[0]?.description || 'Unknown error'}`);
+        }
+
+        // Get the invoice URL from the first payment
+        if (subscriptionData.id) {
+          const paymentsResponse = await fetch(`${baseUrl}/subscriptions/${subscriptionData.id}/payments`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'access_token': apiKey
+            }
+          });
+
+          const paymentsData = await paymentsResponse.json();
+          console.log(`Asaas subscription payments:`, paymentsData);
+
+          if (paymentsResponse.ok && paymentsData.data && paymentsData.data.length > 0) {
+            subscriptionData.invoiceUrl = paymentsData.data[0].invoiceUrl;
+          }
+        }
+
+        response = {
+          success: true,
+          ...subscriptionData
+        };
+        
+        break;
+      }
+
+      case 'getPayment': {
+        if (!data.id) {
+          throw new Error('Payment ID is required.');
+        }
+
+        const asaasResponse = await fetch(`${baseUrl}/payments/${data.id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'access_token': apiKey
+          }
+        });
+
+        const paymentData = await asaasResponse.json();
+        console.log(`Asaas get payment response:`, paymentData);
+
+        if (!asaasResponse.ok) {
+          throw new Error(`Asaas API error: ${paymentData.errors?.[0]?.description || 'Unknown error'}`);
+        }
+
+        response = {
+          success: true,
+          payment: paymentData
+        };
+        
+        break;
+      }
+
       default:
-        throw new Error('Ação não suportada');
+        throw new Error(`Unsupported action: ${action}`);
     }
-  } catch (error) {
-    console.error('Erro na função asaas-api:', error);
+
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify(response),
+      { 
+        headers: { 
+          ...corsHeaders,
+          "Content-Type": "application/json" 
+        } 
+      }
+    );
+  } catch (error) {
+    console.error('Error processing request:', error);
+    
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message
+      }),
       { 
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { 
+          ...corsHeaders,
+          "Content-Type": "application/json" 
+        } 
       }
     );
   }
