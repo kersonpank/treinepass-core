@@ -1,3 +1,4 @@
+
 CREATE OR REPLACE FUNCTION public.process_asaas_webhook(payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -45,12 +46,20 @@ BEGIN
     WHEN 'RECEIVED_IN_CASH' THEN 'paid'
     WHEN 'PENDING' THEN 'pending'
     WHEN 'AWAITING_RISK_ANALYSIS' THEN 'pending'
+    WHEN 'APPROVED_BY_RISK_ANALYSIS' THEN 'pending'
+    WHEN 'PAYMENT_REPROVED_BY_RISK_ANALYSIS' THEN 'failed'
     WHEN 'OVERDUE' THEN 'overdue'
     WHEN 'REFUNDED' THEN 'refunded'
     WHEN 'REFUND_REQUESTED' THEN 'refunded'
+    WHEN 'REFUND_IN_PROGRESS' THEN 'refunded'
+    WHEN 'PARTIALLY_REFUNDED' THEN 'refunded'
     WHEN 'CHARGEBACK_REQUESTED' THEN 'refunded'
     WHEN 'CHARGEBACK_DISPUTE' THEN 'refunded'
+    WHEN 'AWAITING_CHARGEBACK_REVERSAL' THEN 'refunded'
+    WHEN 'DUNNING_REQUESTED' THEN 'overdue'
+    WHEN 'DUNNING_RECEIVED' THEN 'overdue'
     WHEN 'CANCELLED' THEN 'cancelled'
+    WHEN 'PAYMENT_DELETED' THEN 'cancelled'
     ELSE 'pending'
   END;
 

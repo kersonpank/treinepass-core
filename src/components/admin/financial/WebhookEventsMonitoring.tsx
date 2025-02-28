@@ -1,7 +1,13 @@
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -10,24 +16,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Check, Loader2, RefreshCw } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Eye, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function WebhookEventsMonitoring() {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [viewPayload, setViewPayload] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const { data: webhookEvents, isLoading, refetch } = useQuery({
-    queryKey: ["webhook_events_monitoring"],
+  const { data: events, isLoading, refetch } = useQuery({
+    queryKey: ["webhookEvents"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("asaas_webhook_events")
@@ -40,99 +40,103 @@ export function WebhookEventsMonitoring() {
     },
   });
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetch();
-    setIsRefreshing(false);
+  const handleViewPayload = (event) => {
+    setSelectedEvent(event);
+    setIsDialogOpen(true);
   };
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return `${date.toLocaleDateString("pt-BR")} ${date.toLocaleTimeString("pt-BR")}`;
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "CONFIRMED":
+      case "RECEIVED":
+      case "RECEIVED_IN_CASH":
+        return "bg-green-100 text-green-700";
+      case "PENDING":
+      case "AWAITING_RISK_ANALYSIS":
+      case "APPROVED_BY_RISK_ANALYSIS":
+        return "bg-yellow-100 text-yellow-700";
+      case "OVERDUE":
+      case "DUNNING_REQUESTED":
+      case "DUNNING_RECEIVED":
+        return "bg-orange-100 text-orange-700";
+      case "REFUNDED":
+      case "REFUND_REQUESTED":
+      case "REFUND_IN_PROGRESS":
+      case "PARTIALLY_REFUNDED":
+        return "bg-purple-100 text-purple-700";
+      case "CANCELLED":
+      case "PAYMENT_DELETED":
+        return "bg-gray-100 text-gray-700";
+      default:
+        return "bg-blue-100 text-blue-700";
+    }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
 
   return (
-    <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Eventos de Webhook</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
-            )}
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Eventos de Webhook</CardTitle>
+            <CardDescription>Monitoramento dos eventos recebidos do Asaas</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
             Atualizar
           </Button>
-        </CardHeader>
-        <CardContent>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Data</TableHead>
                   <TableHead>Tipo de Evento</TableHead>
-                  <TableHead>ID Pagamento</TableHead>
+                  <TableHead>ID do Pagamento</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Processado</TableHead>
-                  <TableHead>Ações</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {webhookEvents?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      Nenhum evento de webhook encontrado
-                    </TableCell>
-                  </TableRow>
-                )}
-                {webhookEvents?.map((event) => (
+                {events?.map((event) => (
                   <TableRow key={event.id}>
-                    <TableCell>{formatDate(event.created_at)}</TableCell>
+                    <TableCell>
+                      {new Date(event.created_at).toLocaleString()}
+                    </TableCell>
                     <TableCell>{event.event_type}</TableCell>
                     <TableCell>{event.payment_id}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {event.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {event.processed ? (
-                        <div className="flex items-center">
-                          <Check className="h-4 w-4 text-green-500 mr-1" />
-                          <span className="text-xs">
-                            {event.processed_at
-                              ? formatDate(event.processed_at)
-                              : "Sim"}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <AlertCircle className="h-4 w-4 text-yellow-500 mr-1" />
-                          <span className="text-xs">Não</span>
-                        </div>
+                      {event.status && (
+                        <Badge className={getStatusColor(event.status)}>
+                          {event.status}
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>
+                      <Badge variant={event.processed ? "default" : "destructive"}>
+                        {event.processed ? (
+                          <>Sim {event.processed_at && 
+                            `(${new Date(event.processed_at).toLocaleTimeString()})`
+                          }</>
+                        ) : (
+                          "Não"
+                        )}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={() => setViewPayload(event.payload)}
+                        onClick={() => handleViewPayload(event)}
                       >
+                        <Eye className="h-4 w-4 mr-2" />
                         Ver Payload
                       </Button>
                     </TableCell>
@@ -141,22 +145,23 @@ export function WebhookEventsMonitoring() {
               </TableBody>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+        )}
 
-      <Dialog open={!!viewPayload} onOpenChange={(open) => !open && setViewPayload(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-auto">
-          <DialogHeader>
-            <DialogTitle>Dados do Evento</DialogTitle>
-            <DialogDescription>
-              Informações completas recebidas do webhook
-            </DialogDescription>
-          </DialogHeader>
-          <pre className="bg-slate-100 p-4 rounded-md overflow-auto text-xs max-h-[60vh] whitespace-pre-wrap">
-            {JSON.stringify(viewPayload, null, 2)}
-          </pre>
-        </DialogContent>
-      </Dialog>
-    </>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Payload do Webhook</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-md">
+                <pre className="text-xs overflow-auto max-h-[400px]">
+                  {selectedEvent && JSON.stringify(selectedEvent.payload, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
   );
 }
