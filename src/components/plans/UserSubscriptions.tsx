@@ -26,6 +26,22 @@ const statusLabels = {
   refunded: "Reembolsado",
 };
 
+const paymentStatusColors = {
+  paid: "bg-green-100 text-green-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  overdue: "bg-amber-100 text-amber-700",
+  refunded: "bg-purple-100 text-purple-700",
+  failed: "bg-red-100 text-red-700",
+};
+
+const paymentStatusLabels = {
+  paid: "Pago",
+  pending: "Pendente",
+  overdue: "Atrasado",
+  refunded: "Reembolsado",
+  failed: "Falhou",
+};
+
 export function UserSubscriptions() {
   const { toast } = useToast();
 
@@ -124,6 +140,12 @@ export function UserSubscriptions() {
             })
           : null;
         
+        const hasPaymentLink = !!(
+          subscription.asaas_payment_link || 
+          latestPayment?.payment_link || 
+          latestPayment?.invoice_url
+        );
+
         return (
           <Card key={subscription.id}>
             <CardHeader>
@@ -145,10 +167,9 @@ export function UserSubscriptions() {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Status de pagamento:</span>
                 <span className="font-medium">
-                  {subscription.payment_status === 'paid' ? 'Pago' : 
-                   subscription.payment_status === 'pending' ? 'Pendente' :
-                   subscription.payment_status === 'overdue' ? 'Atrasado' :
-                   subscription.payment_status}
+                  <Badge className={paymentStatusColors[subscription.payment_status] || paymentStatusColors.pending}>
+                    {paymentStatusLabels[subscription.payment_status] || "Pendente"}
+                  </Badge>
                 </span>
               </div>
               
@@ -179,36 +200,16 @@ export function UserSubscriptions() {
               )}
               
               {/* Display payment button if payment is pending */}
-              {subscription.payment_status === 'pending' && (
+              {(subscription.payment_status === 'pending' || subscription.payment_status === 'overdue') && hasPaymentLink && (
                 <div className="mt-4">
-                  {subscription.asaas_payment_link ? (
-                    <a 
-                      href={subscription.asaas_payment_link} 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
-                    >
-                      Realizar Pagamento
-                    </a>
-                  ) : latestPayment?.payment_link ? (
-                    <a 
-                      href={latestPayment.payment_link} 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
-                    >
-                      Realizar Pagamento
-                    </a>
-                  ) : latestPayment?.invoice_url ? (
-                    <a 
-                      href={latestPayment.invoice_url} 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
-                    >
-                      Realizar Pagamento
-                    </a>
-                  ) : null}
+                  <a 
+                    href={subscription.asaas_payment_link || latestPayment?.payment_link || latestPayment?.invoice_url} 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
+                  >
+                    Realizar Pagamento
+                  </a>
                 </div>
               )}
               

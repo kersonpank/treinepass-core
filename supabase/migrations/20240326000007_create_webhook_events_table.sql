@@ -1,12 +1,11 @@
+
 -- Create webhook events table
 CREATE TABLE IF NOT EXISTS public.asaas_webhook_events (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    payment_id text NOT NULL,
     event_type text NOT NULL,
-    status text NOT NULL,
-    payload jsonb NOT NULL,
-    processed boolean DEFAULT true,
-    processed_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    event_data jsonb NOT NULL,
+    processed boolean DEFAULT false,
+    processed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -29,13 +28,12 @@ USING (
 );
 
 -- Create indexes
-CREATE INDEX IF NOT EXISTS idx_webhook_events_payment_id ON public.asaas_webhook_events(payment_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_created_at ON public.asaas_webhook_events(created_at);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_event_type ON public.asaas_webhook_events(event_type);
-CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON public.asaas_webhook_events(status);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_processed ON public.asaas_webhook_events(processed);
 
 -- Create trigger for updated_at
 CREATE TRIGGER handle_updated_at
     BEFORE UPDATE ON public.asaas_webhook_events
     FOR EACH ROW
-    EXECUTE FUNCTION public.handle_updated_at(); 
+    EXECUTE FUNCTION public.handle_updated_at();
