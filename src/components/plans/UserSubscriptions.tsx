@@ -140,11 +140,12 @@ export function UserSubscriptions() {
             })
           : null;
         
-        const hasPaymentLink = !!(
-          subscription.asaas_payment_link || 
-          latestPayment?.payment_link || 
-          latestPayment?.invoice_url
-        );
+        // Determine payment link - prioritize subscription's direct link, then payment links
+        const paymentLink = subscription.asaas_payment_link || 
+                           (latestPayment?.payment_link || latestPayment?.invoice_url);
+        
+        // Check if there's a pending or overdue payment that needs action
+        const requiresPayment = ['pending', 'overdue'].includes(subscription.payment_status) && paymentLink;
 
         return (
           <Card key={subscription.id} className="overflow-hidden">
@@ -200,10 +201,10 @@ export function UserSubscriptions() {
               )}
               
               {/* Display payment button if payment is pending or overdue */}
-              {(subscription.payment_status === 'pending' || subscription.payment_status === 'overdue') && hasPaymentLink && (
+              {requiresPayment && (
                 <div className="mt-4">
                   <a 
-                    href={subscription.asaas_payment_link || latestPayment?.payment_link || latestPayment?.invoice_url} 
+                    href={paymentLink} 
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
