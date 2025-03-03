@@ -147,16 +147,16 @@ export function UserSubscriptions() {
         );
 
         return (
-          <Card key={subscription.id}>
-            <CardHeader>
+          <Card key={subscription.id} className="overflow-hidden">
+            <CardHeader className="bg-slate-50">
               <div className="flex items-center justify-between">
-                <CardTitle>{subscription.benefit_plans.name}</CardTitle>
+                <CardTitle className="text-lg">{subscription.benefit_plans.name}</CardTitle>
                 <Badge className={statusColors[subscription.status] || statusColors.pending}>
                   {statusLabels[subscription.status] || "Pendente"}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-4">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Valor mensal:</span>
                 <span className="font-medium">
@@ -199,7 +199,7 @@ export function UserSubscriptions() {
                 </div>
               )}
               
-              {/* Display payment button if payment is pending */}
+              {/* Display payment button if payment is pending or overdue */}
               {(subscription.payment_status === 'pending' || subscription.payment_status === 'overdue') && hasPaymentLink && (
                 <div className="mt-4">
                   <a 
@@ -213,8 +213,8 @@ export function UserSubscriptions() {
                 </div>
               )}
               
-              {/* Display payment history button if subscription is active and has payments */}
-              {subscription.status === 'active' && subscription.asaas_payments?.length > 0 && (
+              {/* Display payment history button if subscription has payments */}
+              {subscription.asaas_payments?.length > 0 && (
                 <div className="mt-2 text-right">
                   <Button 
                     variant="ghost" 
