@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,33 @@ export function CheckInConfirmation({
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log("Monitorando check-in:", checkInId);
+    
+    // First check current status
+    const checkCurrentStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("gym_check_ins")
+          .select("*")
+          .eq("id", checkInId)
+          .single();
+          
+        if (error) throw error;
+        
+        if (data.status === 'active') {
+          setStatus('confirmed');
+          onConfirmed?.();
+        } else if (data.status === 'error') {
+          setStatus('error');
+          onError?.(data.error_message || "Erro ao confirmar check-in");
+        }
+      } catch (err) {
+        console.error("Erro ao verificar status do check-in:", err);
+      }
+    };
+    
+    checkCurrentStatus();
+
     // Subscribe to real-time updates for this specific check-in
     const channel = supabase
       .channel(`check-in-${checkInId}`)
@@ -31,6 +59,8 @@ export function CheckInConfirmation({
           filter: `id=eq.${checkInId}`
         },
         (payload: any) => {
+          console.log("Atualização de check-in recebida:", payload);
+          
           if (payload.new.status === 'active') {
             setStatus('confirmed');
             onConfirmed?.();

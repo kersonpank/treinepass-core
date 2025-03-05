@@ -1,3 +1,4 @@
+
 import { useToast } from "@/hooks/use-toast";
 import { Scanner } from "@yudiel/react-qr-scanner";
 
@@ -8,7 +9,7 @@ interface QRCodeScannerProps {
 export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   const { toast } = useToast();
 
-  const handleScan = (result: string | null) => {
+  const handleScan = (result: string) => {
     if (result) {
       onScan(result);
     }
@@ -26,7 +27,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   return (
     <div className="py-2">
       <Scanner
-        onResult={handleScan}
+        onScan={handleScan}
         onError={handleError}
         className="w-full aspect-square"
       />

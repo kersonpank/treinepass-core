@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,10 +68,20 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         return;
       }
 
-      const { data: limitsData } = await supabase.rpc('validate_check_in_rules', {
+      const { data: limitsData, error: limitsError } = await supabase.rpc('validate_check_in_rules', {
         p_user_id: user.id,
         p_academia_id: academiaId
       });
+
+      if (limitsError) {
+        console.error("Erro ao validar regras de check-in:", limitsError);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível verificar as regras de check-in",
+        });
+        return;
+      }
 
       if (limitsData?.[0]) {
         if (!limitsData[0].can_check_in) {
@@ -90,6 +101,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         setTimeLeft(1200);
       }
     } catch (error: any) {
+      console.error("Erro ao gerar código:", error);
       toast({
         variant: "destructive",
         title: "Erro ao gerar código",
@@ -99,6 +111,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   };
 
   const handleScanResult = async (result: string) => {
+    console.log("QR Code escaneado:", result);
     if (result && !isProcessing) {
       setIsProcessing(true);
       try {
@@ -111,6 +124,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           .select("*")
           .eq("code", result)
           .eq("academia_id", academiaId)
+          .eq("status", "active")
           .single();
 
         if (qrError || !qrCodeData) {
@@ -124,8 +138,13 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             p_academia_id: academiaId
           });
 
+        if (validationError) {
+          console.error("Erro ao validar regras:", validationError);
+          throw new Error("Erro ao validar regras de check-in");
+        }
+
         const validation = validationResult?.[0];
-        if (validationError || !validation?.can_check_in) {
+        if (!validation?.can_check_in) {
           throw new Error(validation?.message || "Check-in não permitido");
         }
 
@@ -143,25 +162,33 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
             validation_method: "qrcode",
             validation_token: token,
             qr_code_id: qrCodeData.id,
-            valor_repasse: validation.valor_repasse,
+            valor_repasse: validation.valor_repasse || 0,
             plano_id: validation.plano_id
           })
           .select()
           .single();
 
-        if (checkInError) throw checkInError;
+        if (checkInError) {
+          console.error("Erro ao registrar check-in:", checkInError);
+          throw checkInError;
+        }
 
         // Registrar histórico financeiro
-        await supabase
+        const { error: financialError } = await supabase
           .from("gym_check_in_financial_records")
           .insert({
             check_in_id: checkInData.id,
             plan_id: validation.plano_id,
-            valor_repasse: validation.valor_repasse,
-            valor_plano: validation.valor_plano,
+            valor_repasse: validation.valor_repasse || 0,
+            valor_plano: validation.valor_plano || 0,
             status_pagamento: "pending",
             data_processamento: new Date().toISOString()
           });
+
+        if (financialError) {
+          console.error("Erro ao registrar financeiro:", financialError);
+          // Não falhar o processo por causa do financeiro
+        }
 
         setCheckInId(checkInData.id);
         setShowCheckInDialog(false);
@@ -175,6 +202,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         });
 
       } catch (error: any) {
+        console.error("Erro ao realizar check-in:", error);
         toast({
           variant: "destructive",
           title: "Erro ao realizar check-in",
@@ -199,10 +227,20 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         return;
       }
 
-      const { data: limitsData } = await supabase.rpc('validate_check_in_rules', {
+      const { data: limitsData, error } = await supabase.rpc('validate_check_in_rules', {
         p_user_id: user.id,
         p_academia_id: academiaId
       });
+
+      if (error) {
+        console.error("Erro ao validar regras:", error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível verificar seu plano",
+        });
+        return;
+      }
 
       if (limitsData?.[0] && !limitsData[0].can_check_in) {
         setShowNoPlanDialog(true);
@@ -210,6 +248,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         setShowCheckInDialog(true);
       }
     } catch (error: any) {
+      console.error("Erro ao verificar plano:", error);
       toast({
         variant: "destructive",
         title: "Erro",

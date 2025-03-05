@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,8 @@ export function ValidateCheckIn() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (!academiaId) return;
+    
     // Subscribe to real-time check-ins
     const channel = supabase
       .channel('public:gym_check_ins')
@@ -36,6 +39,7 @@ export function ValidateCheckIn() {
           filter: `academia_id=eq.${academiaId}`
         },
         (payload) => {
+          console.log("Novo check-in detectado:", payload);
           // Show a toast for new check-ins
           toast({
             title: "Novo check-in registrado",
@@ -72,9 +76,13 @@ export function ValidateCheckIn() {
           code,
           academia_id: academiaId,
           expires_at: expiresAt.toISOString(),
+          status: "active"
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao gerar QR code:", error);
+        throw error;
+      }
 
       setQrCode(code);
       toast({
@@ -121,6 +129,8 @@ export function ValidateCheckIn() {
 
     setIsValidating(true);
     try {
+      console.log("Validando token:", accessToken, "para academia:", academiaId);
+      
       // Buscar check-in pendente pelo token de validação
       const { data: checkInData, error: checkInError } = await supabase
         .from("gym_check_ins")
@@ -142,9 +152,16 @@ export function ValidateCheckIn() {
         .eq("status", "pending")
         .single();
 
-      if (checkInError || !checkInData) {
+      if (checkInError) {
+        console.error("Erro ao buscar check-in:", checkInError);
         throw new Error("Token inválido ou expirado");
       }
+
+      if (!checkInData) {
+        throw new Error("Check-in não encontrado");
+      }
+
+      console.log("Check-in encontrado:", checkInData);
 
       // Atualizar status do check-in
       const { error: updateError } = await supabase
@@ -155,10 +172,13 @@ export function ValidateCheckIn() {
         })
         .eq("id", checkInData.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Erro ao atualizar check-in:", updateError);
+        throw updateError;
+      }
 
       // Atualizar registro financeiro
-      await supabase
+      const { error: financialError } = await supabase
         .from("gym_check_in_financial_records")
         .update({
           status_pagamento: "processed",
@@ -166,15 +186,20 @@ export function ValidateCheckIn() {
         })
         .eq("check_in_id", checkInData.id);
 
+      if (financialError) {
+        console.error("Erro ao atualizar registro financeiro:", financialError);
+        // Não falhar o processo por causa do financeiro
+      }
+
       setValidationResult({
         success: true,
         message: "Check-in validado com sucesso",
-        userName: checkInData.user.full_name
+        userName: checkInData.user?.full_name
       });
 
       toast({
         title: "Check-in validado!",
-        description: `Check-in confirmado para ${checkInData.user.full_name}`,
+        description: `Check-in confirmado para ${checkInData.user?.full_name}`,
       });
 
     } catch (error: any) {

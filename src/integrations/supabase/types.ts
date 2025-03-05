@@ -376,6 +376,7 @@ export type Database = {
           deleted: boolean | null
           due_date: string
           external_reference: string | null
+          failure_url: string | null
           fee_amount: number | null
           fine_value: number | null
           id: string
@@ -389,10 +390,12 @@ export type Database = {
           payment_date_limit: string | null
           payment_link: string | null
           payment_method: string | null
+          redirect_url: string | null
           status: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id: string | null
           subscription_period: string | null
           subscription_type: string | null
+          success_url: string | null
           total_amount: number | null
           updated_at: string
         }
@@ -405,6 +408,7 @@ export type Database = {
           deleted?: boolean | null
           due_date: string
           external_reference?: string | null
+          failure_url?: string | null
           fee_amount?: number | null
           fine_value?: number | null
           id?: string
@@ -418,10 +422,12 @@ export type Database = {
           payment_date_limit?: string | null
           payment_link?: string | null
           payment_method?: string | null
+          redirect_url?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
           subscription_period?: string | null
           subscription_type?: string | null
+          success_url?: string | null
           total_amount?: number | null
           updated_at?: string
         }
@@ -434,6 +440,7 @@ export type Database = {
           deleted?: boolean | null
           due_date?: string
           external_reference?: string | null
+          failure_url?: string | null
           fee_amount?: number | null
           fine_value?: number | null
           id?: string
@@ -447,10 +454,12 @@ export type Database = {
           payment_date_limit?: string | null
           payment_link?: string | null
           payment_method?: string | null
+          redirect_url?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
           subscription_period?: string | null
           subscription_type?: string | null
+          success_url?: string | null
           total_amount?: number | null
           updated_at?: string
         }
@@ -577,27 +586,42 @@ export type Database = {
       asaas_webhook_events: {
         Row: {
           created_at: string | null
-          event_data: Json
+          customer_id: string | null
+          event_id: string
           event_type: string
           id: string
+          payload: Json
+          payment_id: string | null
           processed: boolean | null
           processed_at: string | null
+          subscription_id: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string | null
-          event_data: Json
+          customer_id?: string | null
+          event_id: string
           event_type: string
           id?: string
+          payload: Json
+          payment_id?: string | null
           processed?: boolean | null
           processed_at?: string | null
+          subscription_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string | null
-          event_data?: Json
+          customer_id?: string | null
+          event_id?: string
           event_type?: string
           id?: string
+          payload?: Json
+          payment_id?: string | null
           processed?: boolean | null
           processed_at?: string | null
+          subscription_id?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -910,6 +934,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      checkout_sessions: {
+        Row: {
+          created_at: string | null
+          id: string
+          payment_id: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          payment_id: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          payment_id?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_sessions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_payments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_benefits: {
         Row: {
@@ -2054,6 +2113,43 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_subscription_status: {
+        Args: {
+          p_subscription_id: string
+        }
+        Returns: {
+          subscription_status: string
+          payment_status: string
+          last_event: string
+          last_event_date: string
+          payment_details: Json
+          history: Json
+        }[]
+      }
+      check_unprocessed_webhooks: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          event_id: string
+          event_type: string
+          subscription_id: string
+          payment_id: string
+          status: string
+          created_at: string
+          error: string
+        }[]
+      }
+      check_unprocessed_webhooks_v2: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          event_id: string
+          event_type: string
+          payment_id: string
+          subscription_id: string
+          status: string
+          created_at: string
+          error: string
+        }[]
+      }
       check_user_by_cpf: {
         Args: {
           p_cpf: string
@@ -2096,6 +2192,15 @@ export type Database = {
           success: boolean
           message: string
         }[]
+      }
+      create_checkout_session: {
+        Args: {
+          p_payment_id: string
+          p_user_id: string
+          p_success_url: string
+          p_failure_url: string
+        }
+        Returns: string
       }
       get_asaas_config: {
         Args: Record<PropertyKey, never>
@@ -2144,6 +2249,12 @@ export type Database = {
         }
         Returns: Json
       }
+      process_payment_webhook: {
+        Args: {
+          payload: Json
+        }
+        Returns: Json
+      }
       register_academia_with_user: {
         Args: {
           p_nome: string
@@ -2166,6 +2277,16 @@ export type Database = {
         Returns: {
           success: boolean
           message: string
+        }[]
+      }
+      reprocess_failed_webhooks: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          event_id: string
+          event_type: string
+          status: string
+          error: string
+          processed_at: string
         }[]
       }
       validate_check_in: {
