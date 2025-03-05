@@ -91,6 +91,25 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
         )}
       </div>
 
+      <div>
+        <Label htmlFor="phone">Telefone</Label>
+        <Input
+          id="phone"
+          type="tel"
+          {...register("phone", {
+            required: "Telefone é obrigatório",
+            pattern: {
+              value: /^\(\d{2}\) \d{5}-\d{4}$/,
+              message: "Telefone inválido. Use o formato (99) 99999-9999",
+            },
+          })}
+          placeholder="(99) 99999-9999"
+        />
+        {errors.phone && (
+          <p className="text-sm text-red-500 mt-1">{errors.phone.message}</p>
+        )}
+      </div>
+
       <CPFInput register={register} errors={errors} />
       <DateInput register={register} errors={errors} />
 

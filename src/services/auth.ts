@@ -6,6 +6,7 @@ interface RegisterData {
   password: string;
   cpf: string;
   birth_date: string;
+  phone: string;
 }
 
 export async function registerUser(data: RegisterData) {
@@ -75,6 +76,7 @@ export async function registerUser(data: RegisterData) {
           email: data.email,
           cpf: data.cpf.replace(/\D/g, ""),
           birth_date: formattedDate,
+          phone: data.phone.replace(/\D/g, ""),
         });
 
       if (profileError) {

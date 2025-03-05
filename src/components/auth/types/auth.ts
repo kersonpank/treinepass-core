@@ -4,4 +4,5 @@ export interface UserFormData {
   password: string;
   cpf: string;
   birth_date: string;
+  phone: string;
 }

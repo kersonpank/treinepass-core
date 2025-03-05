@@ -23,73 +23,55 @@ export function UserTableRow({
 }: UserTableRowProps) {
   return (
     <TableRow>
-      <TableCell className="font-medium">{user.full_name}</TableCell>
+      <TableCell>{user.full_name}</TableCell>
       <TableCell>{user.email}</TableCell>
       <TableCell>{user.cpf}</TableCell>
+      <TableCell>{user.phone}</TableCell>
       <TableCell>
-        {user.user_types.map((type) => (
-          <Badge key={type.type} className="mr-1">
+        {user.user_types?.map((type) => (
+          <Badge key={type.type} variant="outline" className="mr-1">
             {type.type}
           </Badge>
         ))}
       </TableCell>
       <TableCell>
-        <Badge variant={user.active ? "default" : "secondary"}>
+        <Badge
+          variant={user.active ? "default" : "destructive"}
+          className="cursor-pointer"
+          onClick={() => onStatusChange(user.id, !user.active)}
+        >
           {user.active ? "Ativo" : "Inativo"}
         </Badge>
       </TableCell>
-      <TableCell>
-        <div className="flex justify-end space-x-2">
-          {!user.active ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onStatusChange(user.id, true)}
-              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onStatusChange(user.id, false)}
-              className="h-8 w-8 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
-            >
-              <XCircle className="h-4 w-4" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onEdit(user)}
-          >
-            <Edit2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onView(user)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDelete(user.id)}
-            className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onManagePlan(user)}
-            className="h-8 w-8"
-          >
-            <CreditCard className="h-4 w-4" />
-          </Button>
-        </div>
+      <TableCell className="text-right space-x-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onView(user)}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onEdit(user)}
+        >
+          <Edit2 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onManagePlan(user)}
+        >
+          <CreditCard className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onDelete(user.id)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </TableCell>
     </TableRow>
   );
