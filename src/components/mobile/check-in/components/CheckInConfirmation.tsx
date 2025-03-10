@@ -20,7 +20,7 @@ export function CheckInConfirmation({
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log("Monitorando check-in:", checkInId);
+    console.log("Monitoring check-in:", checkInId);
     
     // First check current status
     const checkCurrentStatus = async () => {
@@ -38,10 +38,10 @@ export function CheckInConfirmation({
           onConfirmed?.();
         } else if (data.status === 'error') {
           setStatus('error');
-          onError?.(data.error_message || "Erro ao confirmar check-in");
+          onError?.(data.error_message || "Error confirming check-in");
         }
       } catch (err) {
-        console.error("Erro ao verificar status do check-in:", err);
+        console.error("Error checking check-in status:", err);
       }
     };
     
@@ -59,22 +59,22 @@ export function CheckInConfirmation({
           filter: `id=eq.${checkInId}`
         },
         (payload: any) => {
-          console.log("Atualização de check-in recebida:", payload);
+          console.log("Check-in update received:", payload);
           
           if (payload.new.status === 'active') {
             setStatus('confirmed');
             onConfirmed?.();
             toast({
-              title: "Check-in confirmado!",
-              description: "Seu check-in foi confirmado pela academia.",
+              title: "Check-in confirmed!",
+              description: "Your check-in has been confirmed by the gym.",
             });
           } else if (payload.new.status === 'error') {
             setStatus('error');
-            onError?.(payload.new.error_message || "Erro ao confirmar check-in");
+            onError?.(payload.new.error_message || "Error confirming check-in");
             toast({
               variant: "destructive",
-              title: "Erro no check-in",
-              description: payload.new.error_message || "Não foi possível confirmar seu check-in",
+              title: "Check-in error",
+              description: payload.new.error_message || "Could not confirm your check-in",
             });
           }
         }
@@ -94,7 +94,7 @@ export function CheckInConfirmation({
           <div className="flex flex-col items-center gap-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
             <p className="text-sm text-muted-foreground">
-              Aguardando confirmação da academia...
+              Waiting for gym confirmation...
             </p>
           </div>
         )}
@@ -102,9 +102,9 @@ export function CheckInConfirmation({
         {status === "confirmed" && (
           <div className="flex flex-col items-center gap-4">
             <CheckCircle className="h-16 w-16 text-green-500" />
-            <p className="text-lg font-semibold">Check-in Confirmado!</p>
+            <p className="text-lg font-semibold">Check-in Confirmed!</p>
             <p className="text-sm text-muted-foreground">
-              Boas atividades!
+              Enjoy your workout!
             </p>
           </div>
         )}
@@ -112,9 +112,9 @@ export function CheckInConfirmation({
         {status === "error" && (
           <div className="flex flex-col items-center gap-4">
             <XCircle className="h-16 w-16 text-red-500" />
-            <p className="text-lg font-semibold">Erro no Check-in</p>
+            <p className="text-lg font-semibold">Check-in Error</p>
             <p className="text-sm text-muted-foreground">
-              Não foi possível confirmar seu check-in. Por favor, tente novamente.
+              Could not confirm your check-in. Please try again.
             </p>
           </div>
         )}

@@ -18,12 +18,12 @@ const statusColors = {
 };
 
 const statusLabels = {
-  active: "Ativo",
-  pending: "Pendente",
-  overdue: "Vencido",
-  expired: "Expirado",
-  cancelled: "Cancelado",
-  refunded: "Reembolsado",
+  active: "Active",
+  pending: "Pending",
+  overdue: "Overdue",
+  expired: "Expired",
+  cancelled: "Cancelled",
+  refunded: "Refunded",
 };
 
 const paymentStatusColors = {
@@ -35,11 +35,11 @@ const paymentStatusColors = {
 };
 
 const paymentStatusLabels = {
-  paid: "Pago",
-  pending: "Pendente",
-  overdue: "Atrasado",
-  refunded: "Reembolsado",
-  failed: "Falhou",
+  paid: "Paid",
+  pending: "Pending",
+  overdue: "Late",
+  refunded: "Refunded",
+  failed: "Failed",
 };
 
 export function UserSubscriptions() {
@@ -73,7 +73,7 @@ export function UserSubscriptions() {
       if (error) {
         toast({
           variant: "destructive",
-          title: "Erro ao carregar assinaturas",
+          title: "Error loading subscriptions",
           description: error.message,
         });
         throw error;
@@ -94,7 +94,7 @@ export function UserSubscriptions() {
     return (
       <Card>
         <CardContent className="p-8 text-center text-muted-foreground">
-          Erro ao carregar assinaturas. Por favor, tente novamente.
+          Error loading subscriptions. Please try again.
         </CardContent>
       </Card>
     );
@@ -104,7 +104,7 @@ export function UserSubscriptions() {
     return (
       <Card>
         <CardContent className="p-8 text-center text-muted-foreground">
-          Você ainda não possui nenhuma assinatura.
+          You don't have any subscriptions yet.
         </CardContent>
       </Card>
     );
@@ -112,15 +112,15 @@ export function UserSubscriptions() {
 
   const refreshSubscriptions = async () => {
     toast({
-      title: "Atualizando...",
-      description: "Verificando status de suas assinaturas",
+      title: "Updating...",
+      description: "Checking your subscription status",
     });
     
     await refetch();
     
     toast({
-      title: "Atualizado",
-      description: "Status de assinaturas atualizado",
+      title: "Updated",
+      description: "Subscription status updated",
     });
   };
 
@@ -128,7 +128,7 @@ export function UserSubscriptions() {
     <div className="space-y-4">
       <div className="flex justify-end mb-4">
         <Button onClick={refreshSubscriptions} variant="outline" size="sm">
-          Atualizar Status
+          Update Status
         </Button>
       </div>
       
@@ -153,49 +153,49 @@ export function UserSubscriptions() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{subscription.benefit_plans.name}</CardTitle>
                 <Badge className={statusColors[subscription.status] || statusColors.pending}>
-                  {statusLabels[subscription.status] || "Pendente"}
+                  {statusLabels[subscription.status] || "Pending"}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Valor mensal:</span>
+                <span className="text-muted-foreground">Monthly cost:</span>
                 <span className="font-medium">
                   {formatCurrency(subscription.benefit_plans.monthly_cost)}
                 </span>
               </div>
               
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Status de pagamento:</span>
+                <span className="text-muted-foreground">Payment status:</span>
                 <span className="font-medium">
                   <Badge className={paymentStatusColors[subscription.payment_status] || paymentStatusColors.pending}>
-                    {paymentStatusLabels[subscription.payment_status] || "Pendente"}
+                    {paymentStatusLabels[subscription.payment_status] || "Pending"}
                   </Badge>
                 </span>
               </div>
               
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Início:</span>
+                <span className="text-muted-foreground">Start:</span>
                 <span>{new Date(subscription.start_date).toLocaleDateString()}</span>
               </div>
               
               {subscription.end_date && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Término:</span>
+                  <span className="text-muted-foreground">End:</span>
                   <span>{new Date(subscription.end_date).toLocaleDateString()}</span>
                 </div>
               )}
               
               {subscription.last_payment_date && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Último pagamento:</span>
+                  <span className="text-muted-foreground">Last payment:</span>
                   <span>{new Date(subscription.last_payment_date).toLocaleDateString()}</span>
                 </div>
               )}
               
               {subscription.next_payment_date && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Próximo pagamento:</span>
+                  <span className="text-muted-foreground">Next payment:</span>
                   <span>{new Date(subscription.next_payment_date).toLocaleDateString()}</span>
                 </div>
               )}
@@ -209,7 +209,7 @@ export function UserSubscriptions() {
                     rel="noopener noreferrer"
                     className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
                   >
-                    Realizar Pagamento
+                    Make Payment
                   </a>
                 </div>
               )}
@@ -223,12 +223,12 @@ export function UserSubscriptions() {
                     className="text-xs"
                     onClick={() => {
                       toast({
-                        title: "Em breve",
-                        description: "Histórico de pagamentos estará disponível em breve",
+                        title: "Coming soon",
+                        description: "Payment history will be available soon",
                       });
                     }}
                   >
-                    Ver histórico de pagamentos
+                    View payment history
                   </Button>
                 </div>
               )}

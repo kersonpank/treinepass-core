@@ -5,19 +5,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-// Inicializar o cliente Supabase
+// Initialize Supabase client
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Definir os headers CORS
+// Define CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Função para verificar o token do webhook
+// Function to verify webhook token
 async function verifyWebhookToken(token: string): Promise<boolean> {
   try {
-    // Buscar a configuração do Asaas
+    // Fetch Asaas settings
     const { data, error } = await supabase
       .from("system_settings")
       .select("value")
@@ -25,28 +25,28 @@ async function verifyWebhookToken(token: string): Promise<boolean> {
       .single();
 
     if (error || !data) {
-      console.error("Erro ao buscar configurações Asaas:", error);
+      console.error("Error fetching Asaas settings:", error);
       return false;
     }
 
-    // Verificar se o token corresponde
+    // Verify token corresponds
     const webhookToken = data.value?.webhook_token;
     
     if (!webhookToken) {
-      console.error("Token de webhook não configurado");
+      console.error("Webhook token not configured");
       return false;
     }
 
     return token === webhookToken;
   } catch (err) {
-    console.error("Erro ao verificar token:", err);
+    console.error("Error verifying token:", err);
     return false;
   }
 }
 
-// Função principal para processar os webhooks
+// Main function to process webhooks
 serve(async (req) => {
-  // Lidar com requisições OPTIONS (CORS preflight)
+  // Handle OPTIONS requests (CORS preflight)
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: corsHeaders,
@@ -55,24 +55,24 @@ serve(async (req) => {
   }
 
   try {
-    // Verificar method
+    // Verify method
     if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Método não permitido" }), {
+      return new Response(JSON.stringify({ error: "Method not allowed" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 405,
       });
     }
 
-    // Obter o payload do webhook
+    // Get webhook payload
     const payload = await req.json();
     console.log("Received webhook payload:", JSON.stringify(payload));
 
-    // Verificar se o payload tem a estrutura correta
+    // Verify payload has correct structure
     if (!payload.event) {
       return new Response(
         JSON.stringify({ 
-          error: "Payload inválido", 
-          message: "Evento não especificado"
+          error: "Invalid payload", 
+          message: "Event not specified"
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 400,
@@ -80,13 +80,13 @@ serve(async (req) => {
       );
     }
 
-    // Processar o webhook utilizando a função RPC
+    // Process webhook using RPC function
     const { data, error } = await supabase.rpc("process_asaas_webhook", {
       payload,
     });
 
     if (error) {
-      console.error("Erro ao processar webhook:", error);
+      console.error("Error processing webhook:", error);
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -110,7 +110,7 @@ serve(async (req) => {
       }
     );
   } catch (err) {
-    console.error("Erro no processamento do webhook:", err);
+    console.error("Error processing webhook:", err);
     return new Response(
       JSON.stringify({ 
         success: false, 

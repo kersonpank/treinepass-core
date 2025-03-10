@@ -16,11 +16,11 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   };
 
   const handleError = (error: any) => {
-    console.error("Erro no scanner:", error);
+    console.error("Scanner error:", error);
     toast({
       variant: "destructive",
-      title: "Erro no scanner",
-      description: "Não foi possível acessar a câmera",
+      title: "Scanner error",
+      description: "Could not access camera",
     });
   };
 
@@ -32,7 +32,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
         className="w-full aspect-square"
       />
       <p className="text-sm text-center text-muted-foreground mt-2">
-        Aponte a câmera para o QR Code da academia
+        Point the camera at the gym's QR Code
       </p>
     </div>
   );
