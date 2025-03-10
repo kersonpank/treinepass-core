@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
 const statusColors = {
   active: "bg-green-100 text-green-700",
@@ -82,6 +83,59 @@ export function UserSubscriptions() {
     },
   });
 
+  // Setup realtime subscription for payment status updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("user-subscriptions-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "user_plan_subscriptions",
+          filter: `user_id=eq.${supabase.auth.getUser()?.data?.user?.id}`,
+        },
+        (payload) => {
+          console.log("Subscription update detected:", payload);
+          refetch();
+          
+          // Show toast notification
+          if (payload.new.payment_status === 'paid' && payload.old.payment_status !== 'paid') {
+            toast({
+              title: "Payment confirmed!",
+              description: "Your subscription payment has been confirmed.",
+              variant: "default",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Also set up listener for asaas_payments updates
+    const paymentsChannel = supabase
+      .channel("asaas-payments-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "asaas_payments",
+        },
+        (payload) => {
+          console.log("Payment update detected:", payload);
+          if (payload.new.status !== payload.old.status) {
+            refetch();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(paymentsChannel);
+    };
+  }, [refetch, toast]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -127,7 +181,13 @@ export function UserSubscriptions() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end mb-4">
-        <Button onClick={refreshSubscriptions} variant="outline" size="sm">
+        <Button 
+          onClick={refreshSubscriptions} 
+          variant="outline" 
+          size="sm"
+          className="flex items-center gap-1"
+        >
+          <RefreshCw className="h-3 w-3" />
           Update Status
         </Button>
       </div>

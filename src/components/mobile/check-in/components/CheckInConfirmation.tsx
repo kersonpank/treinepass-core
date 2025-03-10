@@ -17,6 +17,7 @@ export function CheckInConfirmation({
   onError
 }: CheckInConfirmationProps) {
   const [status, setStatus] = useState<"pending" | "confirmed" | "error">("pending");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -38,7 +39,9 @@ export function CheckInConfirmation({
           onConfirmed?.();
         } else if (data.status === 'error') {
           setStatus('error');
-          onError?.(data.error_message || "Error confirming check-in");
+          const errorMsg = data.error_message || "Error confirming check-in";
+          setErrorMessage(errorMsg);
+          onError?.(errorMsg);
         }
       } catch (err) {
         console.error("Error checking check-in status:", err);
@@ -70,11 +73,13 @@ export function CheckInConfirmation({
             });
           } else if (payload.new.status === 'error') {
             setStatus('error');
-            onError?.(payload.new.error_message || "Error confirming check-in");
+            const errorMsg = payload.new.error_message || "Error confirming check-in";
+            setErrorMessage(errorMsg);
+            onError?.(errorMsg);
             toast({
               variant: "destructive",
               title: "Check-in error",
-              description: payload.new.error_message || "Could not confirm your check-in",
+              description: errorMsg || "Could not confirm your check-in",
             });
           }
         }
@@ -114,7 +119,7 @@ export function CheckInConfirmation({
             <XCircle className="h-16 w-16 text-red-500" />
             <p className="text-lg font-semibold">Check-in Error</p>
             <p className="text-sm text-muted-foreground">
-              Could not confirm your check-in. Please try again.
+              {errorMessage || "Could not confirm your check-in. Please try again."}
             </p>
           </div>
         )}

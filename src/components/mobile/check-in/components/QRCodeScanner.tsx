@@ -11,6 +11,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
 
   const handleScan = (result: string) => {
     if (result) {
+      console.log("QR code scanned:", result);
       onScan(result);
     }
   };
