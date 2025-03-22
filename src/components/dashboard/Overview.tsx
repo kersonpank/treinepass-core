@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Users, Dumbbell, DollarSign, ChartBar } from "lucide-react";
+import { Users, Dumbbell, DollarSign, BarChart } from "lucide-react";
 
 export function Overview() {
   const { data: stats } = useQuery({
@@ -91,7 +91,7 @@ export function Overview() {
           <CardTitle className="text-sm font-medium">
             Acessos no Mês
           </CardTitle>
-          <ChartBar className="h-4 w-4 text-muted-foreground" />
+          <BarChart className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats?.monthlyUsage || 0}</div>

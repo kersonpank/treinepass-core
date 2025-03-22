@@ -115,6 +115,11 @@ export type Database = {
           academia_id: string | null
           caminho: string
           created_at: string | null
+<<<<<<< HEAD
+=======
+          deleted_at: string | null
+          deleted_by_gym: boolean | null
+>>>>>>> main
           id: string
           nome: string
           observacoes: string | null
@@ -127,6 +132,11 @@ export type Database = {
           academia_id?: string | null
           caminho: string
           created_at?: string | null
+<<<<<<< HEAD
+=======
+          deleted_at?: string | null
+          deleted_by_gym?: boolean | null
+>>>>>>> main
           id?: string
           nome: string
           observacoes?: string | null
@@ -139,6 +149,11 @@ export type Database = {
           academia_id?: string | null
           caminho?: string
           created_at?: string | null
+<<<<<<< HEAD
+=======
+          deleted_at?: string | null
+          deleted_by_gym?: boolean | null
+>>>>>>> main
           id?: string
           nome?: string
           observacoes?: string | null
@@ -324,6 +339,45 @@ export type Database = {
         }
         Relationships: []
       }
+<<<<<<< HEAD
+=======
+      asaas_ids: {
+        Row: {
+          asaas_id: string
+          created_at: string | null
+          entity_id: string
+          entity_type: string
+          id: string
+          metadata: Json | null
+          status: string
+          updated_at: string | null
+          validation_date: string | null
+        }
+        Insert: {
+          asaas_id: string
+          created_at?: string | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          status?: string
+          updated_at?: string | null
+          validation_date?: string | null
+        }
+        Update: {
+          asaas_id?: string
+          created_at?: string | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          status?: string
+          updated_at?: string | null
+          validation_date?: string | null
+        }
+        Relationships: []
+      }
+>>>>>>> main
       asaas_payments: {
         Row: {
           amount: number
@@ -334,6 +388,10 @@ export type Database = {
           deleted: boolean | null
           due_date: string
           external_reference: string | null
+<<<<<<< HEAD
+=======
+          fee_amount: number | null
+>>>>>>> main
           fine_value: number | null
           id: string
           installment: number | null
@@ -341,13 +399,23 @@ export type Database = {
           invoice_url: string | null
           net_amount: number | null
           next_due_date: string | null
+<<<<<<< HEAD
           payment_date: string | null
+=======
+          payment_cycle_id: string | null
+          payment_date: string | null
+          payment_date_limit: string | null
+>>>>>>> main
           payment_link: string | null
           payment_method: string | null
           status: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id: string | null
           subscription_period: string | null
           subscription_type: string | null
+<<<<<<< HEAD
+=======
+          total_amount: number | null
+>>>>>>> main
           updated_at: string
         }
         Insert: {
@@ -359,6 +427,10 @@ export type Database = {
           deleted?: boolean | null
           due_date: string
           external_reference?: string | null
+<<<<<<< HEAD
+=======
+          fee_amount?: number | null
+>>>>>>> main
           fine_value?: number | null
           id?: string
           installment?: number | null
@@ -366,13 +438,23 @@ export type Database = {
           invoice_url?: string | null
           net_amount?: number | null
           next_due_date?: string | null
+<<<<<<< HEAD
           payment_date?: string | null
+=======
+          payment_cycle_id?: string | null
+          payment_date?: string | null
+          payment_date_limit?: string | null
+>>>>>>> main
           payment_link?: string | null
           payment_method?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
           subscription_period?: string | null
           subscription_type?: string | null
+<<<<<<< HEAD
+=======
+          total_amount?: number | null
+>>>>>>> main
           updated_at?: string
         }
         Update: {
@@ -384,6 +466,10 @@ export type Database = {
           deleted?: boolean | null
           due_date?: string
           external_reference?: string | null
+<<<<<<< HEAD
+=======
+          fee_amount?: number | null
+>>>>>>> main
           fine_value?: number | null
           id?: string
           installment?: number | null
@@ -391,13 +477,23 @@ export type Database = {
           invoice_url?: string | null
           net_amount?: number | null
           next_due_date?: string | null
+<<<<<<< HEAD
           payment_date?: string | null
+=======
+          payment_cycle_id?: string | null
+          payment_date?: string | null
+          payment_date_limit?: string | null
+>>>>>>> main
           payment_link?: string | null
           payment_method?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
           subscription_id?: string | null
           subscription_period?: string | null
           subscription_type?: string | null
+<<<<<<< HEAD
+=======
+          total_amount?: number | null
+>>>>>>> main
           updated_at?: string
         }
         Relationships: [
@@ -409,10 +505,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+<<<<<<< HEAD
             foreignKeyName: "asaas_payments_subscription_id_fkey"
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "business_plan_subscriptions"
+=======
+            foreignKeyName: "asaas_payments_payment_cycle_id_fkey"
+            columns: ["payment_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "gym_payout_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asaas_payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_plan_subscriptions"
+>>>>>>> main
             referencedColumns: ["id"]
           },
         ]
@@ -454,8 +564,17 @@ export type Database = {
           asaas_id: string | null
           batch_id: string | null
           created_at: string
+<<<<<<< HEAD
           id: string
           reference_month: string
+=======
+          fee_amount: number | null
+          id: string
+          net_amount: number | null
+          processing_date: string | null
+          reference_month: string
+          scheduled_date: string | null
+>>>>>>> main
           status: string
           transfer_date: string | null
           updated_at: string
@@ -466,8 +585,17 @@ export type Database = {
           asaas_id?: string | null
           batch_id?: string | null
           created_at?: string
+<<<<<<< HEAD
           id?: string
           reference_month: string
+=======
+          fee_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          processing_date?: string | null
+          reference_month: string
+          scheduled_date?: string | null
+>>>>>>> main
           status?: string
           transfer_date?: string | null
           updated_at?: string
@@ -478,8 +606,17 @@ export type Database = {
           asaas_id?: string | null
           batch_id?: string | null
           created_at?: string
+<<<<<<< HEAD
           id?: string
           reference_month?: string
+=======
+          fee_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          processing_date?: string | null
+          reference_month?: string
+          scheduled_date?: string | null
+>>>>>>> main
           status?: string
           transfer_date?: string | null
           updated_at?: string
@@ -538,11 +675,18 @@ export type Database = {
           check_in_rules: Json | null
           created_at: string
           description: string | null
+          early_cancellation_fee: number | null
           employee_limit: number | null
           final_user_cost: number | null
           financing_rules: Json | null
           id: string
+<<<<<<< HEAD
           linked_plan_id: string | null
+=======
+          late_payment_fee: number | null
+          linked_plan_id: string | null
+          minimum_contract_months: number | null
+>>>>>>> main
           monthly_cost: number
           name: string
           payment_methods: Json | null
@@ -552,6 +696,7 @@ export type Database = {
           platform_fee: number | null
           renewal_type: string | null
           rules: Json
+          setup_fee: number | null
           status: string
           subsidy_amount: number | null
           updated_at: string
@@ -567,11 +712,18 @@ export type Database = {
           check_in_rules?: Json | null
           created_at?: string
           description?: string | null
+          early_cancellation_fee?: number | null
           employee_limit?: number | null
           final_user_cost?: number | null
           financing_rules?: Json | null
           id?: string
+<<<<<<< HEAD
           linked_plan_id?: string | null
+=======
+          late_payment_fee?: number | null
+          linked_plan_id?: string | null
+          minimum_contract_months?: number | null
+>>>>>>> main
           monthly_cost: number
           name: string
           payment_methods?: Json | null
@@ -581,6 +733,7 @@ export type Database = {
           platform_fee?: number | null
           renewal_type?: string | null
           rules?: Json
+          setup_fee?: number | null
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
@@ -596,11 +749,18 @@ export type Database = {
           check_in_rules?: Json | null
           created_at?: string
           description?: string | null
+          early_cancellation_fee?: number | null
           employee_limit?: number | null
           final_user_cost?: number | null
           financing_rules?: Json | null
           id?: string
+<<<<<<< HEAD
           linked_plan_id?: string | null
+=======
+          late_payment_fee?: number | null
+          linked_plan_id?: string | null
+          minimum_contract_months?: number | null
+>>>>>>> main
           monthly_cost?: number
           name?: string
           payment_methods?: Json | null
@@ -610,6 +770,7 @@ export type Database = {
           platform_fee?: number | null
           renewal_type?: string | null
           rules?: Json
+          setup_fee?: number | null
           status?: string
           subsidy_amount?: number | null
           updated_at?: string
@@ -975,6 +1136,48 @@ export type Database = {
           },
         ]
       }
+      financial_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          fee_amount: number | null
+          id: string
+          net_amount: number | null
+          processed_at: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          fee_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          processed_at?: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          transaction_type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["entity_type"]
+          fee_amount?: number | null
+          id?: string
+          net_amount?: number | null
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          transaction_type?: Database["public"]["Enums"]["transaction_type"]
+        }
+        Relationships: []
+      }
       gym_check_ins: {
         Row: {
           academia_id: string
@@ -985,6 +1188,7 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           id: string
+          payout_cycle_id: string | null
           qr_code_id: string | null
           qr_data: Json | null
           status: string
@@ -1002,6 +1206,7 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           id?: string
+          payout_cycle_id?: string | null
           qr_code_id?: string | null
           qr_data?: Json | null
           status?: string
@@ -1019,6 +1224,7 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           id?: string
+          payout_cycle_id?: string | null
           qr_code_id?: string | null
           qr_data?: Json | null
           status?: string
@@ -1043,10 +1249,125 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "gym_check_ins_payout_cycle_id_fkey"
+            columns: ["payout_cycle_id"]
+            isOneToOne: false
+            referencedRelation: "gym_payout_cycles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "gym_check_ins_qr_code_id_fkey"
             columns: ["qr_code_id"]
             isOneToOne: false
             referencedRelation: "gym_qr_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_check_in_financial_records: {
+        Row: {
+          id: string
+          check_in_id: string
+          plan_id: string
+          valor_repasse: number
+          valor_plano: number
+          status_pagamento: string
+          data_processamento: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          check_in_id: string
+          plan_id: string
+          valor_repasse?: number
+          valor_plano?: number
+          status_pagamento?: string
+          data_processamento?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          check_in_id?: string
+          plan_id?: string
+          valor_repasse?: number
+          valor_plano?: number
+          status_pagamento?: string
+          data_processamento?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_check_in_financial_records_check_in_id_fkey"
+            columns: ["check_in_id"]
+            isOneToOne: false
+            referencedRelation: "gym_check_ins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_check_in_financial_records_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gym_payout_cycles: {
+        Row: {
+          academia_id: string
+          asaas_transfer_id: string | null
+          check_ins_count: number
+          created_at: string
+          end_date: string | null
+          id: string
+          payout_date: string | null
+          start_date: string
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          academia_id: string
+          asaas_transfer_id?: string | null
+          check_ins_count?: number
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          payout_date?: string | null
+          start_date?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          academia_id?: string
+          asaas_transfer_id?: string | null
+          check_ins_count?: number
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          payout_date?: string | null
+          start_date?: string
+          status?: string
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_payout_cycles_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_payout_cycles_asaas_transfer_id_fkey"
+            columns: ["asaas_transfer_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_transfers"
             referencedColumns: ["id"]
           },
         ]
@@ -1511,6 +1832,36 @@ export type Database = {
           },
         ]
       }
+<<<<<<< HEAD
+=======
+      system_settings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string | null
+          value: Json
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+>>>>>>> main
       transfer_rules: {
         Row: {
           academia_id: string | null
@@ -1518,7 +1869,11 @@ export type Database = {
           created_at: string | null
           id: string
           minimum_transfer_amount: number | null
+<<<<<<< HEAD
           transfer_day: number | null
+=======
+          transfer_days: number[] | null
+>>>>>>> main
           updated_at: string | null
         }
         Insert: {
@@ -1527,7 +1882,11 @@ export type Database = {
           created_at?: string | null
           id?: string
           minimum_transfer_amount?: number | null
+<<<<<<< HEAD
           transfer_day?: number | null
+=======
+          transfer_days?: number[] | null
+>>>>>>> main
           updated_at?: string | null
         }
         Update: {
@@ -1536,7 +1895,11 @@ export type Database = {
           created_at?: string | null
           id?: string
           minimum_transfer_amount?: number | null
+<<<<<<< HEAD
           transfer_day?: number | null
+=======
+          transfer_days?: number[] | null
+>>>>>>> main
           updated_at?: string | null
         }
         Relationships: [
@@ -1608,33 +1971,66 @@ export type Database = {
       }
       user_plan_subscriptions: {
         Row: {
+          asaas_customer_id: string | null
+          asaas_payment_link: string | null
+          asaas_subscription_id: string | null
           created_at: string
           end_date: string | null
           id: string
+          installments: number | null
+          last_payment_date: string | null
+          next_payment_date: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
           plan_id: string
+          proration_credit: number | null
           start_date: string
           status: Database["public"]["Enums"]["plan_subscription_status"]
+          total_value: number | null
           updated_at: string
+          upgrade_from_subscription_id: string | null
           user_id: string
         }
         Insert: {
+          asaas_customer_id?: string | null
+          asaas_payment_link?: string | null
+          asaas_subscription_id?: string | null
           created_at?: string
           end_date?: string | null
           id?: string
+          installments?: number | null
+          last_payment_date?: string | null
+          next_payment_date?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_status?: Database["public"]["Enums"]["payment_status"] | null
           plan_id: string
+          proration_credit?: number | null
           start_date: string
           status?: Database["public"]["Enums"]["plan_subscription_status"]
+          total_value?: number | null
           updated_at?: string
+          upgrade_from_subscription_id?: string | null
           user_id: string
         }
         Update: {
+          asaas_customer_id?: string | null
+          asaas_payment_link?: string | null
+          asaas_subscription_id?: string | null
           created_at?: string
           end_date?: string | null
           id?: string
+          installments?: number | null
+          last_payment_date?: string | null
+          next_payment_date?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          payment_status?: Database["public"]["Enums"]["payment_status"] | null
           plan_id?: string
+          proration_credit?: number | null
           start_date?: string
           status?: Database["public"]["Enums"]["plan_subscription_status"]
+          total_value?: number | null
           updated_at?: string
+          upgrade_from_subscription_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1643,6 +2039,42 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_plan_subscriptions_upgrade_from_subscription_id_fkey"
+            columns: ["upgrade_from_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profile_types: {
+        Row: {
+          created_at: string
+          id: string
+          type: Database["public"]["Enums"]["user_role_type"]
+          user_profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          type: Database["public"]["Enums"]["user_role_type"]
+          user_profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          type?: Database["public"]["Enums"]["user_role_type"]
+          user_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_profile_types_user_profile_id_fkey"
+            columns: ["user_profile_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1685,6 +2117,10 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+<<<<<<< HEAD
+=======
+          phone: string
+>>>>>>> main
           phone_number: string | null
           updated_at: string
         }
@@ -1696,6 +2132,10 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+<<<<<<< HEAD
+=======
+          phone: string
+>>>>>>> main
           phone_number?: string | null
           updated_at?: string
         }
@@ -1707,6 +2147,10 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+<<<<<<< HEAD
+=======
+          phone?: string
+>>>>>>> main
           phone_number?: string | null
           updated_at?: string
         }
@@ -1738,6 +2182,37 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      asaas_api: {
+        Args: {
+          action: string
+          data: Json
+        }
+        Returns: Json
+      }
+      calculate_financial_metrics: {
+        Args: {
+          p_start_date: string
+          p_end_date: string
+        }
+        Returns: {
+          total_revenue: number
+          total_transfers: number
+          total_fees: number
+          net_revenue: number
+        }[]
+      }
+      calculate_plan_proration: {
+        Args: {
+          current_plan_id: string
+          new_plan_id: string
+          current_subscription_id: string
+        }
+        Returns: {
+          prorated_amount: number
+          days_remaining: number
+          credit_amount: number
+        }[]
+      }
       can_user_check_in: {
         Args: {
           p_user_id: string
@@ -1765,6 +2240,24 @@ export type Database = {
         }
         Returns: string
       }
+      complete_payout_cycle: {
+        Args: {
+          p_cycle_id: string
+        }
+        Returns: {
+          academia_id: string
+          asaas_transfer_id: string | null
+          check_ins_count: number
+          created_at: string
+          end_date: string | null
+          id: string
+          payout_date: string | null
+          start_date: string
+          status: string
+          total_amount: number
+          updated_at: string
+        }
+      }
       create_academia_v2: {
         Args: {
           p_user_id: string
@@ -1782,6 +2275,14 @@ export type Database = {
           user_type: string
           success: boolean
           message: string
+        }[]
+      }
+      get_asaas_config: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          environment: Database["public"]["Enums"]["payment_environment"]
+          api_key: string
+          api_url: string
         }[]
       }
       get_date_from_timestamp: {
@@ -1816,6 +2317,12 @@ export type Database = {
           user_id: string
         }
         Returns: boolean
+      }
+      process_asaas_webhook: {
+        Args: {
+          payload: Json
+        }
+        Returns: Json
       }
       register_academia_with_user: {
         Args: {
@@ -1917,8 +2424,27 @@ export type Database = {
         | "CANCELED"
       check_in_validation_method: "qr_code" | "manual_code" | "qr_scan"
       employee_invite_status: "pending" | "accepted" | "rejected"
+<<<<<<< HEAD
+=======
+      entity_type: "user" | "business" | "academia" | "system"
+>>>>>>> main
       gym_role: "gym_owner" | "gym_admin" | "gym_staff"
+      payment_environment: "sandbox" | "production"
+      payment_method:
+        | "credit_card"
+        | "debit_card"
+        | "pix"
+        | "boleto"
+        | "transfer"
+      payment_status:
+        | "pending"
+        | "paid"
+        | "failed"
+        | "cancelled"
+        | "refunded"
+        | "processing"
       plan_subscription_status: "active" | "pending" | "expired" | "cancelled"
+      transaction_type: "payment" | "refund" | "transfer" | "fee" | "adjustment"
       user_role_type:
         | "individual"
         | "business"
@@ -1928,6 +2454,17 @@ export type Database = {
         | "app_user"
     }
     CompositeTypes: {
+      http_header: {
+        field: unknown | null
+        value: string | null
+      }
+      http_request: {
+        method: string | null
+        uri: string | null
+        headers: unknown[] | null
+        content_type: string | null
+        content: string | null
+      }
       registration_result: {
         success: boolean | null
         message: string | null

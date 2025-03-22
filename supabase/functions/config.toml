@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 # project_id = "jlzkwcgzpfrdgcdjmjao"
 
@@ -18,3 +19,7 @@ verify_jwt = false
 
 [process-transfers-batch]
 verify_jwt = true
+=======
+[functions.asaas-webhook]
+verify_jwt=false 
+>>>>>>> main

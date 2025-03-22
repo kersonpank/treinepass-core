@@ -17,8 +17,12 @@ export interface User {
   full_name: string;
   email: string;
   cpf: string;
+<<<<<<< HEAD
   birth_date: string | null;
   phone_number: string | null;
+=======
+  phone: string;
+>>>>>>> main
   created_at: string;
   updated_at: string;
   active: boolean;

@@ -44,24 +44,35 @@ export function UserTableRow({
 
   return (
     <TableRow>
+<<<<<<< HEAD
       <TableCell>
         <div className="flex flex-col">
           <span className="font-medium">{user.full_name}</span>
           <span className="text-sm text-muted-foreground">{user.email}</span>
         </div>
       </TableCell>
+=======
+      <TableCell>{user.full_name}</TableCell>
+      <TableCell>{user.email}</TableCell>
+>>>>>>> main
       <TableCell>{user.cpf}</TableCell>
+      <TableCell>{user.phone}</TableCell>
       <TableCell>
+<<<<<<< HEAD
         {user.birth_date ? format(new Date(user.birth_date), "dd/MM/yyyy") : "-"}
       </TableCell>
       <TableCell>
         {user.user_types.map((type) => (
+=======
+        {user.user_types?.map((type) => (
+>>>>>>> main
           <Badge key={type.type} variant="outline" className="mr-1">
             {type.type}
           </Badge>
         ))}
       </TableCell>
       <TableCell>
+<<<<<<< HEAD
         {activePlan ? (
           <div className="flex flex-col">
             <Badge variant="secondary">{activePlan.benefit_plans.name}</Badge>
@@ -112,6 +123,45 @@ export function UserTableRow({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+=======
+        <Badge
+          variant={user.active ? "default" : "destructive"}
+          className="cursor-pointer"
+          onClick={() => onStatusChange(user.id, !user.active)}
+        >
+          {user.active ? "Ativo" : "Inativo"}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right space-x-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onView(user)}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onEdit(user)}
+        >
+          <Edit2 className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onManagePlan(user)}
+        >
+          <CreditCard className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onDelete(user.id)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+>>>>>>> main
       </TableCell>
     </TableRow>
   );

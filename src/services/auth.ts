@@ -7,7 +7,11 @@ interface RegisterData {
   password: string;
   cpf: string;
   birth_date: string;
+<<<<<<< HEAD
   phone_number: string;
+=======
+  phone: string;
+>>>>>>> main
 }
 
 export async function registerUser(data: RegisterData) {
@@ -77,7 +81,11 @@ export async function registerUser(data: RegisterData) {
           email: data.email,
           cpf: data.cpf.replace(/\D/g, ""),
           birth_date: formattedDate,
+<<<<<<< HEAD
           phone_number: data.phone_number,
+=======
+          phone: data.phone.replace(/\D/g, ""),
+>>>>>>> main
         });
 
       if (profileError) {

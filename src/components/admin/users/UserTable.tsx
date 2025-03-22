@@ -27,9 +27,14 @@ export function UserTable({
           <TableRow>
             <TableHead>Nome / Email</TableHead>
             <TableHead>CPF</TableHead>
+<<<<<<< HEAD
             <TableHead>Data de Nascimento</TableHead>
             <TableHead>Tipos</TableHead>
             <TableHead>Plano Atual</TableHead>
+=======
+            <TableHead>Telefone</TableHead>
+            <TableHead>Tipo</TableHead>
+>>>>>>> main
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>

@@ -1,4 +1,5 @@
 
+<<<<<<< HEAD
 project_id = "jlzkwcgzpfrdgcdjmjao"
 
 [functions.asaas-customer]
@@ -6,3 +7,7 @@ verify_jwt = true
 
 [functions.process-transfer]
 verify_jwt = true
+=======
+[functions.asaas-webhook]
+verify_jwt = false
+>>>>>>> main

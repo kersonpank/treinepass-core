@@ -12,5 +12,10 @@ export interface UserFormData {
   password: string;
   cpf: string;
   birth_date: string;
+<<<<<<< HEAD
   phone_number: string;
 }
+=======
+  phone: string;
+}
+>>>>>>> main

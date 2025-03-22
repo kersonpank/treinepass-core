@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 import { useState } from "react";
 import {
@@ -11,6 +12,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export interface GymPhotosDialogProps {
+=======
+
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Trash2, Upload } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
+interface GymPhotosDialogProps {
+  gymId: string;
+  fotos?: string[];
+>>>>>>> main
   open: boolean;
   onOpenChange: (open: boolean) => void;
   gymId: string;
@@ -25,11 +43,33 @@ export function GymPhotosDialog({
   fotos = [],
   onSuccess
 }: GymPhotosDialogProps) {
+<<<<<<< HEAD
+=======
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedType, setSelectedType] = useState("");
+  const [description, setDescription] = useState("");
+>>>>>>> main
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
 
+<<<<<<< HEAD
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
+=======
+  const documentTypes = [
+    "Alvará de Funcionamento",
+    "CNPJ",
+    "Contrato Social",
+    "RG/CPF Responsável",
+    "Comprovante de Endereço",
+    "Foto do Estabelecimento",
+    "Outro"
+  ];
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+>>>>>>> main
 
     setIsUploading(true);
     try {
@@ -43,6 +83,24 @@ export function GymPhotosDialog({
 
       if (uploadError) throw uploadError;
 
+<<<<<<< HEAD
+=======
+      const { error: documentError } = await supabase
+        .from('academia_documentos')
+        .insert({
+          academia_id: gymId,
+          tipo: selectedType,
+          nome: file.name,
+          caminho: filePath,
+          observacoes: description,
+          status: 'pendente'
+        });
+
+      if (documentError) throw documentError;
+
+      const updatedFotos = [...fotos, filePath];
+
+>>>>>>> main
       const { error: updateError } = await supabase
         .from('academias')
         .update({
@@ -54,9 +112,15 @@ export function GymPhotosDialog({
 
       toast({
         title: "Sucesso",
+<<<<<<< HEAD
         description: "Foto adicionada com sucesso"
+=======
+        description: "Documento adicionado com sucesso",
+>>>>>>> main
       });
 
+      setSelectedType("");
+      setDescription("");
       onSuccess();
     } catch (error: any) {
       toast({
@@ -90,9 +154,20 @@ export function GymPhotosDialog({
 
       if (updateError) throw updateError;
 
+      const { error: documentError } = await supabase
+        .from('academia_documentos')
+        .delete()
+        .eq('caminho', photoPath);
+
+      if (documentError) throw documentError;
+
       toast({
         title: "Sucesso",
+<<<<<<< HEAD
         description: "Foto removida com sucesso"
+=======
+        description: "Documento removido com sucesso",
+>>>>>>> main
       });
 
       onSuccess();
@@ -109,7 +184,7 @@ export function GymPhotosDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Gerenciar Fotos</DialogTitle>
+          <DialogTitle>Gerenciar Documentos</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <Button
@@ -146,6 +221,55 @@ export function GymPhotosDialog({
               </div>
             ))}
           </div>
+<<<<<<< HEAD
+=======
+
+          <div className="space-y-4 pt-4 border-t">
+            <div>
+              <Label>Tipo de Documento</Label>
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo de documento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {documentTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Descrição/Observações</Label>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Adicione uma descrição ou observações sobre o documento"
+              />
+            </div>
+
+            <div>
+              <Button
+                variant="outline"
+                disabled={isUploading || !selectedType}
+                className="w-full"
+                onClick={() => document.getElementById('photo-upload')?.click()}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {isUploading ? "Enviando..." : "Adicionar Documento"}
+              </Button>
+              <input
+                type="file"
+                id="photo-upload"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+            </div>
+          </div>
+>>>>>>> main
         </div>
       </DialogContent>
     </Dialog>

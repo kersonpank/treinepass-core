@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CheckInLimitsDisplay } from "./components/CheckInLimitsDisplay";
 import { NoPlanDialog } from "./components/NoPlanDialog";
 import { CheckInDialog } from "./components/CheckInDialog";
+import { CheckInConfirmation } from "./components/CheckInConfirmation";
 
 interface ManualCheckInProps {
   academiaId: string;
@@ -27,6 +27,8 @@ export function ManualCheckIn({ academiaId, onSuccess, method }: ManualCheckInPr
   const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
   const [accessCode, setAccessCode] = useState("");
   const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes in seconds
+  const [checkInId, setCheckInId] = useState<string | null>(null);
+  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const { toast } = useToast();
 
   const generateAccessCode = async () => {
@@ -92,12 +94,101 @@ export function ManualCheckIn({ academiaId, onSuccess, method }: ManualCheckInPr
     }
   };
 
+<<<<<<< HEAD
   // Access code generation and refresh
   useEffect(() => {
     if (showCheckInDialog) {
       generateAccessCode();
       const interval = setInterval(generateAccessCode, 1200000); // 20 minutes
       return () => clearInterval(interval);
+=======
+  const handleScanResult = async (result: string) => {
+    if (result && !isProcessing) {
+      setIsProcessing(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Usuário não autenticado");
+
+        // Validar QR Code
+        const { data: qrCodeData, error: qrError } = await supabase
+          .from("gym_qr_codes")
+          .select("*")
+          .eq("code", result)
+          .eq("academia_id", academiaId)
+          .single();
+
+        if (qrError || !qrCodeData) {
+          throw new Error("QR Code inválido ou expirado");
+        }
+
+        // Validar regras de check-in
+        const { data: validationResult, error: validationError } = await supabase
+          .rpc('validate_check_in_rules', {
+            p_user_id: user.id,
+            p_academia_id: academiaId
+          });
+
+        const validation = validationResult?.[0];
+        if (validationError || !validation?.can_check_in) {
+          throw new Error(validation?.message || "Check-in não permitido");
+        }
+
+        // Gerar token único para este check-in
+        const token = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        // Registrar check-in
+        const { data: checkInData, error: checkInError } = await supabase
+          .from("gym_check_ins")
+          .insert({
+            user_id: user.id,
+            academia_id: academiaId,
+            check_in_time: new Date().toISOString(),
+            status: "pending",
+            validation_method: "qrcode",
+            validation_token: token,
+            qr_code_id: qrCodeData.id,
+            valor_repasse: validation.valor_repasse,
+            plano_id: validation.plano_id
+          })
+          .select()
+          .single();
+
+        if (checkInError) throw checkInError;
+
+        // Registrar histórico financeiro
+        await supabase
+          .from("gym_check_in_financial_records")
+          .insert({
+            check_in_id: checkInData.id,
+            plan_id: validation.plano_id,
+            valor_repasse: validation.valor_repasse,
+            valor_plano: validation.valor_plano,
+            status_pagamento: "pending",
+            data_processamento: new Date().toISOString()
+          });
+
+        setCheckInId(checkInData.id);
+        setShowCheckInDialog(false);
+        setShowConfirmationDialog(true);
+
+        // Mostrar token para o usuário
+        toast({
+          title: "Check-in registrado!",
+          description: `Seu token de validação é: ${token}. Apresente este token na academia.`,
+          duration: 10000,
+        });
+
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao realizar check-in",
+          description: error.message,
+          duration: 5000,
+        });
+      } finally {
+        setIsProcessing(false);
+      }
+>>>>>>> main
     }
   }, [showCheckInDialog]);
 
@@ -166,13 +257,36 @@ export function ManualCheckIn({ academiaId, onSuccess, method }: ManualCheckInPr
         </CardContent>
       </Card>
 
-      <CheckInDialog 
+      <CheckInDialog
         open={showCheckInDialog}
         onOpenChange={setShowCheckInDialog}
         accessCode={accessCode}
         timeLeft={timeLeft}
         onScan={() => {}}
       />
+
+      {showConfirmationDialog && checkInId && (
+        <CheckInConfirmation
+          checkInId={checkInId}
+          onConfirmed={() => {
+            setShowConfirmationDialog(false);
+            toast({
+              title: "Check-in realizado!",
+              description: "Check-in realizado com sucesso. Boas atividades!",
+              duration: 5000,
+            });
+          }}
+          onError={(error) => {
+            setShowConfirmationDialog(false);
+            toast({
+              variant: "destructive",
+              title: "Erro no check-in",
+              description: error,
+              duration: 5000,
+            });
+          }}
+        />
+      )}
 
       <NoPlanDialog
         open={showNoPlanDialog}
