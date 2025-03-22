@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
@@ -44,6 +43,30 @@ async function verifyWebhookToken(token: string): Promise<boolean> {
   }
 }
 
+// Função para registrar evento de webhook
+async function logWebhookEvent(event: string, payload: any, success: boolean, error?: string) {
+  try {
+    const { data, error: logError } = await supabase
+      .from("asaas_webhook_events")
+      .insert({
+        event_type: event,
+        event_data: payload,
+        processed: success,
+        processed_at: success ? new Date().toISOString() : null,
+        error_message: error || null
+      });
+    
+    if (logError) {
+      console.error("Erro ao registrar evento de webhook:", logError);
+    }
+    
+    return data;
+  } catch (err) {
+    console.error("Erro ao registrar evento de webhook:", err);
+    return null;
+  }
+}
+
 // Função principal para processar os webhooks
 serve(async (req) => {
   // Lidar com requisições OPTIONS (CORS preflight)
@@ -69,6 +92,9 @@ serve(async (req) => {
 
     // Verificar se o payload tem a estrutura correta
     if (!payload.event) {
+      const errorMessage = "Payload inválido: Evento não especificado";
+      await logWebhookEvent("UNKNOWN", payload, false, errorMessage);
+      
       return new Response(
         JSON.stringify({ 
           error: "Payload inválido", 
@@ -80,6 +106,26 @@ serve(async (req) => {
       );
     }
 
+    // Verificar token do webhook (se presente no header)
+    const token = req.headers.get("asaas-webhook-token") || "";
+    if (token) {
+      const isValidToken = await verifyWebhookToken(token);
+      if (!isValidToken) {
+        const errorMessage = "Token de webhook inválido";
+        await logWebhookEvent(payload.event, payload, false, errorMessage);
+        
+        return new Response(
+          JSON.stringify({ 
+            error: errorMessage, 
+            message: "Acesso não autorizado"
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 401,
+          }
+        );
+      }
+    }
+
     // Processar o webhook utilizando a função RPC
     const { data, error } = await supabase.rpc("process_asaas_webhook", {
       payload,
@@ -87,6 +133,8 @@ serve(async (req) => {
 
     if (error) {
       console.error("Erro ao processar webhook:", error);
+      await logWebhookEvent(payload.event, payload, false, error.message);
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -102,6 +150,7 @@ serve(async (req) => {
     }
 
     console.log("Webhook processed successfully:", data);
+    await logWebhookEvent(payload.event, payload, true);
 
     return new Response(
       JSON.stringify(data), {
@@ -111,6 +160,20 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("Erro no processamento do webhook:", err);
+    
+    // Tente extrair o evento do payload, se possível
+    let event = "UNKNOWN";
+    let payloadData = {};
+    try {
+      const payload = await req.json();
+      event = payload.event || "UNKNOWN";
+      payloadData = payload;
+    } catch (e) {
+      // Não conseguiu extrair o payload, continua com os valores padrão
+    }
+    
+    await logWebhookEvent(event, payloadData, false, err.message);
+    
     return new Response(
       JSON.stringify({ 
         success: false, 

@@ -1188,6 +1188,57 @@ export type Database = {
           },
         ]
       }
+      gym_check_in_financial_records: {
+        Row: {
+          id: string
+          check_in_id: string
+          plan_id: string
+          valor_repasse: number
+          valor_plano: number
+          status_pagamento: string
+          data_processamento: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          check_in_id: string
+          plan_id: string
+          valor_repasse?: number
+          valor_plano?: number
+          status_pagamento?: string
+          data_processamento?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          check_in_id?: string
+          plan_id?: string
+          valor_repasse?: number
+          valor_plano?: number
+          status_pagamento?: string
+          data_processamento?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_check_in_financial_records_check_in_id_fkey"
+            columns: ["check_in_id"]
+            isOneToOne: false
+            referencedRelation: "gym_check_ins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gym_check_in_financial_records_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "benefit_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gym_payout_cycles: {
         Row: {
           academia_id: string

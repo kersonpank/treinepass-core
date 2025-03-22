@@ -1,0 +1,20 @@
+﻿{
+    "dateCreated":  "2025-03-17 14:33:23",
+    "payment":  {
+                    "id":  "pay_fe17b7b8",
+                    "invoiceUrl":  "https://www.asaas.com/i/123456",
+                    "invoiceNumber":  "12345678",
+                    "dueDate":  "2025-03-17",
+                    "description":  "Assinatura TreinePass",
+                    "status":  "OVERDUE",
+                    "value":  99.9,
+                    "externalReference":  "user_123456",
+                    "customer":  "cus_a4307f81",
+                    "paymentDate":  "2025-03-17",
+                    "billingType":  "CREDIT_CARD",
+                    "netValue":  96.9,
+                    "subscription":  "sub_a2fa013f"
+                },
+    "id":  "evt_0608b20d\u00269689059",
+    "event":  "PAYMENT_OVERDUE"
+}

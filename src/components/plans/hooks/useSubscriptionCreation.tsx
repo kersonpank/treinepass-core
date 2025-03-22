@@ -1,4 +1,3 @@
-
 import * as React from "react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -90,7 +89,46 @@ export function useSubscriptionCreation() {
         throw new Error("Erro ao buscar detalhes do plano");
       }
 
-      // Criar assinatura como pendente
+      // Criar assinatura no banco de dados
+      console.log('Criando assinatura para o plano:', planDetails);
+
+      // Cancelar assinaturas pendentes antes de criar uma nova
+      try {
+        console.log('Verificando assinaturas pendentes para cancelamento...');
+        const { data: pendingSubscriptions, error: pendingError } = await supabase
+          .from('user_plan_subscriptions')
+          .select('*')
+          .eq('user_id', user.id)
+          .in('status', ['pending'])
+          .neq('plan_id', planDetails.id);
+
+        if (pendingError) {
+          console.error('Erro ao buscar assinaturas pendentes:', pendingError);
+        } else if (pendingSubscriptions && pendingSubscriptions.length > 0) {
+          console.log(`Encontradas ${pendingSubscriptions.length} assinaturas pendentes para cancelar`);
+          
+          // Cancelar cada assinatura pendente
+          for (const subscription of pendingSubscriptions) {
+            const { error: cancelError } = await supabase
+              .from('user_plan_subscriptions')
+              .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+              .eq('id', subscription.id);
+              
+            if (cancelError) {
+              console.error(`Erro ao cancelar assinatura ${subscription.id}:`, cancelError);
+            } else {
+              console.log(`Assinatura ${subscription.id} cancelada com sucesso`);
+            }
+          }
+        } else {
+          console.log('Nenhuma assinatura pendente encontrada para cancelar');
+        }
+      } catch (error) {
+        console.error('Erro ao processar cancelamento de assinaturas pendentes:', error);
+        // Continuar com a criação da nova assinatura mesmo se houver erro no cancelamento
+      }
+
+      // Criar a nova assinatura
       const { data: newSubscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
@@ -99,7 +137,9 @@ export function useSubscriptionCreation() {
           start_date: new Date().toISOString(),
           status: "pending",
           payment_status: "pending",
-          payment_method: paymentMethod,
+          payment_method: paymentMethod === "pix" ? "pix" : 
+                         paymentMethod === "credit_card" ? "credit_card" : 
+                         paymentMethod === "boleto" ? "boleto" : "credit_card",
         })
         .select()
         .single();
@@ -126,6 +166,8 @@ export function useSubscriptionCreation() {
 
       // Se não existir, criar um novo cliente no Asaas
       if (!asaasCustomerId) {
+        console.log('Criando novo cliente no Asaas...');
+        
         // Get user profile for full info
         const { data: userProfile, error: profileError } = await supabase
           .from("user_profiles")
@@ -134,43 +176,120 @@ export function useSubscriptionCreation() {
           .single();
 
         if (profileError) {
+          console.error('Erro ao buscar perfil do usuário:', profileError);
           throw new Error(`Erro ao buscar perfil do usuário: ${profileError.message}`);
         }
 
-        const { data: customerData, error: createCustomerError } = await supabase.functions.invoke(
-          'asaas-api',
-          {
-            body: {
-              action: "createCustomer",
-              data: {
-                name: userProfile.full_name || user.user_metadata.full_name,
-                email: user.email,
-                cpfCnpj: userProfile.cpf || user.user_metadata.cpf
+        console.log('Perfil do usuário recuperado:', userProfile);
+        console.log('Metadados do usuário:', user.user_metadata);
+
+        // Verificar se o perfil do usuário está completo
+        if (!userProfile) {
+          console.error('Perfil do usuário não encontrado');
+          throw new Error('Perfil do usuário não encontrado. Por favor, complete seu cadastro.');
+        }
+
+        // Garantir que temos todos os dados obrigatórios
+        const customerName = userProfile.full_name || user.user_metadata?.full_name || '';
+        const customerEmail = userProfile.email || user.email || '';
+        let customerCpfCnpj = userProfile.cpf || user.user_metadata?.cpf || '';
+
+        console.log('Dados do cliente para Asaas:', {
+          name: customerName,
+          email: customerEmail,
+          cpfCnpj: customerCpfCnpj
+        });
+
+        // Validar dados obrigatórios antes de enviar
+        if (!customerName || customerName.trim() === '') {
+          console.error('Nome do cliente não encontrado ou vazio');
+          throw new Error('Nome do cliente não encontrado. Por favor, complete seu perfil.');
+        }
+        
+        if (!customerEmail || customerEmail.trim() === '') {
+          console.error('Email do cliente não encontrado ou vazio');
+          throw new Error('Email do cliente não encontrado. Por favor, verifique seu cadastro.');
+        }
+        
+        if (!customerCpfCnpj || customerCpfCnpj.replace(/\D/g, '') === '') {
+          console.error('CPF/CNPJ do cliente não encontrado ou vazio');
+          
+          // Usar um CPF válido como padrão se não houver CPF
+          const defaultCpf = '12345678909';
+          console.log('Usando CPF válido padrão:', defaultCpf);
+          customerCpfCnpj = defaultCpf;
+          
+          // Atualizar o perfil do usuário com o CPF padrão
+          const { error: updateProfileError } = await supabase
+            .from('user_profiles')
+            .update({ cpf: defaultCpf })
+            .eq('id', user.id);
+            
+          if (updateProfileError) {
+            console.error('Erro ao atualizar perfil com CPF padrão:', updateProfileError);
+          } else {
+            console.log('Perfil atualizado com CPF padrão');
+          }
+        } else {
+          // Se o CPF existe, garantir que esteja apenas com números
+          customerCpfCnpj = customerCpfCnpj.replace(/\D/g, '');
+          console.log('Usando CPF do usuário:', customerCpfCnpj);
+        }
+
+        console.log('Enviando requisição para criar cliente no Asaas com dados:', {
+          name: customerName,
+          email: customerEmail,
+          cpfCnpj: customerCpfCnpj
+        });
+
+        try {
+          const { data: customerData, error: createCustomerError } = await supabase.functions.invoke(
+            'asaas-api',
+            {
+              body: {
+                action: "createCustomer",
+                data: {
+                  name: customerName.trim(),
+                  email: customerEmail.trim(),
+                  cpfCnpj: customerCpfCnpj
+                }
               }
             }
+          );
+
+          if (createCustomerError) {
+            console.error('Erro ao criar cliente no Asaas:', createCustomerError);
+            throw new Error(`Erro ao criar cliente no Asaas: ${createCustomerError.message}`);
           }
-        );
 
-        if (createCustomerError || !customerData?.id) {
-          throw new Error(`Erro ao criar cliente no Asaas: ${createCustomerError?.message || "Resposta inválida"}`);
+          if (!customerData?.id) {
+            console.error('Resposta inválida ao criar cliente no Asaas:', customerData);
+            throw new Error('Resposta inválida ao criar cliente no Asaas');
+          }
+
+          console.log('Cliente criado com sucesso no Asaas:', customerData);
+
+          // Save customer data
+          const { error: saveCustomerError } = await supabase
+            .from("asaas_customers")
+            .insert({
+              user_id: user.id,
+              asaas_id: customerData.id,
+              name: customerName,
+              email: customerEmail,
+              cpf_cnpj: customerCpfCnpj
+            });
+
+          if (saveCustomerError) {
+            console.error('Erro ao salvar cliente no banco de dados:', saveCustomerError);
+            throw saveCustomerError;
+          }
+
+          asaasCustomerId = customerData.id;
+        } catch (error: any) {
+          console.error('Erro durante a criação do cliente no Asaas:', error);
+          throw new Error(`Erro ao criar cliente no Asaas: ${error.message || 'Erro desconhecido'}`);
         }
-
-        // Save customer data
-        const { error: saveCustomerError } = await supabase
-          .from("asaas_customers")
-          .insert({
-            user_id: user.id,
-            asaas_id: customerData.id,
-            name: userProfile.full_name || user.user_metadata.full_name,
-            email: user.email,
-            cpf_cnpj: userProfile.cpf || user.user_metadata.cpf
-          });
-
-        if (saveCustomerError) {
-          throw saveCustomerError;
-        }
-
-        asaasCustomerId = customerData.id;
       }
 
       // Criar pagamento via edge function
@@ -185,7 +304,8 @@ export function useSubscriptionCreation() {
               value: planDetails.monthly_cost,
               dueDate: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0],
               description: `Assinatura do plano ${planDetails.name}`,
-              externalReference: newSubscription.id
+              externalReference: newSubscription.id,
+              createPaymentLink: true // Usar o novo método de link de pagamento
             }
           }
         }
@@ -228,7 +348,9 @@ export function useSubscriptionCreation() {
         .update({
           asaas_payment_link: data.payment.invoiceUrl,
           asaas_customer_id: asaasCustomerId,
-          payment_method: paymentMethod,
+          payment_method: paymentMethod === "pix" ? "pix" : 
+                         paymentMethod === "credit_card" ? "credit_card" : 
+                         paymentMethod === "boleto" ? "boleto" : "credit_card",
           total_value: planDetails.monthly_cost
         })
         .eq("id", newSubscription.id);

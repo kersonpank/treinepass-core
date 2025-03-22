@@ -2,7 +2,7 @@ import { Overview } from "@/components/dashboard/Overview";
 import { UsageReports } from "@/components/dashboard/UsageReports";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, Building2, Users, Activity, Settings, CreditCard } from "lucide-react";
+import { AlertCircle, Building2, Users, Activity, Settings, CreditCard, Webhook } from "lucide-react";
 import { RevenueOverview } from "@/components/admin/financial/RevenueOverview";
 import { PaymentsList } from "@/components/admin/financial/PaymentsList";
 import { PlansManagement } from "@/components/admin/plans/PlansManagement";
@@ -25,6 +25,7 @@ import { useState } from "react";
 import { UserManagement } from "@/components/admin/users/UserManagement";
 import { BusinessManagement } from "@/components/admin/business/BusinessManagement";
 import { AsaasSettingsForm } from "@/components/admin/settings/AsaasSettingsForm";
+import { WebhookEvents } from "@/components/admin/webhooks/WebhookEvents";
 
 export default function AdminDashboard() {
   const [selectedTab, setSelectedTab] = useState("overview");
@@ -202,7 +203,7 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-9 lg:w-[900px]">
+        <TabsList className="grid w-full grid-cols-10 lg:w-[1000px]">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="business">Empresas</TabsTrigger>
@@ -211,6 +212,10 @@ export default function AdminDashboard() {
           <TabsTrigger value="modalities">Modalidades</TabsTrigger>
           <TabsTrigger value="categories">Categorias</TabsTrigger>
           <TabsTrigger value="gyms">Academias</TabsTrigger>
+          <TabsTrigger value="webhooks" className="flex items-center gap-2">
+            <Webhook className="h-4 w-4" />
+            Webhooks
+          </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Configurações
@@ -254,6 +259,10 @@ export default function AdminDashboard() {
 
         <TabsContent value="gyms">
           <GymManagement />
+        </TabsContent>
+
+        <TabsContent value="webhooks">
+          <WebhookEvents />
         </TabsContent>
 
         <TabsContent value="settings">

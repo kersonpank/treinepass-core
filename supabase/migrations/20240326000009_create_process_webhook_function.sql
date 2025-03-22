@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION public.process_asaas_webhook(payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -17,6 +16,10 @@ DECLARE
   event_type text;
   asaas_subscription_id text;
   next_payment_date date;
+  customer_data jsonb;
+  customer_id text;
+  log_message text;
+  retry_count int;
 BEGIN
   -- Initial logging
   RAISE NOTICE 'Processing Asaas webhook: %', payload;
@@ -24,6 +27,7 @@ BEGIN
   -- Extract payment data and event type
   payment_data := payload->'payment';
   subscription_data := payload->'subscription';
+  customer_data := payload->'customer';
   event_type := payload->>'event';
   
   -- Register the webhook event
@@ -38,6 +42,91 @@ BEGIN
     false,
     NULL
   ) RETURNING id INTO webhook_event_id;
+
+  -- Adicionar campo para mensagem de log se não existir
+  BEGIN
+    ALTER TABLE public.asaas_webhook_events ADD COLUMN IF NOT EXISTS error_message text;
+    ALTER TABLE public.asaas_webhook_events ADD COLUMN IF NOT EXISTS retry_count integer DEFAULT 0;
+  EXCEPTION WHEN OTHERS THEN
+    -- Ignora erro se a coluna já existir
+    RAISE NOTICE 'Columns may already exist: %', SQLERRM;
+  END;
+
+  -- Handle customer events
+  IF event_type LIKE 'CUSTOMER_%' AND customer_data IS NOT NULL THEN
+    customer_id := customer_data->>'id';
+    
+    -- Log customer event
+    RAISE NOTICE 'Processing customer event: % for customer %', event_type, customer_id;
+    
+    -- Update customer information if needed
+    IF event_type = 'CUSTOMER_UPDATED' OR event_type = 'CUSTOMER_CREATED' THEN
+      -- Verificar se o cliente já existe
+      DECLARE
+        customer_exists boolean;
+      BEGIN
+        SELECT EXISTS(SELECT 1 FROM asaas_customers WHERE asaas_id = customer_id) INTO customer_exists;
+        
+        IF customer_exists THEN
+          -- Atualizar cliente existente
+          UPDATE asaas_customers
+          SET 
+            name = customer_data->>'name',
+            email = customer_data->>'email',
+            phone = customer_data->>'phone',
+            mobile_phone = customer_data->>'mobilePhone',
+            cpf_cnpj = customer_data->>'cpfCnpj',
+            postal_code = customer_data->>'postalCode',
+            address = customer_data->>'address',
+            address_number = customer_data->>'addressNumber',
+            complement = customer_data->>'complement',
+            province = customer_data->>'province',
+            external_reference = customer_data->>'externalReference',
+            updated_at = NOW()
+          WHERE asaas_id = customer_id;
+          
+          log_message := 'Customer updated: ' || customer_id;
+          RAISE NOTICE '%', log_message;
+        ELSE
+          -- Inserir novo cliente
+          INSERT INTO asaas_customers (
+            asaas_id,
+            name,
+            email,
+            phone,
+            mobile_phone,
+            cpf_cnpj,
+            postal_code,
+            address,
+            address_number,
+            complement,
+            province,
+            external_reference
+          ) VALUES (
+            customer_id,
+            customer_data->>'name',
+            customer_data->>'email',
+            customer_data->>'phone',
+            customer_data->>'mobilePhone',
+            customer_data->>'cpfCnpj',
+            customer_data->>'postalCode',
+            customer_data->>'address',
+            customer_data->>'addressNumber',
+            customer_data->>'complement',
+            customer_data->>'province',
+            customer_data->>'externalReference'
+          );
+          
+          log_message := 'Customer created: ' || customer_id;
+          RAISE NOTICE '%', log_message;
+        END IF;
+      END;
+    ELSIF event_type = 'CUSTOMER_DELETED' THEN
+      -- Apenas registrar o evento, não excluir o cliente do banco
+      log_message := 'Customer deleted event received for: ' || customer_id;
+      RAISE NOTICE '%', log_message;
+    END IF;
+  END IF;
 
   -- Handle subscription events
   IF event_type LIKE 'SUBSCRIPTION_%' AND subscription_data IS NOT NULL THEN
@@ -55,12 +144,14 @@ BEGIN
         SET 
           status = CASE 
             WHEN subscription_data->>'status' = 'ACTIVE' THEN 'active'
+            WHEN subscription_data->>'status' = 'INACTIVE' THEN 'inactive'
             ELSE status
           END,
           updated_at = NOW()
         WHERE id = subscription_record.id;
         
-        RAISE NOTICE 'Subscription updated: %', subscription_record.id;
+        log_message := 'Subscription updated: ' || subscription_record.id;
+        RAISE NOTICE '%', log_message;
       ELSIF event_type = 'SUBSCRIPTION_DELETED' OR event_type = 'SUBSCRIPTION_INACTIVATED' THEN
         UPDATE user_plan_subscriptions
         SET 
@@ -68,8 +159,25 @@ BEGIN
           updated_at = NOW()
         WHERE id = subscription_record.id;
         
-        RAISE NOTICE 'Subscription cancelled: %', subscription_record.id;
+        log_message := 'Subscription cancelled: ' || subscription_record.id;
+        RAISE NOTICE '%', log_message;
+      ELSIF event_type = 'SUBSCRIPTION_RENEWED' THEN
+        -- Atualizar data da próxima renovação
+        IF subscription_data->>'nextDueDate' IS NOT NULL THEN
+          UPDATE user_plan_subscriptions
+          SET 
+            next_payment_date = (subscription_data->>'nextDueDate')::date,
+            updated_at = NOW()
+          WHERE id = subscription_record.id;
+          
+          log_message := 'Subscription renewed: ' || subscription_record.id;
+          RAISE NOTICE '%', log_message;
+        END IF;
       END IF;
+    ELSE
+      -- Subscription not found, log warning
+      log_message := 'Subscription not found: ' || asaas_subscription_id;
+      RAISE WARNING '%', log_message;
     END IF;
   END IF;
 
@@ -228,7 +336,8 @@ BEGIN
             updated_at = NOW()
           WHERE id = subscription_id;
           
-          RAISE NOTICE 'Subscription activated: %', subscription_id;
+          log_message := 'Subscription activated: ' || subscription_id;
+          RAISE NOTICE '%', log_message;
         ELSIF payment_status IN ('refunded', 'cancelled') THEN
           -- If payment is refunded or cancelled, update subscription accordingly
           UPDATE user_plan_subscriptions
@@ -242,7 +351,8 @@ BEGIN
             updated_at = NOW()
           WHERE id = subscription_id;
           
-          RAISE NOTICE 'Subscription status updated to %: %', payment_status, subscription_id;
+          log_message := 'Subscription status updated to ' || payment_status || ': ' || subscription_id;
+          RAISE NOTICE '%', log_message;
         ELSIF payment_status = 'overdue' THEN
           -- If payment is overdue, mark subscription as overdue
           UPDATE user_plan_subscriptions
@@ -251,7 +361,8 @@ BEGIN
             updated_at = NOW()
           WHERE id = subscription_id;
           
-          RAISE NOTICE 'Subscription marked as overdue: %', subscription_id;
+          log_message := 'Subscription marked as overdue: ' || subscription_id;
+          RAISE NOTICE '%', log_message;
         END IF;
       END IF;
     END IF;
@@ -261,29 +372,40 @@ BEGIN
   UPDATE public.asaas_webhook_events
   SET 
     processed = true,
-    processed_at = NOW()
+    processed_at = NOW(),
+    error_message = NULL
   WHERE id = webhook_event_id;
 
   RETURN jsonb_build_object(
     'success', true,
     'message', 'Webhook processed successfully',
     'event', event_type,
-    'status', COALESCE(payment_data->>'status', NULL),
+    'status', COALESCE(payment_data->>'status', subscription_data->>'status', NULL),
     'payment_id', asaas_payment_id,
     'subscription_id', COALESCE(subscription_id::text, NULL),
     'payment_status', payment_status,
-    'webhook_event_id', webhook_event_id
+    'webhook_event_id', webhook_event_id,
+    'log_message', log_message
   );
 
 EXCEPTION WHEN OTHERS THEN
   -- Log error and mark event as failed
-  RAISE NOTICE 'Error processing webhook: %, SQLSTATE: %', SQLERRM, SQLSTATE;
+  log_message := 'Error processing webhook: ' || SQLERRM || ', SQLSTATE: ' || SQLSTATE;
+  RAISE WARNING '%', log_message;
   
   IF webhook_event_id IS NOT NULL THEN
+    -- Get current retry count
+    SELECT COALESCE(retry_count, 0) INTO retry_count
+    FROM public.asaas_webhook_events
+    WHERE id = webhook_event_id;
+    
+    -- Update webhook event with error
     UPDATE public.asaas_webhook_events
     SET 
       processed = false,
-      processed_at = NOW()
+      processed_at = NOW(),
+      error_message = SQLERRM,
+      retry_count = retry_count + 1
     WHERE id = webhook_event_id;
   END IF;
 
@@ -291,8 +413,10 @@ EXCEPTION WHEN OTHERS THEN
     'success', false,
     'message', SQLERRM,
     'event', event_type,
-    'status', COALESCE(payment_data->>'status', NULL),
-    'payment_id', asaas_payment_id
+    'status', COALESCE(payment_data->>'status', subscription_data->>'status', NULL),
+    'payment_id', asaas_payment_id,
+    'error', SQLERRM,
+    'sqlstate', SQLSTATE
   );
 END;
 $$;
