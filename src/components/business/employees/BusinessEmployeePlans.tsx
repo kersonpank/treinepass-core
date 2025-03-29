@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
 import { useSubscriptionCreation } from "@/components/plans/hooks/useSubscriptionCreation";
 import { usePlanCancellation } from "@/components/plans/hooks/usePlanCancellation";
 import { useEmployeeSubscription } from "./hooks/useEmployeeSubscription";
@@ -11,6 +10,7 @@ import { BusinessAssociationStatus } from "./BusinessAssociationStatus";
 import { CurrentSubscription } from "./CurrentSubscription";
 import { AvailableCofinancedPlans } from "./AvailableCofinancedPlans";
 import { CancelSubscriptionDialog } from "./CancelSubscriptionDialog";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 export function BusinessEmployeePlans() {
   const { toast } = useToast();
@@ -69,12 +69,9 @@ export function BusinessEmployeePlans() {
   };
 
   // Show loading state
-  if (isLoadingUserSubscription || isLoadingEmployeeData || isLoadingBusinessSub || isLoadingPlans) {
-    return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+  const isLoading = isLoadingUserSubscription || isLoadingEmployeeData || isLoadingBusinessSub || isLoadingPlans;
+  if (isLoading) {
+    return <LoadingSpinner text="Carregando dados do plano..." />;
   }
 
   // Check if user has business association and if business has active subscription
