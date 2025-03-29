@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +5,7 @@ import { CoFinancedPlanCard } from "./CoFinancedPlanCard";
 import { useToast } from "@/hooks/use-toast";
 import { useSubscriptionCreation } from "@/components/plans/hooks/useSubscriptionCreation";
 import { Loader2 } from "lucide-react";
-import { ActiveSubscriptionCard } from "@/components/plans/components/ActivePlanCard";
+import { ActivePlanCard } from "@/components/plans/components/ActivePlanCard";
 import { usePlanCancellation } from "@/components/plans/hooks/usePlanCancellation";
 import {
   Dialog,
@@ -213,9 +212,9 @@ export function BusinessEmployeePlans() {
       {userSubscription && userSubscription.status !== 'cancelled' && (
         <div className="mb-6">
           <h3 className="text-lg font-medium mb-2">Seu plano atual</h3>
-          <ActiveSubscriptionCard 
-            subscription={userSubscription} 
-            onCancel={() => openCancelDialog(userSubscription)}
+          <ActivePlanCard 
+            plan={userSubscription.benefit_plans} 
+            onCancelClick={() => openCancelDialog(userSubscription)}
           />
         </div>
       )}
