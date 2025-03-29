@@ -17,6 +17,7 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
     register,
     handleSubmit,
     setError,
+    setValue,
     formState: { errors },
   } = useForm<UserFormData>();
 
@@ -123,7 +124,9 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
           })}
           placeholder="(99) 99999-9999"
           onChange={(e) => {
-            e.target.value = formatPhone(e.target.value);
+            const formattedValue = formatPhone(e.target.value);
+            e.target.value = formattedValue;
+            setValue("phone", formattedValue, { shouldValidate: true });
           }}
           maxLength={15}
         />
