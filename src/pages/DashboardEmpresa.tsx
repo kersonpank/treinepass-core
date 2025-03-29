@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -13,13 +14,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { EmployeesList } from "@/components/dashboard/EmployeesList";
 import { BenefitPlans } from "@/components/dashboard/BenefitPlans";
 import { UsageReports } from "@/components/dashboard/UsageReports";
 import { CostAnalysis } from "@/components/dashboard/CostAnalysis";
 import { Overview } from "@/components/dashboard/Overview";
 import { BusinessEditDialog } from "@/components/admin/business/BusinessEditDialog";
+import { BusinessPlans } from "@/components/business/plans/BusinessPlans";
 
 export default function DashboardEmpresa() {
   const navigate = useNavigate();
@@ -103,7 +105,8 @@ export default function DashboardEmpresa() {
         <TabsList>
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
           <TabsTrigger value="employees">Colaboradores</TabsTrigger>
-          <TabsTrigger value="benefits">Planos</TabsTrigger>
+          <TabsTrigger value="plans">Planos</TabsTrigger>
+          <TabsTrigger value="benefits">Benefícios</TabsTrigger>
           <TabsTrigger value="usage">Utilização</TabsTrigger>
           <TabsTrigger value="costs">Custos</TabsTrigger>
         </TabsList>
@@ -114,6 +117,10 @@ export default function DashboardEmpresa() {
 
         <TabsContent value="employees" className="space-y-4">
           <EmployeesList />
+        </TabsContent>
+
+        <TabsContent value="plans" className="space-y-4">
+          <BusinessPlans />
         </TabsContent>
 
         <TabsContent value="benefits" className="space-y-4">
