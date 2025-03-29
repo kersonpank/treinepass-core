@@ -587,39 +587,48 @@ export type Database = {
         Row: {
           created_at: string | null
           customer_id: string | null
-          event_id: string
+          debug_info: Json | null
+          error_message: string | null
+          event_id: string | null
           event_type: string
           id: string
           payload: Json
           payment_id: string | null
           processed: boolean | null
           processed_at: string | null
+          retry_count: number | null
           subscription_id: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           customer_id?: string | null
-          event_id: string
+          debug_info?: Json | null
+          error_message?: string | null
+          event_id?: string | null
           event_type: string
           id?: string
           payload: Json
           payment_id?: string | null
           processed?: boolean | null
           processed_at?: string | null
+          retry_count?: number | null
           subscription_id?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           customer_id?: string | null
-          event_id?: string
+          debug_info?: Json | null
+          error_message?: string | null
+          event_id?: string | null
           event_type?: string
           id?: string
           payload?: Json
           payment_id?: string | null
           processed?: boolean | null
           processed_at?: string | null
+          retry_count?: number | null
           subscription_id?: string | null
           updated_at?: string | null
         }
@@ -2058,9 +2067,62 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      asaas_webhook_events_with_errors: {
+        Row: {
+          created_at: string | null
+          customer_id: string | null
+          error_message: string | null
+          event_id: string | null
+          event_type: string | null
+          id: string | null
+          payload: Json | null
+          payment_id: string | null
+          processed: boolean | null
+          processed_at: string | null
+          retry_count: number | null
+          subscription_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          event_type?: string | null
+          id?: string | null
+          payload?: Json | null
+          payment_id?: string | null
+          processed?: boolean | null
+          processed_at?: string | null
+          retry_count?: number | null
+          subscription_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          event_type?: string | null
+          id?: string | null
+          payload?: Json | null
+          payment_id?: string | null
+          processed?: boolean | null
+          processed_at?: string | null
+          retry_count?: number | null
+          subscription_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      activate_subscription: {
+        Args: {
+          p_subscription_id: string
+        }
+        Returns: Json
+      }
       asaas_api: {
         Args: {
           action: string
@@ -2101,6 +2163,12 @@ export type Database = {
           can_check_in: boolean
           message: string
         }[]
+      }
+      check_active_subscription: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: boolean
       }
       check_and_expire_plans: {
         Args: Record<PropertyKey, never>
@@ -2149,6 +2217,12 @@ export type Database = {
           created_at: string
           error: string
         }[]
+      }
+      check_user_asaas_data: {
+        Args: {
+          user_id: string
+        }
+        Returns: Json
       }
       check_user_by_cpf: {
         Args: {
@@ -2202,6 +2276,41 @@ export type Database = {
         }
         Returns: string
       }
+      generate_check_in_token: {
+        Args: {
+          p_user_id: string
+          p_academia_id: string
+        }
+        Returns: {
+          access_token: string
+          expires_at: string
+          can_check_in: boolean
+          message: string
+        }[]
+      }
+      generate_mobile_access_token: {
+        Args: {
+          p_user_id: string
+          p_academia_id: string
+        }
+        Returns: {
+          access_token: string
+          expires_at: string
+          can_check_in: boolean
+          message: string
+        }[]
+      }
+      get_active_access_token: {
+        Args: {
+          p_user_id: string
+          p_academia_id: string
+        }
+        Returns: {
+          access_token: string
+          expires_at: string
+          seconds_remaining: number
+        }[]
+      }
       get_asaas_config: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -2209,6 +2318,12 @@ export type Database = {
           api_key: string
           api_url: string
         }[]
+      }
+      get_complete_user_data: {
+        Args: {
+          user_id: string
+        }
+        Returns: Json
       }
       get_date_from_timestamp: {
         Args: {
@@ -2243,6 +2358,22 @@ export type Database = {
         }
         Returns: boolean
       }
+      link_asaas_subscription:
+        | {
+            Args: {
+              p_user_id: string
+              p_asaas_subscription_id: string
+              p_plan_id?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              subscription_id: string
+              asaas_subscription_id: string
+            }
+            Returns: Json
+          }
       process_asaas_webhook: {
         Args: {
           payload: Json
@@ -2279,6 +2410,12 @@ export type Database = {
           message: string
         }[]
       }
+      reprocess_failed_webhook_event: {
+        Args: {
+          webhook_event_id: string
+        }
+        Returns: Json
+      }
       reprocess_failed_webhooks: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -2287,6 +2424,47 @@ export type Database = {
           status: string
           error: string
           processed_at: string
+        }[]
+      }
+      save_asaas_customer: {
+        Args: {
+          p_user_id: string
+          p_asaas_id: string
+          p_name: string
+          p_email: string
+          p_cpf_cnpj: string
+        }
+        Returns: string
+      }
+      sync_asaas_subscriptions: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      test_webhook_events_access: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      update_pending_plans_status: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_webhook_function: {
+        Args: {
+          table_name: string
+        }
+        Returns: undefined
+      }
+      validate_access_token: {
+        Args: {
+          p_token: string
+          p_academia_id: string
+        }
+        Returns: {
+          valid: boolean
+          message: string
+          user_id: string
+          user_name: string
+          check_in_id: string
         }[]
       }
       validate_check_in: {
@@ -2317,6 +2495,10 @@ export type Database = {
         Returns: {
           can_check_in: boolean
           message: string
+          valor_repasse: number
+          plano_id: string
+          valor_plano: number
+          p_num_checkins: number
           remaining_daily: number
           remaining_weekly: number
           remaining_monthly: number

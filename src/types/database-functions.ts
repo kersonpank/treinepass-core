@@ -1,3 +1,4 @@
+
 /**
  * Type definitions for database function responses
  */
@@ -20,6 +21,18 @@ export interface ValidateCheckInRulesResponse {
   valor_repasse?: number;
   plano_id?: string;
   valor_plano?: number;
+}
+
+// Response from process_asaas_webhook RPC function
+export interface ProcessAsaasWebhookResponse {
+  success: boolean;
+  message: string;
+  event: string;
+  status?: string;
+  payment_id?: string;
+  subscription_id?: string;
+  payment_status?: string;
+  webhook_event_id?: string;
 }
 
 // Add this to the list of valid RPC function names

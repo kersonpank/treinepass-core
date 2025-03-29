@@ -85,13 +85,15 @@ serve(async (req) => {
     const subscriptionId = payload.payment?.subscription || payload.subscription?.id;
     const eventType = payload.event;
     const paymentStatus = payload.payment?.status;
+    const externalReference = payload.payment?.externalReference;
     
     console.log(`Processing ${eventType} event:`, {
       paymentId,
       subscriptionId,
       status: paymentStatus,
+      externalReference
     });
-
+    
     // Process webhook using RPC function
     const { data, error } = await supabase.rpc("process_asaas_webhook", {
       payload,
@@ -116,9 +118,8 @@ serve(async (req) => {
 
     console.log("Webhook processed successfully:", data);
 
-    // If it's a payment status update, manually update the user_plan_subscriptions table
-    // This ensures the UI gets updated with the latest payment status
-    if (eventType.startsWith('PAYMENT_') && paymentStatus && subscriptionId) {
+    // Direct update to ensure UI reflects changes immediately
+    if (eventType.startsWith('PAYMENT_') && paymentStatus) {
       try {
         // Map Asaas payment status to our internal status
         const internalPaymentStatus = mapAsaasPaymentStatus(paymentStatus);
@@ -126,51 +127,137 @@ serve(async (req) => {
                                          (internalPaymentStatus === 'overdue' ? 'overdue' : 
                                           (internalPaymentStatus === 'cancelled' || internalPaymentStatus === 'refunded' ? 'cancelled' : 'pending'));
         
-        console.log(`Updating subscription status:`, {
+        console.log(`Updating subscription directly:`, {
+          externalReference,
           asaas_subscription_id: subscriptionId,
           payment_status: internalPaymentStatus,
           subscription_status: internalSubscriptionStatus
         });
 
-        // First try to find subscription by asaas_subscription_id
-        const { data: subscriptionData, error: subscriptionError } = await supabase
-          .from("user_plan_subscriptions")
-          .select("id")
-          .eq("asaas_subscription_id", subscriptionId)
-          .maybeSingle();
+        // First try to find subscription by external reference (direct match with our ID)
+        if (externalReference) {
+          const { data: directMatchSubscription, error: directMatchError } = await supabase
+            .from("user_plan_subscriptions")
+            .select("id")
+            .eq("id", externalReference)
+            .maybeSingle();
 
-        if (subscriptionError) {
-          console.error("Error finding subscription by asaas_subscription_id:", subscriptionError);
+          if (!directMatchError && directMatchSubscription?.id) {
+            // Update the subscription that matches the external reference
+            const { error: updateError } = await supabase
+              .from("user_plan_subscriptions")
+              .update({
+                payment_status: internalPaymentStatus,
+                status: internalSubscriptionStatus,
+                last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", directMatchSubscription.id);
+
+            if (updateError) {
+              console.error("Error updating subscription by direct match:", updateError);
+            } else {
+              console.log(`Successfully updated subscription ${directMatchSubscription.id} status to ${internalPaymentStatus}`);
+              
+              // If payment is paid/confirmed, cancel other pending subscriptions for this user
+              if (internalPaymentStatus === 'paid') {
+                // Get the user_id for this subscription
+                const { data: subscription, error: subscriptionError } = await supabase
+                  .from("user_plan_subscriptions")
+                  .select("user_id")
+                  .eq("id", directMatchSubscription.id)
+                  .single();
+                
+                if (!subscriptionError && subscription?.user_id) {
+                  // Cancel other pending subscriptions for this user
+                  const { error: cancelError } = await supabase
+                    .from("user_plan_subscriptions")
+                    .update({
+                      status: 'cancelled',
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq("user_id", subscription.user_id)
+                    .eq("status", "pending")
+                    .neq("id", directMatchSubscription.id);
+                  
+                  if (cancelError) {
+                    console.error("Error cancelling other pending subscriptions:", cancelError);
+                  } else {
+                    console.log(`Successfully cancelled other pending subscriptions for user ${subscription.user_id}`);
+                  }
+                }
+              }
+            }
+          }
         }
 
-        // If found by asaas_subscription_id, update it
-        if (subscriptionData?.id) {
-          const { error: updateError } = await supabase
+        // If not found by external reference, try to find by looking at asaas_subscription_id
+        if (subscriptionId) {
+          const { data: subscriptionData, error: subscriptionError } = await supabase
             .from("user_plan_subscriptions")
-            .update({
-              payment_status: internalPaymentStatus,
-              status: internalSubscriptionStatus,
-              last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
-              updated_at: new Date().toISOString()
-            })
-            .eq("id", subscriptionData.id);
+            .select("id")
+            .eq("asaas_subscription_id", subscriptionId)
+            .maybeSingle();
 
-          if (updateError) {
-            console.error("Error updating subscription status:", updateError);
-          } else {
-            console.log(`Successfully updated subscription ${subscriptionData.id} status to ${internalPaymentStatus}`);
+          if (!subscriptionError && subscriptionData?.id) {
+            // Update the subscription that matches the asaas_subscription_id
+            const { error: updateError } = await supabase
+              .from("user_plan_subscriptions")
+              .update({
+                payment_status: internalPaymentStatus,
+                status: internalSubscriptionStatus,
+                last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", subscriptionData.id);
+
+            if (updateError) {
+              console.error("Error updating subscription by asaas_subscription_id:", updateError);
+            } else {
+              console.log(`Successfully updated subscription ${subscriptionData.id} status to ${internalPaymentStatus}`);
+              
+              // If payment is paid/confirmed, cancel other pending subscriptions for this user
+              if (internalPaymentStatus === 'paid') {
+                // Get the user_id for this subscription
+                const { data: subscription, error: subscriptionError } = await supabase
+                  .from("user_plan_subscriptions")
+                  .select("user_id")
+                  .eq("id", subscriptionData.id)
+                  .single();
+                
+                if (!subscriptionError && subscription?.user_id) {
+                  // Cancel other pending subscriptions for this user
+                  const { error: cancelError } = await supabase
+                    .from("user_plan_subscriptions")
+                    .update({
+                      status: 'cancelled',
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq("user_id", subscription.user_id)
+                    .eq("status", "pending")
+                    .neq("id", subscriptionData.id);
+                  
+                  if (cancelError) {
+                    console.error("Error cancelling other pending subscriptions:", cancelError);
+                  } else {
+                    console.log(`Successfully cancelled other pending subscriptions for user ${subscription.user_id}`);
+                  }
+                }
+              }
+            }
           }
-        } else {
-          // If not found by asaas_subscription_id, try to find by looking at asaas_payments
+        }
+
+        // If still not found, try to find by looking at asaas_payments
+        if (paymentId) {
           const { data: paymentData, error: paymentError } = await supabase
             .from("asaas_payments")
             .select("subscription_id")
             .eq("asaas_id", paymentId)
             .maybeSingle();
 
-          if (paymentError) {
-            console.error("Error finding payment:", paymentError);
-          } else if (paymentData?.subscription_id) {
+          if (!paymentError && paymentData?.subscription_id) {
+            // Update the subscription that's linked to this payment
             const { error: updateError } = await supabase
               .from("user_plan_subscriptions")
               .update({
@@ -182,12 +269,39 @@ serve(async (req) => {
               .eq("id", paymentData.subscription_id);
 
             if (updateError) {
-              console.error("Error updating subscription status:", updateError);
+              console.error("Error updating subscription through payment:", updateError);
             } else {
               console.log(`Successfully updated subscription ${paymentData.subscription_id} status to ${internalPaymentStatus}`);
+              
+              // If payment is paid/confirmed, cancel other pending subscriptions for this user
+              if (internalPaymentStatus === 'paid') {
+                // Get the user_id for this subscription
+                const { data: subscription, error: subscriptionError } = await supabase
+                  .from("user_plan_subscriptions")
+                  .select("user_id")
+                  .eq("id", paymentData.subscription_id)
+                  .single();
+                
+                if (!subscriptionError && subscription?.user_id) {
+                  // Cancel other pending subscriptions for this user
+                  const { error: cancelError } = await supabase
+                    .from("user_plan_subscriptions")
+                    .update({
+                      status: 'cancelled',
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq("user_id", subscription.user_id)
+                    .eq("status", "pending")
+                    .neq("id", paymentData.subscription_id);
+                  
+                  if (cancelError) {
+                    console.error("Error cancelling other pending subscriptions:", cancelError);
+                  } else {
+                    console.log(`Successfully cancelled other pending subscriptions for user ${subscription.user_id}`);
+                  }
+                }
+              }
             }
-          } else {
-            console.log("Unable to find subscription for this payment");
           }
         }
       } catch (err) {

@@ -79,61 +79,110 @@ export function UserSubscriptions() {
         });
         throw error;
       }
+      
+      console.log("Fetched subscriptions:", data);
       return data;
     },
   });
 
   // Setup realtime subscription for payment status updates
   useEffect(() => {
-    const channel = supabase
-      .channel("user-subscriptions-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "user_plan_subscriptions",
-          filter: `user_id=eq.${supabase.auth.getUser()?.data?.user?.id}`,
-        },
-        (payload) => {
-          console.log("Subscription update detected:", payload);
-          refetch();
-          
-          // Show toast notification
-          if (payload.new.payment_status === 'paid' && payload.old.payment_status !== 'paid') {
-            toast({
-              title: "Payment confirmed!",
-              description: "Your subscription payment has been confirmed.",
-              variant: "default",
-            });
+    const user = supabase.auth.getUser();
+    let userId = '';
+    
+    user.then(({ data }) => {
+      userId = data?.user?.id || '';
+      
+      if (!userId) {
+        console.error("No user ID available for realtime subscription");
+        return;
+      }
+      
+      console.log("Setting up realtime subscription for user:", userId);
+      
+      // Channel for user_plan_subscriptions updates
+      const planChannel = supabase
+        .channel("user-plan-subscription-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*", // Listen to all events
+            schema: "public",
+            table: "user_plan_subscriptions",
+            filter: `user_id=eq.${userId}`,
+          },
+          (payload) => {
+            console.log("Subscription update detected:", payload);
+            refetch();
+            
+            // Show toast notification for status changes
+            const newStatus = payload.new.status;
+            const oldStatus = payload.old.status;
+            const newPaymentStatus = payload.new.payment_status;
+            const oldPaymentStatus = payload.old.payment_status;
+            
+            if (newPaymentStatus === 'paid' && oldPaymentStatus !== 'paid') {
+              toast({
+                title: "Payment confirmed!",
+                description: "Your subscription payment has been confirmed.",
+                variant: "default",
+              });
+            } else if (newStatus !== oldStatus) {
+              toast({
+                title: `Subscription status: ${statusLabels[newStatus] || newStatus}`,
+                description: `Your subscription status has been updated.`,
+                variant: "default",
+              });
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    // Also set up listener for asaas_payments updates
-    const paymentsChannel = supabase
-      .channel("asaas-payments-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "asaas_payments",
-        },
-        (payload) => {
-          console.log("Payment update detected:", payload);
-          if (payload.new.status !== payload.old.status) {
+      // Also set up listener for asaas_payments updates
+      const paymentsChannel = supabase
+        .channel("asaas-payments-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "*", // Listen to all events
+            schema: "public",
+            table: "asaas_payments",
+          },
+          (payload) => {
+            console.log("Payment update detected:", payload);
+            if (payload.new.status !== payload.old.status) {
+              // When payment status changes, refresh subscriptions
+              refetch();
+            }
+          }
+        )
+        .subscribe();
+
+      // Also listen for webhook events
+      const webhooksChannel = supabase
+        .channel("webhook-events")
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "asaas_webhook_events",
+          },
+          (payload) => {
+            console.log("Webhook event detected:", payload);
+            // Refresh on any webhook event
             refetch();
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(paymentsChannel);
-    };
+      return () => {
+        console.log("Cleaning up realtime subscriptions");
+        supabase.removeChannel(planChannel);
+        supabase.removeChannel(paymentsChannel);
+        supabase.removeChannel(webhooksChannel);
+      };
+    });
   }, [refetch, toast]);
 
   if (isLoading) {

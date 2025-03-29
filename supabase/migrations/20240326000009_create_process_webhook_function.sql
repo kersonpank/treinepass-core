@@ -1,4 +1,5 @@
 
+-- Create or replace process_asaas_webhook function
 CREATE OR REPLACE FUNCTION public.process_asaas_webhook(payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -16,7 +17,9 @@ DECLARE
   asaas_payment_id text;
   event_type text;
   asaas_subscription_id text;
+  external_reference text;
   next_payment_date date;
+  user_id uuid;
 BEGIN
   -- Initial logging
   RAISE NOTICE 'Processing Asaas webhook: %', payload;
@@ -31,44 +34,90 @@ BEGIN
     event_type,
     event_data,
     processed,
-    processed_at
+    processed_at,
+    payload
   ) VALUES (
     event_type,
     payload,
     false,
-    NULL
+    NULL,
+    payload
   ) RETURNING id INTO webhook_event_id;
 
   -- Handle subscription events
   IF event_type LIKE 'SUBSCRIPTION_%' AND subscription_data IS NOT NULL THEN
     asaas_subscription_id := subscription_data->>'id';
+    external_reference := subscription_data->>'externalReference';
     
-    -- Find the subscription in our system
-    SELECT * INTO subscription_record
-    FROM user_plan_subscriptions
-    WHERE asaas_subscription_id = asaas_subscription_id;
+    -- If we have an external reference, it's our subscription ID
+    IF external_reference IS NOT NULL THEN
+      -- Try to parse as UUID
+      BEGIN
+        subscription_id := external_reference::uuid;
+        
+        -- Find the subscription in our system
+        SELECT * INTO subscription_record
+        FROM user_plan_subscriptions
+        WHERE id = subscription_id;
+        
+        IF FOUND THEN
+          -- Update subscription based on event type
+          IF event_type IN ('SUBSCRIPTION_CREATED', 'SUBSCRIPTION_UPDATED') THEN
+            UPDATE user_plan_subscriptions
+            SET 
+              asaas_subscription_id = asaas_subscription_id,
+              status = CASE 
+                WHEN subscription_data->>'status' = 'ACTIVE' THEN 'active'
+                ELSE status
+              END,
+              updated_at = NOW()
+            WHERE id = subscription_record.id;
+            
+            RAISE NOTICE 'Subscription updated: %', subscription_record.id;
+          ELSIF event_type IN ('SUBSCRIPTION_DELETED', 'SUBSCRIPTION_INACTIVATED') THEN
+            UPDATE user_plan_subscriptions
+            SET 
+              status = 'cancelled',
+              updated_at = NOW()
+            WHERE id = subscription_record.id;
+            
+            RAISE NOTICE 'Subscription cancelled: %', subscription_record.id;
+          END IF;
+        END IF;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE NOTICE 'Invalid UUID in external reference: %', external_reference;
+      END;
+    END IF;
     
-    IF FOUND THEN
-      -- Update subscription based on event type
-      IF event_type = 'SUBSCRIPTION_CREATED' OR event_type = 'SUBSCRIPTION_UPDATED' THEN
-        UPDATE user_plan_subscriptions
-        SET 
-          status = CASE 
-            WHEN subscription_data->>'status' = 'ACTIVE' THEN 'active'
-            ELSE status
-          END,
-          updated_at = NOW()
-        WHERE id = subscription_record.id;
-        
-        RAISE NOTICE 'Subscription updated: %', subscription_record.id;
-      ELSIF event_type = 'SUBSCRIPTION_DELETED' OR event_type = 'SUBSCRIPTION_INACTIVATED' THEN
-        UPDATE user_plan_subscriptions
-        SET 
-          status = 'cancelled',
-          updated_at = NOW()
-        WHERE id = subscription_record.id;
-        
-        RAISE NOTICE 'Subscription cancelled: %', subscription_record.id;
+    -- If not found by external reference, try with asaas_subscription_id
+    IF subscription_record IS NULL AND asaas_subscription_id IS NOT NULL THEN
+      SELECT * INTO subscription_record
+      FROM user_plan_subscriptions
+      WHERE asaas_subscription_id = asaas_subscription_id;
+      
+      IF FOUND THEN
+        -- Update subscription based on event type
+        IF event_type IN ('SUBSCRIPTION_CREATED', 'SUBSCRIPTION_UPDATED') THEN
+          UPDATE user_plan_subscriptions
+          SET 
+            status = CASE 
+              WHEN subscription_data->>'status' = 'ACTIVE' THEN 'active'
+              ELSE status
+            END,
+            updated_at = NOW()
+          WHERE id = subscription_record.id;
+          
+          RAISE NOTICE 'Subscription updated by asaas_subscription_id: %', subscription_record.id;
+        ELSIF event_type IN ('SUBSCRIPTION_DELETED', 'SUBSCRIPTION_INACTIVATED') THEN
+          UPDATE user_plan_subscriptions
+          SET 
+            status = 'cancelled',
+            updated_at = NOW()
+          WHERE id = subscription_record.id;
+          
+          RAISE NOTICE 'Subscription cancelled by asaas_subscription_id: %', subscription_record.id;
+        END IF;
       END IF;
     END IF;
   END IF;
@@ -77,6 +126,7 @@ BEGIN
   IF event_type LIKE 'PAYMENT_%' AND payment_data IS NOT NULL THEN
     asaas_payment_id := payment_data->>'id';
     asaas_subscription_id := payment_data->>'subscription';
+    external_reference := payment_data->>'externalReference';
     
     -- Map Asaas payment status to our internal status
     payment_status := CASE payment_data->>'status'
@@ -108,10 +158,16 @@ BEGIN
     WHERE asaas_id = asaas_payment_id;
 
     -- If payment not found by ID, try to find by external reference (subscription ID)
-    IF NOT FOUND AND payment_data->>'externalReference' IS NOT NULL THEN
-      SELECT * INTO payment_record
-      FROM asaas_payments
-      WHERE external_reference = payment_data->>'externalReference';
+    IF NOT FOUND AND external_reference IS NOT NULL THEN
+      -- Try to parse as UUID
+      BEGIN
+        SELECT * INTO payment_record
+        FROM asaas_payments
+        WHERE external_reference = external_reference;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE NOTICE 'Invalid UUID in external reference: %', external_reference;
+      END;
     END IF;
     
     -- If payment still not found, create a new payment record
@@ -144,23 +200,28 @@ BEGIN
       ) RETURNING * INTO payment_record;
       
       -- If we have an external reference (should be our subscription ID), link payment to subscription
-      IF payment_data->>'externalReference' IS NOT NULL THEN
+      IF external_reference IS NOT NULL THEN
         -- Try to find the subscription by ID
-        SELECT id INTO subscription_id
-        FROM user_plan_subscriptions
-        WHERE id::text = payment_data->>'externalReference';
-        
-        -- If found, update the payment with the subscription ID
-        IF subscription_id IS NOT NULL THEN
-          UPDATE asaas_payments
-          SET subscription_id = subscription_id
-          WHERE id = payment_record.id;
+        BEGIN
+          SELECT id INTO subscription_id
+          FROM user_plan_subscriptions
+          WHERE id::text = external_reference;
           
-          -- Reload payment record to get subscription_id
-          SELECT * INTO payment_record
-          FROM asaas_payments
-          WHERE id = payment_record.id;
-        END IF;
+          -- If found, update the payment with the subscription ID
+          IF subscription_id IS NOT NULL THEN
+            UPDATE asaas_payments
+            SET subscription_id = subscription_id
+            WHERE id = payment_record.id;
+            
+            -- Reload payment record to get subscription_id
+            SELECT * INTO payment_record
+            FROM asaas_payments
+            WHERE id = payment_record.id;
+          END IF;
+        EXCEPTION
+          WHEN OTHERS THEN
+            RAISE NOTICE 'Invalid UUID in external reference: %', external_reference;
+        END;
       END IF;
     END IF;
 
@@ -170,7 +231,7 @@ BEGIN
       status = payment_data->>'status',
       billing_type = payment_data->>'billingType',
       payment_date = CASE 
-        WHEN payment_status = 'paid' THEN (payment_data->>'paymentDate')::date
+        WHEN payment_status = 'paid' THEN COALESCE((payment_data->>'paymentDate')::date, CURRENT_DATE)
         ELSE payment_date
       END,
       invoice_url = COALESCE(payment_data->>'invoiceUrl', invoice_url),
@@ -213,6 +274,9 @@ BEGIN
           next_payment_date := (CURRENT_DATE + interval '30 days')::date;
         END IF;
 
+        -- Store user_id for later use
+        user_id := subscription_record.user_id;
+
         -- Update subscription based on payment status
         IF payment_status = 'paid' THEN
           -- If payment is confirmed/paid, activate subscription
@@ -229,6 +293,20 @@ BEGIN
           WHERE id = subscription_id;
           
           RAISE NOTICE 'Subscription activated: %', subscription_id;
+          
+          -- Cancel other pending subscriptions for this user
+          IF user_id IS NOT NULL THEN
+            UPDATE user_plan_subscriptions
+            SET 
+              status = 'cancelled',
+              updated_at = NOW()
+            WHERE 
+              user_id = subscription_record.user_id AND
+              id != subscription_id AND
+              status = 'pending';
+              
+            RAISE NOTICE 'Cancelled other pending subscriptions for user: %', user_id;
+          END IF;
         ELSIF payment_status IN ('refunded', 'cancelled') THEN
           -- If payment is refunded or cancelled, update subscription accordingly
           UPDATE user_plan_subscriptions
@@ -248,6 +326,7 @@ BEGIN
           UPDATE user_plan_subscriptions
           SET 
             payment_status = 'overdue',
+            status = 'overdue',
             updated_at = NOW()
           WHERE id = subscription_id;
           
@@ -268,7 +347,7 @@ BEGIN
     'success', true,
     'message', 'Webhook processed successfully',
     'event', event_type,
-    'status', COALESCE(payment_data->>'status', NULL),
+    'status', COALESCE(payment_data->>'status', subscription_data->>'status', NULL),
     'payment_id', asaas_payment_id,
     'subscription_id', COALESCE(subscription_id::text, NULL),
     'payment_status', payment_status,
@@ -283,7 +362,8 @@ EXCEPTION WHEN OTHERS THEN
     UPDATE public.asaas_webhook_events
     SET 
       processed = false,
-      processed_at = NOW()
+      processed_at = NOW(),
+      error_message = SQLERRM
     WHERE id = webhook_event_id;
   END IF;
 
@@ -291,7 +371,7 @@ EXCEPTION WHEN OTHERS THEN
     'success', false,
     'message', SQLERRM,
     'event', event_type,
-    'status', COALESCE(payment_data->>'status', NULL),
+    'status', COALESCE(payment_data->>'status', subscription_data->>'status', NULL),
     'payment_id', asaas_payment_id
   );
 END;
