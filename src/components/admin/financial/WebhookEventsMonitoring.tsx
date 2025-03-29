@@ -23,7 +23,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export function WebhookEventsMonitoring() {
-  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const { data: events, isLoading, refetch } = useQuery({
@@ -40,12 +40,14 @@ export function WebhookEventsMonitoring() {
     },
   });
 
-  const handleViewPayload = (event) => {
+  const handleViewPayload = (event: any) => {
     setSelectedEvent(event);
     setIsDialogOpen(true);
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string | null) => {
+    if (!status) return "bg-gray-100 text-gray-700";
+    
     switch (status) {
       case "CONFIRMED":
       case "RECEIVED":
@@ -72,19 +74,61 @@ export function WebhookEventsMonitoring() {
     }
   };
 
+  const getPaymentStatus = (status: string | null) => {
+    if (!status) return "";
+
+    const statusMapping: Record<string, string> = {
+      "CONFIRMED": "Confirmado",
+      "RECEIVED": "Recebido",
+      "RECEIVED_IN_CASH": "Recebido em Dinheiro",
+      "PENDING": "Pendente",
+      "AWAITING_RISK_ANALYSIS": "Aguardando Análise de Risco",
+      "APPROVED_BY_RISK_ANALYSIS": "Aprovado na Análise de Risco",
+      "OVERDUE": "Atrasado",
+      "DUNNING_REQUESTED": "Cobrança Solicitada",
+      "DUNNING_RECEIVED": "Cobrança Recebida",
+      "REFUNDED": "Reembolsado",
+      "REFUND_REQUESTED": "Reembolso Solicitado",
+      "REFUND_IN_PROGRESS": "Reembolso em Processamento",
+      "PARTIALLY_REFUNDED": "Parcialmente Reembolsado",
+      "CANCELLED": "Cancelado",
+      "PAYMENT_DELETED": "Pagamento Excluído"
+    };
+
+    return statusMapping[status] || status;
+  };
+
+  const getEventTypeLabel = (eventType: string) => {
+    const typeMapping: Record<string, string> = {
+      "PAYMENT_CREATED": "Pagamento Criado",
+      "PAYMENT_UPDATED": "Pagamento Atualizado",
+      "PAYMENT_CONFIRMED": "Pagamento Confirmado",
+      "PAYMENT_RECEIVED": "Pagamento Recebido",
+      "PAYMENT_OVERDUE": "Pagamento Atrasado",
+      "PAYMENT_DELETED": "Pagamento Excluído",
+      "PAYMENT_REFUNDED": "Pagamento Reembolsado",
+      "PAYMENT_RECEIVED_IN_CASH": "Pagamento Recebido em Dinheiro",
+      "PAYMENT_REFUND_REQUESTED": "Reembolso Solicitado",
+      "SUBSCRIPTION_CREATED": "Assinatura Criada",
+      "SUBSCRIPTION_UPDATED": "Assinatura Atualizada",
+      "SUBSCRIPTION_DELETED": "Assinatura Excluída",
+      "SUBSCRIPTION_RENEWED": "Assinatura Renovada"
+    };
+
+    return typeMapping[eventType] || eventType;
+  };
+
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Eventos de Webhook</CardTitle>
-            <CardDescription>Monitoramento dos eventos recebidos do Asaas</CardDescription>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Atualizar
-          </Button>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Eventos de Webhook</CardTitle>
+          <CardDescription>Monitoramento dos eventos recebidos do Asaas</CardDescription>
         </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Atualizar
+        </Button>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -108,14 +152,19 @@ export function WebhookEventsMonitoring() {
                 {events?.map((event) => (
                   <TableRow key={event.id}>
                     <TableCell>
-                      {new Date(event.created_at).toLocaleString()}
+                      {new Date(event.created_at).toLocaleString('pt-BR')}
                     </TableCell>
-                    <TableCell>{event.event_type}</TableCell>
+                    <TableCell>{getEventTypeLabel(event.event_type)}</TableCell>
                     <TableCell>{event.payment_id}</TableCell>
                     <TableCell>
-                      {event.status && (
-                        <Badge className={getStatusColor(event.status)}>
-                          {event.status}
+                      {event.payload?.payment?.status && (
+                        <Badge className={getStatusColor(event.payload?.payment?.status)}>
+                          {getPaymentStatus(event.payload?.payment?.status)}
+                        </Badge>
+                      )}
+                      {event.payload?.subscription?.status && !event.payload?.payment?.status && (
+                        <Badge className={getStatusColor(event.payload?.subscription?.status)}>
+                          {getPaymentStatus(event.payload?.subscription?.status)}
                         </Badge>
                       )}
                     </TableCell>
@@ -123,7 +172,7 @@ export function WebhookEventsMonitoring() {
                       <Badge variant={event.processed ? "default" : "destructive"}>
                         {event.processed ? (
                           <>Sim {event.processed_at && 
-                            `(${new Date(event.processed_at).toLocaleTimeString()})`
+                            `(${new Date(event.processed_at).toLocaleTimeString('pt-BR')})`
                           }</>
                         ) : (
                           "Não"

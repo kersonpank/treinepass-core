@@ -1,350 +1,303 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
-import { Loader2, RefreshCw } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
-
-const statusColors = {
-  active: "bg-green-100 text-green-700",
-  pending: "bg-yellow-100 text-yellow-700",
-  overdue: "bg-amber-100 text-amber-700",
-  expired: "bg-red-100 text-red-700",
-  cancelled: "bg-gray-100 text-gray-700",
-  refunded: "bg-purple-100 text-purple-700",
-};
-
-const statusLabels = {
-  active: "Active",
-  pending: "Pending",
-  overdue: "Overdue",
-  expired: "Expired",
-  cancelled: "Cancelled",
-  refunded: "Refunded",
-};
-
-const paymentStatusColors = {
-  paid: "bg-green-100 text-green-700",
-  pending: "bg-yellow-100 text-yellow-700",
-  overdue: "bg-amber-100 text-amber-700",
-  refunded: "bg-purple-100 text-purple-700",
-  failed: "bg-red-100 text-red-700",
-};
-
-const paymentStatusLabels = {
-  paid: "Paid",
-  pending: "Pending",
-  overdue: "Late",
-  refunded: "Refunded",
-  failed: "Failed",
-};
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, CreditCard, AlertTriangle, Check, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useState } from "react";
+import { usePlanCancellation } from "./hooks/usePlanCancellation";
+import { formatCurrency } from "@/lib/utils";
 
 export function UserSubscriptions() {
   const { toast } = useToast();
+  const {
+    showCancelDialog,
+    setShowCancelDialog,
+    handleCancelPlan
+  } = usePlanCancellation();
 
-  const { data: subscriptions, isLoading, error, refetch } = useQuery({
+  const [selectedSubscription, setSelectedSubscription] = useState<any>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const {
+    data: subscriptions,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["userSubscriptions"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { data: userSubscriptions, error } = await supabase
         .from("user_plan_subscriptions")
         .select(`
           *,
           benefit_plans (
+            id,
             name,
             description,
-            monthly_cost,
-            rules
-          ),
-          asaas_payments (
-            asaas_id,
-            amount,
-            billing_type,
-            status,
-            due_date,
-            payment_link,
-            invoice_url
+            price,
+            features
           )
         `)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Error loading subscriptions",
-          description: error.message,
-        });
-        throw error;
-      }
-      
-      console.log("Fetched subscriptions:", data);
-      return data;
+      if (error) throw error;
+      return userSubscriptions;
     },
   });
 
-  // Setup realtime subscription for payment status updates
-  useEffect(() => {
-    const user = supabase.auth.getUser();
-    let userId = '';
+  const handleCancelSubscription = async (subscription: any) => {
+    setSelectedSubscription(subscription);
+    setShowCancelDialog(true);
+  };
+
+  const confirmCancelSubscription = async () => {
+    if (!selectedSubscription) return;
     
-    user.then(({ data }) => {
-      userId = data?.user?.id || '';
-      
-      if (!userId) {
-        console.error("No user ID available for realtime subscription");
-        return;
+    setIsCancelling(true);
+    try {
+      // Cancel in our system
+      const { error } = await supabase
+        .from("user_plan_subscriptions")
+        .update({
+          status: "cancelled",
+        })
+        .eq("id", selectedSubscription.id);
+
+      if (error) throw error;
+
+      // Cancel in Asaas if there's an asaas_subscription_id
+      if (selectedSubscription.asaas_subscription_id) {
+        const { error: cancelError } = await supabase.functions.invoke("cancel-asaas-subscription", {
+          body: {
+            asaasSubscriptionId: selectedSubscription.asaas_subscription_id
+          }
+        });
+
+        if (cancelError) {
+          console.error("Erro ao cancelar assinatura no Asaas:", cancelError);
+          toast({
+            variant: "destructive",
+            title: "Atenção",
+            description: "Plano cancelado internamente, mas ocorreu um erro ao cancelar no Asaas.",
+          });
+        }
       }
-      
-      console.log("Setting up realtime subscription for user:", userId);
-      
-      // Channel for user_plan_subscriptions updates
-      const planChannel = supabase
-        .channel("user-plan-subscription-changes")
-        .on(
-          "postgres_changes",
-          {
-            event: "*", // Listen to all events
-            schema: "public",
-            table: "user_plan_subscriptions",
-            filter: `user_id=eq.${userId}`,
-          },
-          (payload) => {
-            console.log("Subscription update detected:", payload);
-            refetch();
-            
-            // Show toast notification for status changes
-            const newStatus = payload.new.status;
-            const oldStatus = payload.old.status;
-            const newPaymentStatus = payload.new.payment_status;
-            const oldPaymentStatus = payload.old.payment_status;
-            
-            if (newPaymentStatus === 'paid' && oldPaymentStatus !== 'paid') {
-              toast({
-                title: "Payment confirmed!",
-                description: "Your subscription payment has been confirmed.",
-                variant: "default",
-              });
-            } else if (newStatus !== oldStatus) {
-              toast({
-                title: `Subscription status: ${statusLabels[newStatus] || newStatus}`,
-                description: `Your subscription status has been updated.`,
-                variant: "default",
-              });
-            }
-          }
-        )
-        .subscribe();
 
-      // Also set up listener for asaas_payments updates
-      const paymentsChannel = supabase
-        .channel("asaas-payments-changes")
-        .on(
-          "postgres_changes",
-          {
-            event: "*", // Listen to all events
-            schema: "public",
-            table: "asaas_payments",
-          },
-          (payload) => {
-            console.log("Payment update detected:", payload);
-            if (payload.new.status !== payload.old.status) {
-              // When payment status changes, refresh subscriptions
-              refetch();
-            }
-          }
-        )
-        .subscribe();
+      toast({
+        title: "Sucesso",
+        description: "Assinatura cancelada com sucesso.",
+      });
 
-      // Also listen for webhook events
-      const webhooksChannel = supabase
-        .channel("webhook-events")
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "asaas_webhook_events",
-          },
-          (payload) => {
-            console.log("Webhook event detected:", payload);
-            // Refresh on any webhook event
-            refetch();
-          }
-        )
-        .subscribe();
+      refetch();
+      setShowCancelDialog(false);
+    } catch (error: any) {
+      console.error("Error cancelling subscription:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: error.message || "Erro ao cancelar assinatura",
+      });
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
-      return () => {
-        console.log("Cleaning up realtime subscriptions");
-        supabase.removeChannel(planChannel);
-        supabase.removeChannel(paymentsChannel);
-        supabase.removeChannel(webhooksChannel);
-      };
-    });
-  }, [refetch, toast]);
+  // Helper function to get status badge variant and label
+  const getStatusBadge = (status: string, payment_status: string) => {
+    let variant: "default" | "outline" | "destructive" | "secondary" = "default";
+    let label = "";
+    
+    // Status do plano
+    if (status === "active" && payment_status === "paid") {
+      variant = "default"; // blue
+      label = "Ativo";
+    } else if (status === "active" && payment_status === "pending") {
+      variant = "secondary"; // gray
+      label = "Aguardando Pagamento";
+    } else if (status === "pending") {
+      variant = "secondary"; // gray
+      label = "Pendente";
+    } else if (status === "cancelled") {
+      variant = "outline"; // outlined
+      label = "Cancelado";
+    } else if (status === "expired") {
+      variant = "destructive"; // red
+      label = "Expirado";
+    } else if (status === "overdue") {
+      variant = "destructive"; // red
+      label = "Atrasado";
+    } else {
+      variant = "secondary";
+      label = "Desconhecido";
+    }
+    
+    return { variant, label };
+  };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex justify-center items-center h-32">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (error) {
+  if (!subscriptions || subscriptions.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center text-muted-foreground">
-          Error loading subscriptions. Please try again.
-        </CardContent>
-      </Card>
+      <div className="text-center p-8 space-y-4">
+        <div className="inline-block p-3 bg-secondary/30 rounded-full">
+          <CreditCard className="h-8 w-8 text-secondary-foreground" />
+        </div>
+        <h3 className="text-lg font-medium">Nenhuma assinatura encontrada</h3>
+        <p className="text-sm text-muted-foreground">
+          Você ainda não possui assinaturas ativas. Escolha um plano para começar a treinar.
+        </p>
+      </div>
     );
   }
 
-  if (!subscriptions?.length) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center text-muted-foreground">
-          You don't have any subscriptions yet.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const refreshSubscriptions = async () => {
-    toast({
-      title: "Updating...",
-      description: "Checking your subscription status",
-    });
-    
-    await refetch();
-    
-    toast({
-      title: "Updated",
-      description: "Subscription status updated",
-    });
-  };
+  const nowDate = new Date();
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end mb-4">
-        <Button 
-          onClick={refreshSubscriptions} 
-          variant="outline" 
-          size="sm"
-          className="flex items-center gap-1"
-        >
-          <RefreshCw className="h-3 w-3" />
-          Update Status
-        </Button>
-      </div>
-      
       {subscriptions.map((subscription) => {
-        // Find the latest payment
-        const latestPayment = subscription.asaas_payments?.length > 0 
-          ? subscription.asaas_payments.reduce((latest, current) => {
-              return new Date(current.due_date) > new Date(latest.due_date) ? current : latest;
-            })
-          : null;
-        
-        // Determine payment link - prioritize subscription's direct link, then payment links
-        const paymentLink = subscription.asaas_payment_link || 
-                           (latestPayment?.payment_link || latestPayment?.invoice_url);
-        
-        // Check if there's a pending or overdue payment that needs action
-        const requiresPayment = ['pending', 'overdue'].includes(subscription.payment_status) && paymentLink;
+        const status = getStatusBadge(
+          subscription.status || "",
+          subscription.payment_status || ""
+        );
+        const isActive = subscription.status === "active" && subscription.payment_status === "paid";
+        const isPending = subscription.status === "pending" || (subscription.status === "active" && subscription.payment_status === "pending");
+        const isCancelled = subscription.status === "cancelled";
+        const startDate = subscription.start_date ? new Date(subscription.start_date) : null;
+        const endDate = subscription.end_date ? new Date(subscription.end_date) : null;
 
         return (
           <Card key={subscription.id} className="overflow-hidden">
-            <CardHeader className="bg-slate-50">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{subscription.benefit_plans.name}</CardTitle>
-                <Badge className={statusColors[subscription.status] || statusColors.pending}>
-                  {statusLabels[subscription.status] || "Pending"}
-                </Badge>
+            <CardContent className="p-0">
+              <div className="p-4 bg-secondary/10 flex justify-between items-center">
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-lg font-semibold">
+                    {subscription.benefit_plans?.name || "Plano"}
+                  </h3>
+                  <Badge variant={status.variant}>{status.label}</Badge>
+                </div>
+                <div className="text-xl font-bold">
+                  {formatCurrency(subscription.benefit_plans?.price || 0)}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    /mês
+                  </span>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Monthly cost:</span>
-                <span className="font-medium">
-                  {formatCurrency(subscription.benefit_plans.monthly_cost)}
-                </span>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Data de Início</p>
+                    <p>{startDate ? startDate.toLocaleDateString('pt-BR') : "N/A"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Data de Término</p>
+                    <p>{endDate ? endDate.toLocaleDateString('pt-BR') : "Em andamento"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Status do Pagamento</p>
+                    <p>{subscription.payment_status === "paid" ? "Pago" : 
+                       subscription.payment_status === "pending" ? "Pendente" : 
+                       subscription.payment_status === "overdue" ? "Atrasado" : 
+                       subscription.payment_status === "cancelled" ? "Cancelado" : 
+                       subscription.payment_status || "Desconhecido"}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Última atualização</p>
+                    <p>{new Date(subscription.updated_at).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                </div>
+
+                {isActive && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-2 rounded">
+                    <Check size={16} />
+                    <span>Seu plano está ativo e você pode treinar normalmente.</span>
+                  </div>
+                )}
+
+                {isPending && (
+                  <div className="flex items-center gap-2 text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
+                    <AlertTriangle size={16} />
+                    <span>Aguardando confirmação de pagamento para ativar seu plano.</span>
+                  </div>
+                )}
+
+                {isCancelled && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                    <X size={16} />
+                    <span>Esta assinatura foi cancelada.</span>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  {subscription.payment_link && isPending && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(subscription.payment_link, "_blank")}
+                    >
+                      Realizar Pagamento
+                    </Button>
+                  )}
+                  {isActive && !isCancelled && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCancelSubscription(subscription)}
+                    >
+                      Cancelar Plano
+                    </Button>
+                  )}
+                </div>
               </div>
-              
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Payment status:</span>
-                <span className="font-medium">
-                  <Badge className={paymentStatusColors[subscription.payment_status] || paymentStatusColors.pending}>
-                    {paymentStatusLabels[subscription.payment_status] || "Pending"}
-                  </Badge>
-                </span>
-              </div>
-              
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Start:</span>
-                <span>{new Date(subscription.start_date).toLocaleDateString()}</span>
-              </div>
-              
-              {subscription.end_date && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">End:</span>
-                  <span>{new Date(subscription.end_date).toLocaleDateString()}</span>
-                </div>
-              )}
-              
-              {subscription.last_payment_date && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Last payment:</span>
-                  <span>{new Date(subscription.last_payment_date).toLocaleDateString()}</span>
-                </div>
-              )}
-              
-              {subscription.next_payment_date && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Next payment:</span>
-                  <span>{new Date(subscription.next_payment_date).toLocaleDateString()}</span>
-                </div>
-              )}
-              
-              {/* Display payment button if payment is pending or overdue */}
-              {requiresPayment && (
-                <div className="mt-4">
-                  <a 
-                    href={paymentLink} 
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full text-center bg-primary text-white rounded-md py-2 mt-2 hover:bg-primary/90 transition-colors"
-                  >
-                    Make Payment
-                  </a>
-                </div>
-              )}
-              
-              {/* Display payment history button if subscription has payments */}
-              {subscription.asaas_payments?.length > 0 && (
-                <div className="mt-2 text-right">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => {
-                      toast({
-                        title: "Coming soon",
-                        description: "Payment history will be available soon",
-                      });
-                    }}
-                  >
-                    View payment history
-                  </Button>
-                </div>
-              )}
             </CardContent>
           </Card>
         );
       })}
+
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar Assinatura</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja cancelar sua assinatura? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)} disabled={isCancelling}>
+              Não, manter assinatura
+            </Button>
+            <Button variant="destructive" onClick={confirmCancelSubscription} disabled={isCancelling}>
+              {isCancelling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelando...
+                </>
+              ) : (
+                "Sim, cancelar assinatura"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
