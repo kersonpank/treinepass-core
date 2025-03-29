@@ -1,3 +1,4 @@
+
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,23 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
       } else {
         throw error;
       }
+    }
+  };
+
+  const formatPhone = (value: string) => {
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, "");
+    
+    // Apply the phone mask (99) 99999-9999
+    if (digits.length <= 2) {
+      return `(${digits}`;
+    } else if (digits.length <= 7) {
+      return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    } else if (digits.length <= 11) {
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    } else {
+      // If more than 11 digits, truncate
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
     }
   };
 
@@ -104,6 +122,10 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
             },
           })}
           placeholder="(99) 99999-9999"
+          onChange={(e) => {
+            e.target.value = formatPhone(e.target.value);
+          }}
+          maxLength={15}
         />
         {errors.phone && (
           <p className="text-sm text-red-500 mt-1">{errors.phone.message}</p>
