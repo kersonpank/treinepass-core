@@ -47,14 +47,14 @@ export function UserSubscriptions() {
             id,
             name,
             description,
-            price,
-            features
+            monthly_cost
           )
         `)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      console.log("User subscriptions:", userSubscriptions);
       return userSubscriptions;
     },
   });
@@ -184,6 +184,8 @@ export function UserSubscriptions() {
         const isCancelled = subscription.status === "cancelled";
         const startDate = subscription.start_date ? new Date(subscription.start_date) : null;
         const endDate = subscription.end_date ? new Date(subscription.end_date) : null;
+        const planName = subscription.benefit_plans?.name || "Plano";
+        const planPrice = subscription.benefit_plans?.monthly_cost || 0;
 
         return (
           <Card key={subscription.id} className="overflow-hidden">
@@ -191,12 +193,12 @@ export function UserSubscriptions() {
               <div className="p-4 bg-secondary/10 flex justify-between items-center">
                 <div className="flex items-center space-x-2">
                   <h3 className="text-lg font-semibold">
-                    {subscription.benefit_plans?.name || "Plano"}
+                    {planName}
                   </h3>
                   <Badge variant={status.variant}>{status.label}</Badge>
                 </div>
                 <div className="text-xl font-bold">
-                  {formatCurrency(subscription.benefit_plans?.price || 0)}
+                  {formatCurrency(planPrice)}
                   <span className="text-sm font-normal text-muted-foreground">
                     /mês
                   </span>
@@ -248,11 +250,11 @@ export function UserSubscriptions() {
                 )}
 
                 <div className="flex justify-end space-x-2">
-                  {subscription.payment_link && isPending && (
+                  {subscription.asaas_payment_link && isPending && (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(subscription.payment_link, "_blank")}
+                      onClick={() => window.open(subscription.asaas_payment_link, "_blank")}
                     >
                       Realizar Pagamento
                     </Button>

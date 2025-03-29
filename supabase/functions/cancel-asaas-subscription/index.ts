@@ -29,7 +29,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Canceling Asaas subscription: ${asaasSubscriptionId}`);
+    console.log(`Cancelando assinatura Asaas: ${asaasSubscriptionId}`);
 
     // Get asaas settings
     const { data: asaasSettings, error: settingsError } = await supabase
@@ -39,8 +39,8 @@ serve(async (req) => {
       .single();
 
     if (settingsError) {
-      console.error("Error fetching Asaas settings:", settingsError);
-      throw new Error("Error fetching Asaas settings");
+      console.error("Erro ao buscar configurações do Asaas:", settingsError);
+      throw new Error("Erro ao buscar configurações do Asaas");
     }
 
     const settings = asaasSettings.value;
@@ -63,10 +63,10 @@ serve(async (req) => {
     });
 
     const responseData = await response.json();
-    console.log("Asaas response:", responseData);
+    console.log("Resposta do Asaas:", responseData);
 
     if (!response.ok) {
-      throw new Error(`Failed to cancel subscription: ${JSON.stringify(responseData)}`);
+      throw new Error(`Falha ao cancelar assinatura: ${JSON.stringify(responseData)}`);
     }
 
     return new Response(
@@ -78,7 +78,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   } catch (error) {
-    console.error("Error canceling subscription:", error.message);
+    console.error("Erro ao cancelar assinatura:", error.message);
     
     return new Response(
       JSON.stringify({ 

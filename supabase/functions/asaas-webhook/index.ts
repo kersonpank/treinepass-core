@@ -14,37 +14,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Function to verify webhook token
-async function verifyWebhookToken(token: string): Promise<boolean> {
-  try {
-    // Fetch Asaas settings
-    const { data, error } = await supabase
-      .from("system_settings")
-      .select("value")
-      .eq("key", "asaas_settings")
-      .single();
-
-    if (error || !data) {
-      console.error("Error fetching Asaas settings:", error);
-      return false;
-    }
-
-    // Verify token corresponds
-    const webhookToken = data.value?.webhook_token;
-    
-    if (!webhookToken) {
-      console.error("Webhook token not configured");
-      return false;
-    }
-
-    return token === webhookToken;
-  } catch (err) {
-    console.error("Error verifying token:", err);
-    return false;
-  }
-}
-
-// Main function to process webhooks
 serve(async (req) => {
   // Handle OPTIONS requests (CORS preflight)
   if (req.method === "OPTIONS") {
@@ -85,7 +54,7 @@ serve(async (req) => {
     const subscriptionId = payload.payment?.subscription || payload.subscription?.id;
     const eventType = payload.event;
     const paymentStatus = payload.payment?.status;
-    const externalReference = payload.payment?.externalReference;
+    const externalReference = payload.payment?.externalReference || payload.subscription?.externalReference;
     
     console.log(`Processing ${eventType} event:`, {
       paymentId,
@@ -94,29 +63,23 @@ serve(async (req) => {
       externalReference
     });
     
-    // Process webhook using RPC function
-    const { data, error } = await supabase.rpc("process_asaas_webhook", {
-      payload,
-    });
+    // Save the webhook event to the database
+    const { data: webhookEvent, error: webhookError } = await supabase
+      .from("asaas_webhook_events")
+      .insert({
+        event_type: eventType,
+        payment_id: paymentId,
+        subscription_id: subscriptionId,
+        payload,
+        processed: false
+      })
+      .select()
+      .single();
 
-    if (error) {
-      console.error("Error processing webhook:", error);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          event: eventType,
-          status: paymentStatus || payload.subscription?.status,
-          message: error.message,
-          payment_id: paymentId,
-          subscription_id: subscriptionId
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        }
-      );
+    if (webhookError) {
+      console.error("Error saving webhook event:", webhookError);
+      // Continue processing even if saving fails
     }
-
-    console.log("Webhook processed successfully:", data);
 
     // Direct update to ensure UI reflects changes immediately
     if (eventType.startsWith('PAYMENT_') && paymentStatus) {
@@ -129,7 +92,7 @@ serve(async (req) => {
         
         console.log(`Updating subscription directly:`, {
           externalReference,
-          asaas_subscription_id: subscriptionId,
+          subscription_id: subscriptionId,
           payment_status: internalPaymentStatus,
           subscription_status: internalSubscriptionStatus
         });
@@ -215,35 +178,6 @@ serve(async (req) => {
               console.error("Error updating subscription by asaas_subscription_id:", updateError);
             } else {
               console.log(`Successfully updated subscription ${subscriptionData.id} status to ${internalPaymentStatus}`);
-              
-              // If payment is paid/confirmed, cancel other pending subscriptions for this user
-              if (internalPaymentStatus === 'paid') {
-                // Get the user_id for this subscription
-                const { data: subscription, error: subscriptionError } = await supabase
-                  .from("user_plan_subscriptions")
-                  .select("user_id")
-                  .eq("id", subscriptionData.id)
-                  .single();
-                
-                if (!subscriptionError && subscription?.user_id) {
-                  // Cancel other pending subscriptions for this user
-                  const { error: cancelError } = await supabase
-                    .from("user_plan_subscriptions")
-                    .update({
-                      status: 'cancelled',
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq("user_id", subscription.user_id)
-                    .eq("status", "pending")
-                    .neq("id", subscriptionData.id);
-                  
-                  if (cancelError) {
-                    console.error("Error cancelling other pending subscriptions:", cancelError);
-                  } else {
-                    console.log(`Successfully cancelled other pending subscriptions for user ${subscription.user_id}`);
-                  }
-                }
-              }
             }
           }
         }
@@ -272,35 +206,6 @@ serve(async (req) => {
               console.error("Error updating subscription through payment:", updateError);
             } else {
               console.log(`Successfully updated subscription ${paymentData.subscription_id} status to ${internalPaymentStatus}`);
-              
-              // If payment is paid/confirmed, cancel other pending subscriptions for this user
-              if (internalPaymentStatus === 'paid') {
-                // Get the user_id for this subscription
-                const { data: subscription, error: subscriptionError } = await supabase
-                  .from("user_plan_subscriptions")
-                  .select("user_id")
-                  .eq("id", paymentData.subscription_id)
-                  .single();
-                
-                if (!subscriptionError && subscription?.user_id) {
-                  // Cancel other pending subscriptions for this user
-                  const { error: cancelError } = await supabase
-                    .from("user_plan_subscriptions")
-                    .update({
-                      status: 'cancelled',
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq("user_id", subscription.user_id)
-                    .eq("status", "pending")
-                    .neq("id", paymentData.subscription_id);
-                  
-                  if (cancelError) {
-                    console.error("Error cancelling other pending subscriptions:", cancelError);
-                  } else {
-                    console.log(`Successfully cancelled other pending subscriptions for user ${subscription.user_id}`);
-                  }
-                }
-              }
             }
           }
         }
@@ -309,8 +214,69 @@ serve(async (req) => {
       }
     }
 
+    // Handle subscription events
+    if (eventType.startsWith('SUBSCRIPTION_')) {
+      try {
+        const subscriptionStatus = payload.subscription?.status;
+        const internalStatus = subscriptionStatus === 'ACTIVE' ? 'active' : 'cancelled';
+        
+        console.log(`Processing subscription event:`, {
+          subscriptionId,
+          externalReference,
+          status: subscriptionStatus,
+          internalStatus
+        });
+
+        if (externalReference && subscriptionId) {
+          // Find the subscription by external reference
+          const { data: subscriptionData, error: subscriptionError } = await supabase
+            .from("user_plan_subscriptions")
+            .select("id")
+            .eq("id", externalReference)
+            .maybeSingle();
+
+          if (!subscriptionError && subscriptionData?.id) {
+            // Update subscription with Asaas ID and status
+            const { error: updateError } = await supabase
+              .from("user_plan_subscriptions")
+              .update({
+                asaas_subscription_id: subscriptionId,
+                status: internalStatus,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", subscriptionData.id);
+
+            if (updateError) {
+              console.error("Error updating subscription with Asaas ID:", updateError);
+            } else {
+              console.log(`Successfully updated subscription ${subscriptionData.id} with Asaas ID ${subscriptionId}`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error processing subscription event:", err);
+      }
+    }
+
+    // Mark webhook event as processed
+    if (webhookEvent?.id) {
+      await supabase
+        .from("asaas_webhook_events")
+        .update({
+          processed: true,
+          processed_at: new Date().toISOString()
+        })
+        .eq("id", webhookEvent.id);
+    }
+
     return new Response(
-      JSON.stringify(data), {
+      JSON.stringify({ 
+        success: true,
+        message: "Webhook processed successfully",
+        event: eventType,
+        payment_id: paymentId,
+        subscription_id: subscriptionId,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       }

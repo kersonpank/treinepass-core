@@ -117,6 +117,28 @@ export function WebhookEventsMonitoring() {
 
     return typeMapping[eventType] || eventType;
   };
+  
+  // Helper function to safely access nested JSON properties
+  const getNestedValue = (obj: any, path: string, defaultValue: any = null) => {
+    try {
+      if (!obj || typeof obj !== 'object') return defaultValue;
+      
+      const keys = path.split('.');
+      let result = obj;
+      
+      for (const key of keys) {
+        if (result && typeof result === 'object' && key in result) {
+          result = result[key];
+        } else {
+          return defaultValue;
+        }
+      }
+      
+      return result || defaultValue;
+    } catch (e) {
+      return defaultValue;
+    }
+  };
 
   return (
     <Card>
@@ -149,48 +171,50 @@ export function WebhookEventsMonitoring() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {events?.map((event) => (
-                  <TableRow key={event.id}>
-                    <TableCell>
-                      {new Date(event.created_at).toLocaleString('pt-BR')}
-                    </TableCell>
-                    <TableCell>{getEventTypeLabel(event.event_type)}</TableCell>
-                    <TableCell>{event.payment_id}</TableCell>
-                    <TableCell>
-                      {event.payload?.payment?.status && (
-                        <Badge className={getStatusColor(event.payload?.payment?.status)}>
-                          {getPaymentStatus(event.payload?.payment?.status)}
-                        </Badge>
-                      )}
-                      {event.payload?.subscription?.status && !event.payload?.payment?.status && (
-                        <Badge className={getStatusColor(event.payload?.subscription?.status)}>
-                          {getPaymentStatus(event.payload?.subscription?.status)}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={event.processed ? "default" : "destructive"}>
-                        {event.processed ? (
-                          <>Sim {event.processed_at && 
-                            `(${new Date(event.processed_at).toLocaleTimeString('pt-BR')})`
-                          }</>
-                        ) : (
-                          "Não"
+                {events?.map((event) => {
+                  // Safely extract status from payload
+                  const paymentStatus = getNestedValue(event.payload, 'payment.status');
+                  const subscriptionStatus = getNestedValue(event.payload, 'subscription.status');
+                  const status = paymentStatus || subscriptionStatus;
+                  
+                  return (
+                    <TableRow key={event.id}>
+                      <TableCell>
+                        {new Date(event.created_at).toLocaleString('pt-BR')}
+                      </TableCell>
+                      <TableCell>{getEventTypeLabel(event.event_type)}</TableCell>
+                      <TableCell>{event.payment_id}</TableCell>
+                      <TableCell>
+                        {status && (
+                          <Badge className={getStatusColor(status)}>
+                            {getPaymentStatus(status)}
+                          </Badge>
                         )}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewPayload(event)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ver Payload
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={event.processed ? "default" : "destructive"}>
+                          {event.processed ? (
+                            <>Sim {event.processed_at && 
+                              `(${new Date(event.processed_at).toLocaleTimeString('pt-BR')})`
+                            }</>
+                          ) : (
+                            "Não"
+                          )}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewPayload(event)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Ver Payload
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
