@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface BusinessPlanCardProps {
   plan: any;
@@ -19,10 +20,18 @@ export function BusinessPlanCard({
     onSubscribe(plan.id);
   };
 
+  // Determine if this is a subsidized plan
+  const isSubsidizedPlan = plan.plan_type === "corporate_subsidized";
+
   return (
-    <Card className="flex flex-col h-full">
+    <Card className={`flex flex-col h-full ${isSubsidizedPlan ? 'border-green-200 bg-green-50' : ''}`}>
       <CardHeader>
-        <CardTitle>{plan.name}</CardTitle>
+        <div className="flex justify-between items-start">
+          <CardTitle>{plan.name}</CardTitle>
+          {isSubsidizedPlan && (
+            <Badge className="bg-green-500">Cofinanciado</Badge>
+          )}
+        </div>
         <div className="text-2xl font-bold">
           {formatCurrency(plan.monthly_cost)}
           <span className="text-sm font-normal text-muted-foreground">/mês</span>
@@ -42,6 +51,17 @@ export function BusinessPlanCard({
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+        
+        {/* Display subsidy information if it's a subsidized plan */}
+        {isSubsidizedPlan && (
+          <div className="bg-green-100 rounded-md p-3 mb-6">
+            <h4 className="text-sm font-medium mb-1">Informações de cofinanciamento:</h4>
+            <p className="text-xs text-muted-foreground">
+              Este plano permite que a empresa e o colaborador compartilhem o custo do benefício.
+              A empresa paga a parte empresarial e o colaborador pode contratar a parte dele.
+            </p>
           </div>
         )}
         

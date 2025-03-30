@@ -33,7 +33,7 @@ export function AvailableCofinancedPlans({
           ))}
         </div>
       ) : (
-        <p>Nenhum plano cofinanciado disponível no momento.</p>
+        <p className="text-muted-foreground">Nenhum plano cofinanciado disponível no momento.</p>
       )}
     </>
   );

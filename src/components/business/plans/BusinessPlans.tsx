@@ -16,14 +16,14 @@ export function BusinessPlans() {
   const { isSubscribing, handleSubscribe, CheckoutDialog } = useBusinessPlanSubscription();
   const { handleCancelPlan, isLoading: isCancelling, showCancelDialog, setShowCancelDialog } = usePlanCancellation();
 
-  // Buscar planos empresariais disponíveis
+  // Buscar planos empresariais disponíveis (incluindo planos subsidiados)
   const { data: plans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ["businessPlans"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("benefit_plans")
         .select("*")
-        .eq("plan_type", "corporate")
+        .in("plan_type", ["corporate", "corporate_subsidized"])
         .eq("status", "active");
 
       if (error) {
@@ -129,6 +129,10 @@ export function BusinessPlans() {
     return <LoadingSpinner text="Carregando planos disponíveis..." />;
   }
 
+  // Group plans by type
+  const corporatePlans = plans?.filter(plan => plan.plan_type === "corporate") || [];
+  const subsidizedPlans = plans?.filter(plan => plan.plan_type === "corporate_subsidized") || [];
+
   return (
     <div className="space-y-8">
       <div>
@@ -146,17 +150,42 @@ export function BusinessPlans() {
         />
       )}
 
-      {/* Available plans */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {plans?.map((plan) => (
-          <BusinessPlanCard
-            key={plan.id}
-            plan={plan}
-            onSubscribe={handleSubscribeToPlan}
-            isSubscribing={isSubscribing}
-          />
-        ))}
-      </div>
+      {/* Available corporate plans */}
+      {corporatePlans.length > 0 && (
+        <div>
+          <h3 className="text-xl font-medium mb-4">Planos Corporativos</h3>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {corporatePlans.map((plan) => (
+              <BusinessPlanCard
+                key={plan.id}
+                plan={plan}
+                onSubscribe={handleSubscribeToPlan}
+                isSubscribing={isSubscribing}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Available subsidized plans */}
+      {subsidizedPlans.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-xl font-medium mb-4">Planos Cofinanciados</h3>
+          <p className="text-muted-foreground mb-4">
+            Planos que podem ser cofinanciados entre empresa e colaborador.
+          </p>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {subsidizedPlans.map((plan) => (
+              <BusinessPlanCard
+                key={plan.id}
+                plan={plan}
+                onSubscribe={handleSubscribeToPlan}
+                isSubscribing={isSubscribing}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {plans?.length === 0 && (
         <div className="text-center py-8">

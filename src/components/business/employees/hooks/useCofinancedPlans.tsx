@@ -3,12 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useCofinancedPlans(businessSubscription: any) {
-  // Fetch cofinanced plans based on the business plan
+  // Fetch cofinanced plans based on the business subscription
   const { data: availablePlans, isLoading: isLoadingPlans } = useQuery({
-    queryKey: ["cofinancedPlans", businessSubscription?.plan_id],
+    queryKey: ["cofinancedPlans", businessSubscription?.benefit_plans?.id],
     queryFn: async () => {
-      if (!businessSubscription?.plan_id) return [];
+      if (!businessSubscription?.benefit_plans) return [];
       
+      // Only fetch subsidized plans
       const { data, error } = await supabase
         .from("benefit_plans")
         .select("*")
@@ -18,7 +19,7 @@ export function useCofinancedPlans(businessSubscription: any) {
       if (error) throw error;
       return data;
     },
-    enabled: !!businessSubscription?.plan_id,
+    enabled: !!businessSubscription?.benefit_plans,
   });
 
   return {
