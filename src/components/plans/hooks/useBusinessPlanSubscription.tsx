@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BusinessPlanCheckoutDialog } from "../checkout/BusinessPlanCheckoutDialog";
 import { usePaymentStatusChecker } from "./usePaymentStatusChecker";
 import { findOrCreateAsaasCustomer } from "./useAsaasCustomer";
-import { createAsaasPayment, savePaymentData } from "./useAsaasPayment";
+import { createAsaasPayment, savePaymentData, PaymentResponse } from "./useAsaasPayment";
 import { createBusinessSubscription, updateSubscriptionPaymentDetails } from "./useBusinessSubscription";
 
 interface PaymentData {
@@ -74,14 +74,6 @@ export function useBusinessPlanSubscription() {
         throw new Error("Erro ao buscar detalhes do plano");
       }
 
-      // Criar assinatura
-      const newSubscription = await createBusinessSubscription({
-        businessId: businessProfileId,
-        planId,
-        userId: user.id,
-        paymentMethod
-      });
-
       // Get business profile for full info
       const { data: businessProfile, error: profileError } = await supabase
         .from("business_profiles")
@@ -99,8 +91,16 @@ export function useBusinessPlanSubscription() {
         businessProfile
       );
 
+      // Criar assinatura no DB primeiro - corrigido para usar tipos corretos
+      const newSubscription = await createBusinessSubscription({
+        businessId: businessProfileId,
+        planId,
+        userId: user.id,
+        paymentMethod
+      });
+
       // Criar pagamento
-      const paymentResponse = await createAsaasPayment({
+      const paymentResponse: PaymentResponse = await createAsaasPayment({
         customer: asaasCustomerId,
         planName: planDetails.name,
         planCost: planDetails.monthly_cost,

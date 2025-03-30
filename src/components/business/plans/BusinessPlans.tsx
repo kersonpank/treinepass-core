@@ -91,7 +91,7 @@ export function BusinessPlans() {
         return;
       }
       
-      // Subscribe to the plan
+      // Subscribe to the plan with PIX payment method
       await handleSubscribe(planId, "pix");
       
       // Refresh subscription data

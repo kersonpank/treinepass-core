@@ -14,8 +14,16 @@ export function AvailableCofinancedPlans({
   isSubscribing, 
   onSubscribe 
 }: AvailableCofinancedPlansProps) {
-  if (hasActiveSubscription) {
-    return null;
+  // Se não tiver uma assinatura ativa, não mostra os planos cofinanciados
+  if (!hasActiveSubscription) {
+    return (
+      <div className="p-6 bg-muted/20 rounded-lg text-center">
+        <h3 className="text-lg font-medium mb-2">Planos cofinanciados</h3>
+        <p className="text-muted-foreground">
+          Para oferecer planos cofinanciados aos seus colaboradores, é necessário ter um plano empresarial ativo.
+        </p>
+      </div>
+    );
   }
 
   return (

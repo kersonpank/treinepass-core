@@ -9,15 +9,20 @@ export function useCofinancedPlans(businessSubscription: any) {
     queryFn: async () => {
       if (!businessSubscription?.benefit_plans) return [];
       
-      // Only fetch subsidized plans
-      const { data, error } = await supabase
-        .from("benefit_plans")
-        .select("*")
-        .eq("plan_type", "corporate_subsidized")
-        .eq("status", "active");
-        
-      if (error) throw error;
-      return data;
+      try {
+        // Only fetch subsidized plans
+        const { data, error } = await supabase
+          .from("benefit_plans")
+          .select("*")
+          .eq("plan_type", "corporate_subsidized")
+          .eq("status", "active");
+          
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        console.error("Erro ao buscar planos cofinanciados:", error);
+        return [];
+      }
     },
     enabled: !!businessSubscription?.benefit_plans,
   });
