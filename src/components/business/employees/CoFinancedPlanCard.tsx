@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface CoFinancedPlanCardProps {
   plan: any;
@@ -18,6 +19,10 @@ export function CoFinancedPlanCard({
   const handleSubscribe = () => {
     onSubscribe(plan.id);
   };
+
+  if (!plan) {
+    return <LoadingSpinner size="sm" text="Carregando informações do plano..." />;
+  }
 
   return (
     <Card className="flex flex-col h-full">
