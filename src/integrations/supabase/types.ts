@@ -300,6 +300,7 @@ export type Database = {
       asaas_customers: {
         Row: {
           asaas_id: string
+          business_id: string | null
           cpf_cnpj: string
           created_at: string
           email: string
@@ -310,6 +311,7 @@ export type Database = {
         }
         Insert: {
           asaas_id: string
+          business_id?: string | null
           cpf_cnpj: string
           created_at?: string
           email: string
@@ -320,6 +322,7 @@ export type Database = {
         }
         Update: {
           asaas_id?: string
+          business_id?: string | null
           cpf_cnpj?: string
           created_at?: string
           email?: string
@@ -328,7 +331,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "asaas_customers_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       asaas_ids: {
         Row: {
@@ -370,7 +381,9 @@ export type Database = {
         Row: {
           amount: number
           asaas_id: string
+          asaas_payment_link: string | null
           billing_type: string
+          business_subscription_id: string | null
           created_at: string
           customer_id: string
           deleted: boolean | null
@@ -383,12 +396,12 @@ export type Database = {
           installment: number | null
           interest_value: number | null
           invoice_url: string | null
+          is_business: boolean | null
           net_amount: number | null
           next_due_date: string | null
           payment_cycle_id: string | null
           payment_date: string | null
           payment_date_limit: string | null
-          payment_link: string | null
           payment_method: string | null
           redirect_url: string | null
           status: Database["public"]["Enums"]["asaas_payment_status"]
@@ -402,7 +415,9 @@ export type Database = {
         Insert: {
           amount: number
           asaas_id: string
+          asaas_payment_link?: string | null
           billing_type: string
+          business_subscription_id?: string | null
           created_at?: string
           customer_id: string
           deleted?: boolean | null
@@ -415,12 +430,12 @@ export type Database = {
           installment?: number | null
           interest_value?: number | null
           invoice_url?: string | null
+          is_business?: boolean | null
           net_amount?: number | null
           next_due_date?: string | null
           payment_cycle_id?: string | null
           payment_date?: string | null
           payment_date_limit?: string | null
-          payment_link?: string | null
           payment_method?: string | null
           redirect_url?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
@@ -434,7 +449,9 @@ export type Database = {
         Update: {
           amount?: number
           asaas_id?: string
+          asaas_payment_link?: string | null
           billing_type?: string
+          business_subscription_id?: string | null
           created_at?: string
           customer_id?: string
           deleted?: boolean | null
@@ -447,12 +464,12 @@ export type Database = {
           installment?: number | null
           interest_value?: number | null
           invoice_url?: string | null
+          is_business?: boolean | null
           net_amount?: number | null
           next_due_date?: string | null
           payment_cycle_id?: string | null
           payment_date?: string | null
           payment_date_limit?: string | null
-          payment_link?: string | null
           payment_method?: string | null
           redirect_url?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
@@ -465,6 +482,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "asaas_payments_business_subscription_id_fkey"
+            columns: ["business_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "business_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "asaas_payments_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -476,13 +500,6 @@ export type Database = {
             columns: ["payment_cycle_id"]
             isOneToOne: false
             referencedRelation: "gym_payout_cycles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "asaas_payments_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "user_plan_subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -812,36 +829,92 @@ export type Database = {
           },
         ]
       }
+      business_employees: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          id: string
+          role: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_employees_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_plan_subscriptions: {
         Row: {
+          asaas_customer_id: string | null
+          asaas_payment_link: string | null
           business_id: string
           created_at: string
           end_date: string | null
           id: string
+          payment_method: string | null
+          payment_status: string | null
           plan_id: string
           start_date: string
           status: string
+          total_value: number | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
+          asaas_customer_id?: string | null
+          asaas_payment_link?: string | null
           business_id: string
           created_at?: string
           end_date?: string | null
           id?: string
+          payment_method?: string | null
+          payment_status?: string | null
           plan_id: string
           start_date?: string
           status?: string
+          total_value?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
+          asaas_customer_id?: string | null
+          asaas_payment_link?: string | null
           business_id?: string
           created_at?: string
           end_date?: string | null
           id?: string
+          payment_method?: string | null
+          payment_status?: string | null
           plan_id?: string
           start_date?: string
           status?: string
+          total_value?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2174,6 +2247,12 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      check_business_active_subscription: {
+        Args: {
+          p_business_id: string
+        }
+        Returns: boolean
+      }
       check_employee_limit: {
         Args: {
           business_id: string
@@ -2319,6 +2398,20 @@ export type Database = {
           api_url: string
         }[]
       }
+      get_business_active_plans: {
+        Args: {
+          p_business_id: string
+        }
+        Returns: {
+          subscription_id: string
+          plan_id: string
+          plan_name: string
+          plan_type: string
+          monthly_cost: number
+          is_subsidized: boolean
+          start_date: string
+        }[]
+      }
       get_complete_user_data: {
         Args: {
           user_id: string
@@ -2341,6 +2434,22 @@ export type Database = {
           details: Json
         }[]
       }
+      get_user_subsidized_plans: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: {
+          id: string
+          name: string
+          description: string
+          monthly_cost: number
+          features: Json
+          plan_type: string
+          status: string
+          business_id: string
+          business_name: string
+        }[]
+      }
       get_valor_repasse_academia: {
         Args: {
           p_academia_id: string
@@ -2351,6 +2460,17 @@ export type Database = {
           origem: string
           descricao: string
         }[]
+      }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_business_employee: {
+        Args: {
+          user_id: string
+          business_id: string
+        }
+        Returns: boolean
       }
       is_gym_owner: {
         Args: {

@@ -12,7 +12,7 @@ export async function createBusinessSubscription(data: BusinessSubscriptionData)
   const { businessId, planId, userId, paymentMethod } = data;
   
   try {
-    // Correção: Usar os nomes de colunas corretos conforme o banco de dados
+    // Make sure we're using the correct column names according to the database
     const { data: newSubscription, error } = await supabase
       .from("business_plan_subscriptions")
       .insert({
@@ -52,11 +52,11 @@ export async function updateSubscriptionPaymentDetails(data: SubscriptionUpdateD
   const { subscriptionId, paymentLink, customerId, paymentMethod, totalValue } = data;
   
   try {
-    // Correção: Usar os nomes de colunas corretos conforme o banco de dados
+    // Make sure we use the correct column names for the update
     const { error } = await supabase
       .from("business_plan_subscriptions")
       .update({
-        payment_link: paymentLink,
+        asaas_payment_link: paymentLink,
         asaas_customer_id: customerId,
         payment_method: paymentMethod,
         total_value: totalValue

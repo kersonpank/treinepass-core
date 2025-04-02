@@ -29,7 +29,7 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
   const { customer, planName, planCost, paymentMethod, subscriptionId } = config;
   
   try {
-    // Chamar a função Edge para criar o pagamento no Asaas
+    // Call Edge function to create payment in Asaas
     const { data, error } = await supabase.functions.invoke(
       'asaas-api',
       {

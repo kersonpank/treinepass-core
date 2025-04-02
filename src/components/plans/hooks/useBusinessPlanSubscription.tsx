@@ -91,7 +91,7 @@ export function useBusinessPlanSubscription() {
         businessProfile
       );
 
-      // Criar assinatura no DB primeiro - corrigido para usar tipos corretos
+      // Criar assinatura no DB primeiro
       const newSubscription = await createBusinessSubscription({
         businessId: businessProfileId,
         planId,

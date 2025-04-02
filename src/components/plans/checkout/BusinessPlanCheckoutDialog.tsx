@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Loader2 } from "lucide-react";
 
@@ -26,17 +26,17 @@ interface BusinessPlanCheckoutDialogProps {
   handleCopyToClipboard: (text: string) => void;
 }
 
-export const BusinessPlanCheckoutDialog: React.FC<BusinessPlanCheckoutDialogProps> = ({
+export function BusinessPlanCheckoutDialog({
   showCheckout,
   handleCloseCheckout,
   checkoutData,
   isVerifyingPayment,
   copiedText,
-  handleCopyToClipboard,
-}) => {
+  handleCopyToClipboard
+}: BusinessPlanCheckoutDialogProps) {
   return (
     <Dialog open={showCheckout} onOpenChange={handleCloseCheckout}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Pagamento</DialogTitle>
           <DialogDescription>
@@ -127,4 +127,4 @@ export const BusinessPlanCheckoutDialog: React.FC<BusinessPlanCheckoutDialogProp
       </DialogContent>
     </Dialog>
   );
-};
+}
