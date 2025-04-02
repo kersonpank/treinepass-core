@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";
 
@@ -14,6 +13,10 @@ interface AsaasResponse {
   pix?: any;
   message?: string;
   error?: string;
+  id?: string;
+  paymentLink?: string;
+  value?: number;
+  dueDate?: string;
 }
 
 const getAsaasApiKey = async (supabase: any) => {
@@ -168,6 +171,61 @@ serve(async (req) => {
           }
         }
 
+        break;
+      }
+
+      case 'createPaymentLink': {
+        console.log(`Creating payment link with data:`, data);
+        
+        // Validate required fields
+        if (!data.customer || !data.value) {
+          throw new Error('Payment link data incomplete. Customer and value are required.');
+        }
+        
+        // Prepare payment link request body
+        const paymentLinkData = {
+          customer: data.customer,
+          billingType: data.billingType || "UNDEFINED",
+          value: data.value,
+          name: data.name || "Assinatura de Plano",
+          description: data.description || "Assinatura de plano", 
+          dueDateLimitDays: data.dueDateLimitDays || 5,
+          maxInstallmentCount: data.maxInstallmentCount || 1,
+          chargeType: data.chargeType || "DETACHED", // DETACHED for one-time payments
+          externalReference: data.externalReference
+        };
+
+        console.log("Payment link request:", paymentLinkData);
+        
+        // Make API request to Asaas
+        const asaasResponse = await fetch(`${baseUrl}/paymentLinks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'access_token': apiKey
+          },
+          body: JSON.stringify(paymentLinkData)
+        });
+
+        // Parse response
+        const paymentLinkResult = await asaasResponse.json();
+        console.log(`Asaas payment link response:`, paymentLinkResult);
+
+        if (!asaasResponse.ok) {
+          throw new Error(`Asaas API error: ${paymentLinkResult.errors?.[0]?.description || 'Unknown error'}`);
+        }
+
+        // Return payment link data with all needed information
+        response = {
+          success: true,
+          id: paymentLinkResult.id,
+          paymentLink: paymentLinkResult.url,
+          value: paymentLinkResult.value,
+          dueDate: paymentLinkResult.dueDateLimitDays 
+            ? new Date(new Date().setDate(new Date().getDate() + paymentLinkResult.dueDateLimitDays)).toISOString().split('T')[0]
+            : new Date(new Date().setDate(new Date().getDate() + 5)).toISOString().split('T')[0]
+        };
+        
         break;
       }
 

@@ -18,6 +18,7 @@ export interface PaymentResponse {
     dueDate: string;
     billingType: string;
     invoiceUrl: string;
+    paymentLink?: string;
   };
   pix?: {
     encodedImage?: string;
@@ -34,13 +35,15 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
       'asaas-api',
       {
         body: {
-          action: "createPayment",
+          action: "createPaymentLink",
           data: {
             customer,
-            billingType: paymentMethod.toUpperCase(),
+            billingType: "UNDEFINED", // Let customer choose payment method on Asaas
             value: planCost,
-            dueDate: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0],
-            description: `Assinatura empresarial do plano ${planName}`,
+            name: `Plano ${planName}`,
+            description: `Assinatura do plano ${planName}`,
+            dueDateLimitDays: 5,
+            chargeType: "DETACHED",
             externalReference: subscriptionId
           }
         }

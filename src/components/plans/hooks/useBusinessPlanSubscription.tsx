@@ -15,6 +15,7 @@ interface PaymentData {
   billingType: string;
   invoiceUrl: string;
   paymentId: string;
+  paymentLink?: string;
   pix?: {
     encodedImage?: string;
     payload?: string;
@@ -35,7 +36,7 @@ export function useBusinessPlanSubscription() {
     }
   });
 
-  const handleSubscribe = async (planId: string, paymentMethod: string = "pix", businessId?: string) => {
+  const handleSubscribe = async (planId: string, paymentMethod: string = "undefined", businessId?: string) => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
@@ -61,7 +62,7 @@ export function useBusinessPlanSubscription() {
         businessProfileId = businessProfile.id;
       }
 
-      console.log("Criando assinatura de plano para empresa:", businessProfileId, "plano:", planId, "método de pagamento:", paymentMethod);
+      console.log("Criando assinatura de plano para empresa:", businessProfileId, "plano:", planId);
 
       // Get plan details
       const { data: planDetails, error: planError } = await supabase
@@ -99,7 +100,7 @@ export function useBusinessPlanSubscription() {
         paymentMethod
       });
 
-      // Criar pagamento
+      // Criar pagamento via link de pagamento
       const paymentResponse: PaymentResponse = await createAsaasPayment({
         customer: asaasCustomerId,
         planName: planDetails.name,
@@ -129,39 +130,26 @@ export function useBusinessPlanSubscription() {
         totalValue: planDetails.monthly_cost
       });
 
-      // Preparar dados para o diálogo de checkout
+      // Preparar dados para o diálogo de checkout e redirecionar
       const checkoutData: PaymentData = {
         status: paymentResponse.payment.status,
         value: paymentResponse.payment.value,
         dueDate: paymentResponse.payment.dueDate,
         billingType: paymentResponse.payment.billingType,
         invoiceUrl: paymentResponse.payment.invoiceUrl,
-        paymentId: paymentResponse.payment.id
+        paymentId: paymentResponse.payment.id,
+        paymentLink: paymentResponse.payment.paymentLink || paymentResponse.payment.invoiceUrl
       };
 
-      // Se pagamento PIX, incluir dados do QR code
-      if (paymentMethod.toUpperCase() === "PIX" && paymentResponse.pix) {
-        checkoutData.pix = {
-          encodedImage: paymentResponse.pix.encodedImage,
-          payload: paymentResponse.pix.payload
-        };
-      }
-
       setCheckoutData(checkoutData);
-      setShowCheckout(true);
-      setIsVerifyingPayment(true);
-
+      
       toast({
         title: "Link de pagamento gerado!",
-        description: paymentMethod.toUpperCase() === "PIX" 
-          ? "Use o QR Code para efetuar o pagamento via PIX." 
-          : "Você será redirecionado para a página de pagamento.",
+        description: "Você será redirecionado para a página de pagamento do Asaas."
       });
 
-      // Redirecionar para o link de pagamento para pagamentos não-PIX
-      if (paymentMethod.toUpperCase() !== "PIX" && paymentResponse.payment.invoiceUrl) {
-        window.location.href = paymentResponse.payment.invoiceUrl;
-      }
+      // Redirecionar automaticamente para o link de pagamento
+      window.location.href = paymentResponse.payment.invoiceUrl;
       
       return newSubscription;
     } catch (error: any) {

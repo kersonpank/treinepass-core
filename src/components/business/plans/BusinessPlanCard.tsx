@@ -1,73 +1,50 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 
 interface BusinessPlanCardProps {
   plan: any;
-  onSubscribe: (planId: string) => Promise<void>;
   isSubscribing: boolean;
+  onSubscribe: (planId: string) => void;
 }
 
-export function BusinessPlanCard({
-  plan,
-  onSubscribe,
-  isSubscribing
-}: BusinessPlanCardProps) {
-  const handleSubscribe = () => {
-    onSubscribe(plan.id);
-  };
-
-  // Determine if this is a subsidized plan
-  const isSubsidizedPlan = plan.plan_type === "corporate_subsidized";
-
+export function BusinessPlanCard({ plan, isSubscribing, onSubscribe }: BusinessPlanCardProps) {
   return (
-    <Card className={`flex flex-col h-full ${isSubsidizedPlan ? 'border-green-200 bg-green-50' : ''}`}>
+    <Card className="flex flex-col">
       <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle>{plan.name}</CardTitle>
-          {isSubsidizedPlan && (
-            <Badge className="bg-green-500">Cofinanciado</Badge>
-          )}
-        </div>
-        <div className="text-2xl font-bold">
-          {formatCurrency(plan.monthly_cost)}
-          <span className="text-sm font-normal text-muted-foreground">/mês</span>
-        </div>
+        <CardTitle className="flex items-center justify-between">
+          <span>{plan.name}</span>
+          <span className="text-2xl font-bold">
+            {formatCurrency(plan.monthly_cost)}
+            <span className="text-sm font-normal text-muted-foreground">/mês</span>
+          </span>
+        </CardTitle>
+        {plan.plan_type === 'corporate_subsidized' && (
+          <div className="text-sm text-muted-foreground">
+            Plano cofinanciado entre empresa e colaborador
+          </div>
+        )}
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col">
-        <p className="text-muted-foreground mb-6 flex-1">{plan.description}</p>
+      <CardContent className="flex-1 space-y-4">
+        <p className="text-sm text-muted-foreground">{plan.description}</p>
         
-        {plan.features && plan.features.length > 0 && (
-          <div className="space-y-2 mb-6">
-            <h4 className="text-sm font-medium">Recursos inclusos:</h4>
-            <ul className="space-y-1">
-              {plan.features.map((feature: string, index: number) => (
-                <li key={index} className="text-sm flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  {feature}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        
-        {/* Display subsidy information if it's a subsidized plan */}
-        {isSubsidizedPlan && (
-          <div className="bg-green-100 rounded-md p-3 mb-6">
-            <h4 className="text-sm font-medium mb-1">Informações de cofinanciamento:</h4>
-            <p className="text-xs text-muted-foreground">
-              Este plano permite que a empresa e o colaborador compartilhem o custo do benefício.
-              A empresa paga a parte empresarial e o colaborador pode contratar a parte dele.
-            </p>
-          </div>
-        )}
-        
+        <div className="space-y-2">
+          <h4 className="text-sm font-medium">Benefícios inclusos:</h4>
+          <ul className="space-y-2 text-sm">
+            {Object.entries(plan.rules || {}).map(([key, value]) => (
+              <li key={key} className="flex items-center">
+                <span className="text-muted-foreground">{key}:</span>
+                <span className="ml-1">{JSON.stringify(value)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <Button 
-          onClick={handleSubscribe} 
-          className="w-full mt-auto"
+          className="w-full" 
+          onClick={() => onSubscribe(plan.id)}
           disabled={isSubscribing}
         >
           {isSubscribing ? (
@@ -76,7 +53,7 @@ export function BusinessPlanCard({
               Processando...
             </>
           ) : (
-            "Assinar Plano"
+            'Contratar Plano'
           )}
         </Button>
       </CardContent>

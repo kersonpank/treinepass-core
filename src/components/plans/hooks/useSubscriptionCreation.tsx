@@ -1,19 +1,9 @@
-
 import * as React from "react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Check, Copy, Loader2, QrCode } from "lucide-react";
-import { useInterval } from "@/hooks/use-interval";
+import { BusinessPlanCheckoutDialog } from "../checkout/BusinessPlanCheckoutDialog";
+import { usePaymentStatusChecker } from "./usePaymentStatusChecker";
 
 interface PaymentData {
   status: string;
@@ -36,38 +26,7 @@ export function useSubscriptionCreation() {
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [copiedText, setCopiedText] = useState<string | null>(null);
 
-  useInterval(
-    async () => {
-      if (!checkoutData?.paymentId) return;
-
-      try {
-        const { data: payment, error } = await supabase
-          .from("asaas_payments")
-          .select("status")
-          .eq("asaas_id", checkoutData.paymentId)
-          .single();
-
-        if (error) {
-          console.error("Error checking payment status:", error);
-          return;
-        }
-
-        if (payment?.status === "CONFIRMED" || payment?.status === "RECEIVED") {
-          toast({
-            title: "Pagamento confirmado!",
-            description: "Sua assinatura foi ativada com sucesso.",
-          });
-          setShowCheckout(false);
-          setIsVerifyingPayment(false);
-        }
-      } catch (error) {
-        console.error("Error checking payment status:", error);
-      }
-    },
-    isVerifyingPayment ? 5000 : null
-  );
-
-  const handleSubscribe = async (planId: string, paymentMethod: string = "pix") => {
+  const handleSubscribe = async (planId: string, paymentMethod: string = "undefined") => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
@@ -76,8 +35,6 @@ export function useSubscriptionCreation() {
       setIsSubscribing(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
-
-      console.log("Creating subscription for plan:", planId, "with payment method:", paymentMethod);
 
       // Get plan details
       const { data: planDetails, error: planError } = await supabase
@@ -89,27 +46,6 @@ export function useSubscriptionCreation() {
       if (planError || !planDetails) {
         throw new Error("Erro ao buscar detalhes do plano");
       }
-
-      // Criar assinatura como pendente
-      const { data: newSubscription, error: subscriptionError } = await supabase
-        .from("user_plan_subscriptions")
-        .insert({
-          user_id: user.id,
-          plan_id: planId,
-          start_date: new Date().toISOString(),
-          status: "pending",
-          payment_status: "pending",
-          payment_method: paymentMethod,
-        })
-        .select()
-        .single();
-
-      if (subscriptionError) {
-        console.error("Subscription error:", subscriptionError);
-        throw subscriptionError;
-      }
-
-      console.log("Subscription created:", newSubscription);
 
       // Verificar se o usuário já tem um cliente Asaas
       const { data: existingCustomer, error: customerError } = await supabase
@@ -173,32 +109,55 @@ export function useSubscriptionCreation() {
         asaasCustomerId = customerData.id;
       }
 
-      // Criar pagamento via edge function
+      // Criar assinatura como pendente
+      const { data: newSubscription, error: subscriptionError } = await supabase
+        .from("user_plan_subscriptions")
+        .insert({
+          user_id: user.id,
+          plan_id: planId,
+          start_date: new Date().toISOString(),
+          status: "pending",
+          payment_status: "pending",
+          payment_method: paymentMethod
+        })
+        .select()
+        .single();
+
+      if (subscriptionError) {
+        console.error("Subscription error:", subscriptionError);
+        throw subscriptionError;
+      }
+
+      console.log("Subscription created:", newSubscription);
+
+      // Criar link de pagamento via edge function
       const { data, error: paymentError } = await supabase.functions.invoke(
         'asaas-api',
         {
           body: {
-            action: "createPayment",
+            action: "createPaymentLink",
             data: {
               customer: asaasCustomerId,
-              billingType: paymentMethod.toUpperCase(),
+              billingType: "UNDEFINED", // Cliente escolhe no checkout do Asaas
               value: planDetails.monthly_cost,
-              dueDate: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0],
+              name: `Plano ${planDetails.name}`,
               description: `Assinatura do plano ${planDetails.name}`,
+              dueDateLimitDays: 5,
+              chargeType: "DETACHED",
               externalReference: newSubscription.id
             }
           }
         }
       );
 
-      console.log("Payment response:", data);
+      console.log("Payment link response:", data);
 
       if (paymentError) {
         console.error("Payment error:", paymentError);
         throw new Error(`Erro no processamento do pagamento: ${paymentError.message}`);
       }
       
-      if (!data?.success || !data?.payment) {
+      if (!data?.success) {
         console.error("Invalid payment response:", data);
         throw new Error('Falha ao criar pagamento: Resposta inválida do servidor');
       }
@@ -207,14 +166,14 @@ export function useSubscriptionCreation() {
       const { error: savePaymentError } = await supabase
         .from("asaas_payments")
         .insert({
-          asaas_id: data.payment.id,
+          asaas_id: data.id,
           customer_id: existingCustomer?.id,
           subscription_id: newSubscription.id,
-          amount: data.payment.value,
-          billing_type: data.payment.billingType,
-          status: data.payment.status,
-          due_date: data.payment.dueDate,
-          payment_link: data.payment.invoiceUrl,
+          amount: data.value,
+          billing_type: "UNDEFINED",
+          status: "PENDING",
+          due_date: data.dueDate,
+          payment_link: data.paymentLink,
           external_reference: newSubscription.id
         });
 
@@ -222,13 +181,12 @@ export function useSubscriptionCreation() {
         throw savePaymentError;
       }
 
-      // Update subscription with payment info
+      // Update subscription with payment link
       const { error: updateSubscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .update({
-          asaas_payment_link: data.payment.invoiceUrl,
+          asaas_payment_link: data.paymentLink,
           asaas_customer_id: asaasCustomerId,
-          payment_method: paymentMethod,
           total_value: planDetails.monthly_cost
         })
         .eq("id", newSubscription.id);
@@ -237,39 +195,18 @@ export function useSubscriptionCreation() {
         throw updateSubscriptionError;
       }
 
-      // Prepare data for checkout dialog
-      const checkoutData: PaymentData = {
-        status: data.payment.status,
-        value: data.payment.value,
-        dueDate: data.payment.dueDate,
-        billingType: data.payment.billingType,
-        invoiceUrl: data.payment.invoiceUrl,
-        paymentId: data.payment.id
-      };
-
-      // If PIX payment, include QR code data
-      if (paymentMethod.toUpperCase() === "PIX" && data.pix) {
-        checkoutData.pix = {
-          encodedImage: data.pix.encodedImage,
-          payload: data.pix.payload
-        };
-      }
-
-      setCheckoutData(checkoutData);
-      setShowCheckout(true);
-      setIsVerifyingPayment(true);
-
       toast({
         title: "Link de pagamento gerado!",
-        description: paymentMethod.toUpperCase() === "PIX" 
-          ? "Use o QR Code para efetuar o pagamento via PIX." 
-          : "Você será redirecionado para a página de pagamento.",
+        description: "Você será redirecionado para a página de pagamento do Asaas.",
       });
 
-      // Redirect to payment link for non-PIX payments
-      if (paymentMethod.toUpperCase() !== "PIX" && data.payment.invoiceUrl) {
-        window.location.href = data.payment.invoiceUrl;
+      // Redirect to payment link
+      if (data.paymentLink) {
+        window.location.href = data.paymentLink;
       }
+      
+      return;
+
     } catch (error: any) {
       console.error("Error subscribing to plan:", error);
       toast({
@@ -298,98 +235,17 @@ export function useSubscriptionCreation() {
     setTimeout(() => setCopiedText(null), 3000);
   };
 
+  // We keep the dialog component for backward compatibility but it will not be shown
+  // since we're redirecting directly to Asaas payment page
   const CheckoutDialog = React.memo(() => (
-    <Dialog open={showCheckout} onOpenChange={handleCloseCheckout}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Pagamento</DialogTitle>
-          <DialogDescription>
-            {checkoutData?.billingType === "PIX" 
-              ? "Utilize o QR Code abaixo para realizar o pagamento via PIX" 
-              : "Você será redirecionado para a página de pagamento"}
-          </DialogDescription>
-        </DialogHeader>
-
-        {isVerifyingPayment && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-50">
-            <div className="text-center space-y-2">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-              <p className="text-sm text-muted-foreground">
-                Aguardando confirmação do pagamento...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!checkoutData && (
-          <div className="text-center p-4">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">
-              Gerando link de pagamento...
-            </p>
-          </div>
-        )}
-
-        {checkoutData && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <p className="text-lg font-semibold">
-                Valor: R$ {checkoutData.value.toFixed(2).replace(".", ",")}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Vencimento: {new Date(checkoutData.dueDate).toLocaleDateString()}
-              </p>
-            </div>
-
-            {checkoutData.billingType === "PIX" && checkoutData.pix?.encodedImage && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="bg-white p-2 rounded-lg shadow">
-                  <img 
-                    src={`data:image/png;base64,${checkoutData.pix.encodedImage}`}
-                    alt="QR Code PIX" 
-                    className="w-52 h-52"
-                  />
-                </div>
-                
-                {checkoutData.pix?.payload && (
-                  <div className="w-full space-y-2">
-                    <p className="text-xs text-center text-muted-foreground">
-                      Ou copie e cole o código PIX abaixo:
-                    </p>
-                    <div className="flex items-center space-x-2 rounded-md border px-3 py-2 text-xs">
-                      <code className="flex-1 break-all">{checkoutData.pix.payload}</code>
-                      <button 
-                        onClick={() => handleCopyToClipboard(checkoutData.pix?.payload || "")}
-                        className="p-1 rounded-md hover:bg-muted"
-                      >
-                        {copiedText === checkoutData.pix.payload ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {checkoutData.invoiceUrl && checkoutData.billingType !== "PIX" && (
-              <Button
-                className="w-full"
-                onClick={() => window.location.href = checkoutData.invoiceUrl}
-              >
-                Ir para página de pagamento
-              </Button>
-            )}
-          </div>
-        )}
-
-        <DialogClose asChild>
-          <Button variant="outline">Fechar</Button>
-        </DialogClose>
-      </DialogContent>
-    </Dialog>
+    <BusinessPlanCheckoutDialog
+      showCheckout={showCheckout}
+      handleCloseCheckout={handleCloseCheckout}
+      checkoutData={checkoutData}
+      isVerifyingPayment={isVerifyingPayment}
+      copiedText={copiedText}
+      handleCopyToClipboard={handleCopyToClipboard}
+    />
   ));
 
   return {

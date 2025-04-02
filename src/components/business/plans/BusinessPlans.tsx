@@ -92,7 +92,7 @@ export function BusinessPlans() {
       }
       
       // Subscribe to the plan with PIX payment method
-      await handleSubscribe(planId, "pix");
+      await handleSubscribe(planId, "undefined");
       
       // Refresh subscription data
       setTimeout(() => {
