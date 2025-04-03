@@ -59,11 +59,11 @@ export function useSubscriptionCreation() {
         throw new Error("Erro ao buscar detalhes do plano");
       }
 
-      // Get user profile for full info
+      // Get user profile for full info - FIXED: using id instead of user_id
       const { data: userProfile, error: profileError } = await supabase
         .from("user_profiles")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("id", user.id)
         .single();
 
       if (profileError) {
