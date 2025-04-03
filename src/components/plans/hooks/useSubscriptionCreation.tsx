@@ -41,8 +41,9 @@ export function useSubscriptionCreation() {
         throw new Error("ID do plano não fornecido");
       }
 
-      // Ensure payment method is not undefined
-      const effectivePaymentMethod = paymentMethod || "PIX";
+      // Ensure payment method is always valid
+      const effectivePaymentMethod = paymentMethod && paymentMethod !== "undefined" ? paymentMethod : "PIX";
+      console.log("Using payment method:", effectivePaymentMethod);
       
       setIsSubscribing(true);
       const { data: { user } } = await supabase.auth.getUser();
