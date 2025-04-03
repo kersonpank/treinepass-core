@@ -35,12 +35,15 @@ export function useSubscriptionCreation() {
     }
   });
 
-  const handleSubscribe = async (planId: string, paymentMethod: string) => {
+  const handleSubscribe = async (planId: string, paymentMethod: string = "PIX") => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
       }
 
+      // Ensure payment method is not undefined
+      const effectivePaymentMethod = paymentMethod || "PIX";
+      
       setIsSubscribing(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
@@ -60,7 +63,7 @@ export function useSubscriptionCreation() {
       const { data: userProfile, error: profileError } = await supabase
         .from("user_profiles")
         .select("*")
-        .eq("id", user.id)
+        .eq("user_id", user.id)
         .single();
 
       if (profileError) {
@@ -90,7 +93,7 @@ export function useSubscriptionCreation() {
           end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
           status: "pending",
           payment_status: "pending",
-          payment_method: paymentMethod
+          payment_method: effectivePaymentMethod
         })
         .select()
         .single();
@@ -105,15 +108,15 @@ export function useSubscriptionCreation() {
           customer: asaasCustomerId,
           planName: planDetails.name,
           planCost: planDetails.monthly_cost,
-          paymentMethod,
+          paymentMethod: effectivePaymentMethod,
           subscriptionId: newSubscription.id
         });
 
         console.log("Resposta do serviço de pagamento:", paymentResponse);
         
         // Check for valid response - Support both payment object and direct paymentLink responses
-        if (!paymentResponse) {
-          throw new Error("Resposta de pagamento vazia");
+        if (!paymentResponse || (!paymentResponse.payment && !paymentResponse.paymentLink && !paymentResponse.id)) {
+          throw new Error("Resposta de pagamento vazia ou inválida");
         }
         
         // Set defaults for response parsing
@@ -121,7 +124,7 @@ export function useSubscriptionCreation() {
         let paymentValue = planDetails.monthly_cost;
         let paymentDueDate = new Date().toISOString().split('T')[0];
         let paymentId = "";
-        let billingType = paymentMethod || "UNDEFINED";
+        let billingType = effectivePaymentMethod;
         let invoiceUrl = "";
         let paymentLinkUrl = "";
         let pixData = undefined;
@@ -149,32 +152,42 @@ export function useSubscriptionCreation() {
         // Update subscription with payment link - use either one that's available
         const paymentUrl = paymentLinkUrl || invoiceUrl;
         if (paymentUrl) {
-          const { error: updateError } = await supabase
-            .from("user_plan_subscriptions")
-            .update({
-              asaas_payment_link: paymentUrl,
-              asaas_customer_id: asaasCustomerId
-            })
-            .eq("id", newSubscription.id);
+          try {
+            const { error: updateError } = await supabase
+              .from("user_plan_subscriptions")
+              .update({
+                asaas_payment_link: paymentUrl,
+                asaas_customer_id: asaasCustomerId
+              })
+              .eq("id", newSubscription.id);
 
-          if (updateError) {
+            if (updateError) {
+              console.error("Erro ao atualizar assinatura com link de pagamento:", updateError);
+            }
+          } catch (updateError) {
             console.error("Erro ao atualizar assinatura com link de pagamento:", updateError);
+            // Continue execution even if update fails
           }
         } else {
           console.warn("Nenhum URL de pagamento encontrado na resposta");
         }
 
         // Save payment data with available information
-        await savePaymentData({
-          asaasId: paymentId,
-          customerId,
-          subscriptionId: newSubscription.id,
-          amount: paymentValue,
-          billingType: billingType,
-          status: paymentStatus,
-          dueDate: paymentDueDate,
-          invoiceUrl: invoiceUrl || paymentLinkUrl || "" // Use either URL that's available
-        });
+        try {
+          await savePaymentData({
+            asaasId: paymentId,
+            customerId,
+            subscriptionId: newSubscription.id,
+            amount: paymentValue,
+            billingType: billingType,
+            status: paymentStatus,
+            dueDate: paymentDueDate,
+            invoiceUrl: invoiceUrl || paymentLinkUrl || "" // Use either URL that's available
+          });
+        } catch (saveError) {
+          console.error("Erro ao salvar dados de pagamento:", saveError);
+          // Continue execution even if save fails
+        }
 
         // Prepare checkout data with all available information
         const checkoutData: PaymentData = {

@@ -36,12 +36,15 @@ export function useBusinessPlanSubscription() {
     }
   });
 
-  const handleSubscribe = async (planId: string, paymentMethod: string = "undefined", businessId?: string) => {
+  const handleSubscribe = async (planId: string, paymentMethod: string = "PIX", businessId?: string) => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
       }
 
+      // Ensure payment method is not undefined
+      const effectivePaymentMethod = paymentMethod || "PIX";
+      
       setIsSubscribing(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
@@ -62,7 +65,7 @@ export function useBusinessPlanSubscription() {
         businessProfileId = businessProfile.id;
       }
 
-      console.log("Criando assinatura de plano para empresa:", businessProfileId, "plano:", planId, "método de pagamento:", paymentMethod);
+      console.log("Criando assinatura de plano para empresa:", businessProfileId, "plano:", planId, "método de pagamento:", effectivePaymentMethod);
 
       // Get plan details
       const { data: planDetails, error: planError } = await supabase
@@ -97,7 +100,7 @@ export function useBusinessPlanSubscription() {
         businessId: businessProfileId,
         planId,
         userId: user.id,
-        paymentMethod
+        paymentMethod: effectivePaymentMethod
       });
 
       try {
@@ -106,7 +109,7 @@ export function useBusinessPlanSubscription() {
           customer: asaasCustomerId,
           planName: planDetails.name,
           planCost: planDetails.monthly_cost,
-          paymentMethod,
+          paymentMethod: effectivePaymentMethod,
           subscriptionId: newSubscription.id
         });
         
@@ -122,7 +125,7 @@ export function useBusinessPlanSubscription() {
         let paymentValue = planDetails.monthly_cost;
         let paymentDueDate = new Date().toISOString().split('T')[0];
         let paymentId = "";
-        let billingType = paymentMethod || "UNDEFINED";
+        let billingType = effectivePaymentMethod;
         let invoiceUrl = "";
         let paymentLinkUrl = "";
         let pixData = undefined;
@@ -165,7 +168,7 @@ export function useBusinessPlanSubscription() {
             subscriptionId: newSubscription.id,
             paymentLink: paymentLinkUrl || invoiceUrl || "", // Use either one
             customerId: asaasCustomerId,
-            paymentMethod,
+            paymentMethod: effectivePaymentMethod,
             totalValue: planDetails.monthly_cost
           });
         } catch (updateError) {
