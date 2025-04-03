@@ -113,7 +113,7 @@ export function useBusinessPlanSubscription() {
         console.log("Resposta do serviço de pagamento:", paymentResponse);
         
         // Check for a valid response - Accept both payment object and paymentLink formats
-        if (!paymentResponse || (!paymentResponse.payment && !paymentResponse.paymentLink)) {
+        if (!paymentResponse || (!paymentResponse.payment && !paymentResponse.paymentLink && !paymentResponse.id)) {
           throw new Error("Resposta de pagamento inválida ou incompleta");
         }
 
@@ -138,13 +138,13 @@ export function useBusinessPlanSubscription() {
           invoiceUrl = paymentResponse.payment.invoiceUrl;
           paymentLinkUrl = paymentResponse.payment.paymentLink || paymentResponse.payment.invoiceUrl;
           pixData = paymentResponse.pix;
-        } else if (paymentResponse.paymentLink) {
+        } else if (paymentResponse.paymentLink || paymentResponse.id) {
           // Direct payment link response
           paymentId = paymentResponse.id || "";
           paymentValue = paymentResponse.value || planDetails.monthly_cost;
           paymentDueDate = paymentResponse.dueDate || paymentDueDate;
-          paymentLinkUrl = paymentResponse.paymentLink;
-          invoiceUrl = paymentResponse.paymentLink; // Use paymentLink as invoiceUrl in this case
+          paymentLinkUrl = paymentResponse.paymentLink || "";
+          invoiceUrl = paymentResponse.paymentLink || ""; // Use paymentLink as invoiceUrl in this case
         }
 
         // Save payment data using available information
@@ -153,30 +153,35 @@ export function useBusinessPlanSubscription() {
           customerId,
           subscriptionId: newSubscription.id,
           amount: paymentValue,
-          billingType: billingType,
+          billingType,
           status: paymentStatus,
           dueDate: paymentDueDate,
-          invoiceUrl: invoiceUrl || paymentLinkUrl // Ensure we have a URL
+          invoiceUrl: invoiceUrl || paymentLinkUrl || "" // Ensure we have a URL
         });
 
         // Update subscription with payment details
-        await updateSubscriptionPaymentDetails({
-          subscriptionId: newSubscription.id,
-          paymentLink: paymentLinkUrl || invoiceUrl, // Use either one
-          customerId: asaasCustomerId,
-          paymentMethod,
-          totalValue: planDetails.monthly_cost
-        });
+        try {
+          await updateSubscriptionPaymentDetails({
+            subscriptionId: newSubscription.id,
+            paymentLink: paymentLinkUrl || invoiceUrl || "", // Use either one
+            customerId: asaasCustomerId,
+            paymentMethod,
+            totalValue: planDetails.monthly_cost
+          });
+        } catch (updateError) {
+          console.error("Erro ao atualizar detalhes de pagamento:", updateError);
+          // Continue execution even if update fails, as we already have the payment link
+        }
 
         // Prepare checkout data with all available information
         const checkoutData: PaymentData = {
           status: paymentStatus,
           value: paymentValue,
           dueDate: paymentDueDate,
-          billingType: billingType,
-          invoiceUrl: invoiceUrl || paymentLinkUrl, // Ensure we have a URL
-          paymentId: paymentId,
-          paymentLink: paymentLinkUrl || invoiceUrl, // Ensure we have a URL
+          billingType,
+          invoiceUrl: invoiceUrl || paymentLinkUrl || "", // Ensure we have a URL
+          paymentId,
+          paymentLink: paymentLinkUrl || invoiceUrl || "", // Ensure we have a URL
           pix: pixData
         };
 
