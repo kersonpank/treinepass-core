@@ -35,9 +35,11 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
   const { customer, planName, planCost, paymentMethod, subscriptionId } = config;
   
   try {
-    // Ensure payment method is properly formatted for ASAAS API
-    // ASAAS expects UPPERCASE billing types
-    const asaasBillingType = paymentMethod.toUpperCase();
+    // We'll use UNDEFINED for billing type to allow customer to choose payment method
+    // This is the recommended approach from Asaas docs for payment links
+    const billingType = "UNDEFINED";
+    
+    console.log(`Creating payment link with billing type: ${billingType}`);
     
     // Call Edge function to create payment in Asaas
     const { data, error } = await supabase.functions.invoke(
@@ -47,13 +49,15 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
           action: "createPaymentLink",
           data: {
             customer,
-            billingType: asaasBillingType,
+            billingType, // Use UNDEFINED to allow customer to choose payment method
             value: planCost,
             name: `Plano ${planName}`,
             description: `Assinatura do plano ${planName}`,
             dueDateLimitDays: 5,
             chargeType: "DETACHED",
-            externalReference: subscriptionId
+            externalReference: subscriptionId,
+            maxInstallmentCount: 12, // Allow up to 12 installments for credit card
+            notificationEnabled: true
           }
         }
       }

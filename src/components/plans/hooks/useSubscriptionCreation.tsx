@@ -35,16 +35,17 @@ export function useSubscriptionCreation() {
     }
   });
 
-  const handleSubscribe = async (planId: string, paymentMethod: string = "PIX") => {
+  const handleSubscribe = async (planId: string, paymentMethod: string = "pix") => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
       }
 
-      // Map payment method to match the database enum
-      // We need to use 'pix' lowercase to match the enum values in the database
-      const effectivePaymentMethod = paymentMethod && paymentMethod !== "undefined" ? paymentMethod.toLowerCase() : "pix";
-      console.log("Using payment method:", effectivePaymentMethod);
+      // Store lowercase payment method in the database
+      // The payment method is actually just for reference since we're using UNDEFINED
+      // to allow the customer to choose the payment method in Asaas checkout
+      const effectivePaymentMethod = paymentMethod.toLowerCase();
+      console.log("Using payment method (reference only):", effectivePaymentMethod);
       
       setIsSubscribing(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -61,7 +62,7 @@ export function useSubscriptionCreation() {
         throw new Error("Erro ao buscar detalhes do plano");
       }
 
-      // Get user profile for full info - FIXED: using id instead of user_id
+      // Get user profile for full info
       const { data: userProfile, error: profileError } = await supabase
         .from("user_profiles")
         .select("*")
@@ -95,7 +96,7 @@ export function useSubscriptionCreation() {
           end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
           status: "pending",
           payment_status: "pending",
-          payment_method: effectivePaymentMethod  // Make sure this matches the enum in the database
+          payment_method: effectivePaymentMethod  // Store lowercase in database
         })
         .select()
         .single();
@@ -105,12 +106,12 @@ export function useSubscriptionCreation() {
       }
 
       try {
-        // Create payment link
+        // Create payment link allowing customer to choose payment method
         const paymentResponse = await createAsaasPayment({
           customer: asaasCustomerId,
           planName: planDetails.name,
           planCost: planDetails.monthly_cost,
-          paymentMethod: effectivePaymentMethod,
+          paymentMethod: effectivePaymentMethod, // Just for reference
           subscriptionId: newSubscription.id
         });
 

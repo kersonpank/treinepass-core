@@ -35,7 +35,8 @@ export function BusinessEmployeePlans() {
         return;
       }
       
-      // Subscribe to the plan (ensure lowercase 'pix' matches the database enum)
+      // Subscribe to the plan (the payment method is just a reference now)
+      // The actual payment method will be selected by the user in the Asaas checkout
       await handleSubscribe(planId, "pix");
       
       // Refresh user subscription data

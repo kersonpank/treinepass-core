@@ -185,14 +185,15 @@ serve(async (req) => {
         // Prepare payment link request body
         const paymentLinkData = {
           customer: data.customer,
-          billingType: data.billingType || "UNDEFINED",
+          billingType: data.billingType || "UNDEFINED", // Allow customer to choose payment method
           value: data.value,
           name: data.name || "Assinatura de Plano",
           description: data.description || "Assinatura de plano", 
           dueDateLimitDays: data.dueDateLimitDays || 5,
-          maxInstallmentCount: data.maxInstallmentCount || 1,
+          maxInstallmentCount: data.maxInstallmentCount || 12, // Allow up to 12 installments
           chargeType: data.chargeType || "DETACHED",
-          externalReference: data.externalReference
+          externalReference: data.externalReference,
+          notificationEnabled: true
         };
 
         console.log("Payment link request:", paymentLinkData);
@@ -237,7 +238,7 @@ serve(async (req) => {
           
           const paymentData = {
             customer: data.customer,
-            billingType: data.billingType || "UNDEFINED",
+            billingType: data.billingType || "UNDEFINED", // Allow customer to choose payment method
             value: data.value,
             description: data.description || "Assinatura de plano",
             dueDate: new Date(new Date().setDate(new Date().getDate() + (data.dueDateLimitDays || 5))).toISOString().split('T')[0],
