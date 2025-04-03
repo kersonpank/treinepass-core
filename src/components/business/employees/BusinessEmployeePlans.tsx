@@ -35,7 +35,7 @@ export function BusinessEmployeePlans() {
         return;
       }
       
-      // Subscribe to the plan
+      // Subscribe to the plan (ensure lowercase 'pix' matches the database enum)
       await handleSubscribe(planId, "pix");
       
       // Refresh user subscription data

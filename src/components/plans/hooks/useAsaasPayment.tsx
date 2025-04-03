@@ -35,6 +35,10 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
   const { customer, planName, planCost, paymentMethod, subscriptionId } = config;
   
   try {
+    // Ensure payment method is properly formatted for ASAAS API
+    // ASAAS expects UPPERCASE billing types
+    const asaasBillingType = paymentMethod.toUpperCase();
+    
     // Call Edge function to create payment in Asaas
     const { data, error } = await supabase.functions.invoke(
       'asaas-api',
@@ -43,7 +47,7 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
           action: "createPaymentLink",
           data: {
             customer,
-            billingType: paymentMethod || "UNDEFINED", // Use specified method or let customer choose
+            billingType: asaasBillingType,
             value: planCost,
             name: `Plano ${planName}`,
             description: `Assinatura do plano ${planName}`,

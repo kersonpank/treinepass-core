@@ -41,8 +41,9 @@ export function useSubscriptionCreation() {
         throw new Error("ID do plano não fornecido");
       }
 
-      // Ensure payment method is always valid
-      const effectivePaymentMethod = paymentMethod && paymentMethod !== "undefined" ? paymentMethod : "PIX";
+      // Map payment method to match the database enum
+      // We need to use 'pix' lowercase to match the enum values in the database
+      const effectivePaymentMethod = paymentMethod && paymentMethod !== "undefined" ? paymentMethod.toLowerCase() : "pix";
       console.log("Using payment method:", effectivePaymentMethod);
       
       setIsSubscribing(true);
@@ -94,7 +95,7 @@ export function useSubscriptionCreation() {
           end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
           status: "pending",
           payment_status: "pending",
-          payment_method: effectivePaymentMethod
+          payment_method: effectivePaymentMethod  // Make sure this matches the enum in the database
         })
         .select()
         .single();
