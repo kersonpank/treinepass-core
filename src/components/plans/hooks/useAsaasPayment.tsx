@@ -38,7 +38,7 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
           action: "createPaymentLink",
           data: {
             customer,
-            billingType: "UNDEFINED", // Let customer choose payment method on Asaas
+            billingType: paymentMethod || "UNDEFINED", // Use specified method or let customer choose
             value: planCost,
             name: `Plano ${planName}`,
             description: `Assinatura do plano ${planName}`,
@@ -75,11 +75,13 @@ interface PaymentDataToSave {
   billingType: string;
   status: string;
   dueDate: string;
-  paymentLink: string;
+  invoiceUrl: string;  // Changed from paymentLink to invoiceUrl to match DB schema
 }
 
 export async function savePaymentData(paymentData: PaymentDataToSave) {
   try {
+    console.log("Salvando dados de pagamento:", paymentData);
+    
     const { error } = await supabase
       .from("asaas_payments")
       .insert({
@@ -90,7 +92,7 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
         billing_type: paymentData.billingType,
         status: paymentData.status,
         due_date: paymentData.dueDate,
-        payment_link: paymentData.paymentLink,
+        invoice_url: paymentData.invoiceUrl,  // Changed from payment_link to invoice_url to match DB schema
         external_reference: paymentData.subscriptionId
       });
 

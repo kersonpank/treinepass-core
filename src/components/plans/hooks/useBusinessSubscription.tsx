@@ -42,7 +42,7 @@ export async function createBusinessSubscription(data: BusinessSubscriptionData)
 
 interface SubscriptionUpdateData {
   subscriptionId: string;
-  paymentLink: string;
+  paymentLink: string;  // Using consistent naming
   customerId: string;
   paymentMethod: string;
   totalValue: number;
@@ -52,7 +52,7 @@ export async function updateSubscriptionPaymentDetails(data: SubscriptionUpdateD
   const { subscriptionId, paymentLink, customerId, paymentMethod, totalValue } = data;
   
   try {
-    // Make sure we use the correct column names for the update
+    // Using asaas_payment_link which matches the DB schema
     const { error } = await supabase
       .from("business_plan_subscriptions")
       .update({

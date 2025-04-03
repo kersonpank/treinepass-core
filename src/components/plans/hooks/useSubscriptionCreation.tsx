@@ -1,7 +1,9 @@
-import * as React from "react";
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { findOrCreateAsaasCustomer } from "./useAsaasCustomer";
+import { createAsaasPayment, savePaymentData } from "./useAsaasPayment";
 import { BusinessPlanCheckoutDialog } from "../checkout/BusinessPlanCheckoutDialog";
 import { usePaymentStatusChecker } from "./usePaymentStatusChecker";
 
@@ -10,8 +12,9 @@ interface PaymentData {
   value: number;
   dueDate: string;
   billingType: string;
-  invoiceUrl: string;
+  invoiceUrl: string;  // Using invoiceUrl consistently
   paymentId: string;
+  paymentLink?: string;
   pix?: {
     encodedImage?: string;
     payload?: string;
@@ -23,10 +26,16 @@ export function useSubscriptionCreation() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutData, setCheckoutData] = useState<PaymentData | null>(null);
-  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  
+  const { isVerifying: isVerifyingPayment, setIsVerifying: setIsVerifyingPayment } = usePaymentStatusChecker({
+    paymentId: checkoutData?.paymentId,
+    onPaymentConfirmed: () => {
+      setShowCheckout(false);
+    }
+  });
 
-  const handleSubscribe = async (planId: string, paymentMethod: string = "undefined") => {
+  const handleSubscribe = async (planId: string, paymentMethod: string) => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
@@ -47,75 +56,38 @@ export function useSubscriptionCreation() {
         throw new Error("Erro ao buscar detalhes do plano");
       }
 
-      // Verificar se o usuário já tem um cliente Asaas
-      const { data: existingCustomer, error: customerError } = await supabase
-        .from("asaas_customers")
+      // Get user profile for full info
+      const { data: userProfile, error: profileError } = await supabase
+        .from("user_profiles")
         .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
+        .eq("id", user.id)
+        .single();
 
-      if (customerError && customerError.code !== "PGRST116") {
-        throw customerError;
+      if (profileError) {
+        throw new Error(`Erro ao buscar perfil do usuário: ${profileError.message}`);
       }
 
-      let asaasCustomerId = existingCustomer?.asaas_id;
+      // Create or get Asaas customer
+      const { asaasCustomerId, customerId } = await findOrCreateAsaasCustomer(
+        user.id, 
+        userProfile
+      );
 
-      // Se não existir, criar um novo cliente no Asaas
-      if (!asaasCustomerId) {
-        // Get user profile for full info
-        const { data: userProfile, error: profileError } = await supabase
-          .from("user_profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
+      console.log("Criando assinatura no Asaas:", {
+        customer: asaasCustomerId,
+        value: planDetails.monthly_cost,
+        description: planDetails.description || planDetails.name,
+        externalReference: ""
+      });
 
-        if (profileError) {
-          throw new Error(`Erro ao buscar perfil do usuário: ${profileError.message}`);
-        }
-
-        const { data: customerData, error: createCustomerError } = await supabase.functions.invoke(
-          'asaas-api',
-          {
-            body: {
-              action: "createCustomer",
-              data: {
-                name: userProfile.full_name || user.user_metadata.full_name,
-                email: user.email,
-                cpfCnpj: userProfile.cpf || user.user_metadata.cpf
-              }
-            }
-          }
-        );
-
-        if (createCustomerError || !customerData?.id) {
-          throw new Error(`Erro ao criar cliente no Asaas: ${createCustomerError?.message || "Resposta inválida"}`);
-        }
-
-        // Save customer data
-        const { error: saveCustomerError } = await supabase
-          .from("asaas_customers")
-          .insert({
-            user_id: user.id,
-            asaas_id: customerData.id,
-            name: userProfile.full_name || user.user_metadata.full_name,
-            email: user.email,
-            cpf_cnpj: userProfile.cpf || user.user_metadata.cpf
-          });
-
-        if (saveCustomerError) {
-          throw saveCustomerError;
-        }
-
-        asaasCustomerId = customerData.id;
-      }
-
-      // Criar assinatura como pendente
+      // Create subscription record in our database
       const { data: newSubscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
           user_id: user.id,
           plan_id: planId,
           start_date: new Date().toISOString(),
+          end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
           status: "pending",
           payment_status: "pending",
           payment_method: paymentMethod
@@ -123,102 +95,81 @@ export function useSubscriptionCreation() {
         .select()
         .single();
 
-      if (subscriptionError) {
-        console.error("Subscription error:", subscriptionError);
-        throw subscriptionError;
+      if (subscriptionError || !newSubscription) {
+        throw new Error(`Erro ao criar assinatura: ${subscriptionError?.message || "Resposta inválida"}`);
       }
 
-      console.log("Subscription created:", newSubscription);
-
-      // Criar link de pagamento via edge function
-      const { data, error: paymentError } = await supabase.functions.invoke(
-        'asaas-api',
-        {
-          body: {
-            action: "createPaymentLink",
-            data: {
-              customer: asaasCustomerId,
-              billingType: "UNDEFINED", // Cliente escolhe no checkout do Asaas
-              value: planDetails.monthly_cost,
-              name: `Plano ${planDetails.name}`,
-              description: `Assinatura do plano ${planDetails.name}`,
-              dueDateLimitDays: 5,
-              chargeType: "DETACHED",
-              externalReference: newSubscription.id
-            }
-          }
-        }
-      );
-
-      console.log("Payment link response:", data);
-
-      if (paymentError) {
-        console.error("Payment error:", paymentError);
-        throw new Error(`Erro no processamento do pagamento: ${paymentError.message}`);
-      }
-      
-      if (!data?.success) {
-        console.error("Invalid payment response:", data);
-        throw new Error('Falha ao criar pagamento: Resposta inválida do servidor');
-      }
-
-      // Save payment data
-      const { error: savePaymentError } = await supabase
-        .from("asaas_payments")
-        .insert({
-          asaas_id: data.id,
-          customer_id: existingCustomer?.id,
-          subscription_id: newSubscription.id,
-          amount: data.value,
-          billing_type: "UNDEFINED",
-          status: "PENDING",
-          due_date: data.dueDate,
-          payment_link: data.paymentLink,
-          external_reference: newSubscription.id
-        });
-
-      if (savePaymentError) {
-        throw savePaymentError;
-      }
+      // Create payment link
+      const paymentResponse = await createAsaasPayment({
+        customer: asaasCustomerId,
+        planName: planDetails.name,
+        planCost: planDetails.monthly_cost,
+        paymentMethod,
+        subscriptionId: newSubscription.id
+      });
 
       // Update subscription with payment link
-      const { error: updateSubscriptionError } = await supabase
+      const { error: updateError } = await supabase
         .from("user_plan_subscriptions")
         .update({
-          asaas_payment_link: data.paymentLink,
-          asaas_customer_id: asaasCustomerId,
-          total_value: planDetails.monthly_cost
+          asaas_payment_link: paymentResponse.payment.invoiceUrl,
+          asaas_customer_id: asaasCustomerId
         })
         .eq("id", newSubscription.id);
 
-      if (updateSubscriptionError) {
-        throw updateSubscriptionError;
+      if (updateError) {
+        console.error("Erro ao atualizar assinatura com link de pagamento:", updateError);
       }
 
+      // Save payment data
+      await savePaymentData({
+        asaasId: paymentResponse.payment.id,
+        customerId,
+        subscriptionId: newSubscription.id,
+        amount: paymentResponse.payment.value,
+        billingType: paymentResponse.payment.billingType,
+        status: paymentResponse.payment.status,
+        dueDate: paymentResponse.payment.dueDate,
+        invoiceUrl: paymentResponse.payment.invoiceUrl
+      });
+
+      // Prepare checkout data
+      const checkoutData: PaymentData = {
+        status: paymentResponse.payment.status,
+        value: paymentResponse.payment.value,
+        dueDate: paymentResponse.payment.dueDate,
+        billingType: paymentResponse.payment.billingType,
+        invoiceUrl: paymentResponse.payment.invoiceUrl,
+        paymentId: paymentResponse.payment.id,
+        paymentLink: paymentResponse.payment.paymentLink || paymentResponse.payment.invoiceUrl,
+        pix: paymentResponse.pix
+      };
+
+      setCheckoutData(checkoutData);
+      
       toast({
         title: "Link de pagamento gerado!",
-        description: "Você será redirecionado para a página de pagamento do Asaas.",
+        description: "Você será redirecionado para a página de pagamento."
       });
 
       // Redirect to payment link
-      if (data.paymentLink) {
-        window.location.href = data.paymentLink;
+      const paymentUrl = paymentResponse.payment.invoiceUrl;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+      } else {
+        setShowCheckout(true);
+        console.error("Link de pagamento não encontrado na resposta");
       }
       
-      return;
-
+      return newSubscription;
     } catch (error: any) {
-      console.error("Error subscribing to plan:", error);
+      console.error("Erro ao assinar plano:", error);
       toast({
         variant: "destructive",
         title: "Erro ao contratar plano",
         description: error.message || "Ocorreu um erro ao processar sua solicitação",
       });
-
-      // Limpar dados em caso de erro
-      setCheckoutData(null);
-      setShowCheckout(false);
-      setIsVerifyingPayment(false);
+      return null;
     } finally {
       setIsSubscribing(false);
     }
@@ -235,22 +186,18 @@ export function useSubscriptionCreation() {
     setTimeout(() => setCopiedText(null), 3000);
   };
 
-  // We keep the dialog component for backward compatibility but it will not be shown
-  // since we're redirecting directly to Asaas payment page
-  const CheckoutDialog = React.memo(() => (
-    <BusinessPlanCheckoutDialog
-      showCheckout={showCheckout}
-      handleCloseCheckout={handleCloseCheckout}
-      checkoutData={checkoutData}
-      isVerifyingPayment={isVerifyingPayment}
-      copiedText={copiedText}
-      handleCopyToClipboard={handleCopyToClipboard}
-    />
-  ));
-
   return {
     isSubscribing,
     handleSubscribe,
-    CheckoutDialog,
+    CheckoutDialog: () => (
+      <BusinessPlanCheckoutDialog
+        showCheckout={showCheckout}
+        handleCloseCheckout={handleCloseCheckout}
+        checkoutData={checkoutData}
+        isVerifyingPayment={isVerifyingPayment}
+        copiedText={copiedText}
+        handleCopyToClipboard={handleCopyToClipboard}
+      />
+    ),
   };
 }

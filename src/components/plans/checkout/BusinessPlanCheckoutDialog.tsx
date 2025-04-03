@@ -1,16 +1,18 @@
 
-import React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, CheckCircle, Copy } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 interface PaymentData {
   status: string;
   value: number;
   dueDate: string;
   billingType: string;
-  invoiceUrl: string;
+  invoiceUrl: string;  // Using invoiceUrl consistently
   paymentId: string;
+  paymentLink?: string;
   pix?: {
     encodedImage?: string;
     payload?: string;
@@ -32,98 +34,66 @@ export function BusinessPlanCheckoutDialog({
   checkoutData,
   isVerifyingPayment,
   copiedText,
-  handleCopyToClipboard
+  handleCopyToClipboard,
 }: BusinessPlanCheckoutDialogProps) {
+  if (!checkoutData) return null;
+
+  const handleOpenPaymentLink = () => {
+    // Use invoiceUrl as the primary link, fallback to paymentLink if needed
+    const paymentUrl = checkoutData.invoiceUrl || checkoutData.paymentLink;
+    if (paymentUrl) {
+      window.open(paymentUrl, '_blank');
+    }
+  };
+
   return (
     <Dialog open={showCheckout} onOpenChange={handleCloseCheckout}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Pagamento</DialogTitle>
-          <DialogDescription>
-            {checkoutData?.billingType === "PIX" 
-              ? "Utilize o QR Code abaixo para realizar o pagamento via PIX" 
-              : "Você será redirecionado para a página de pagamento"}
-          </DialogDescription>
+          <h2 className="text-xl font-bold">Pagamento do Plano</h2>
+          <p className="text-sm text-muted-foreground">
+            Complete o pagamento para ativar seu plano
+          </p>
         </DialogHeader>
 
-        {isVerifyingPayment && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-50">
-            <div className="text-center space-y-2">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-              <p className="text-sm text-muted-foreground">
-                Aguardando confirmação do pagamento...
-              </p>
-            </div>
+        <div className="space-y-4 py-4">
+          <div className="flex justify-between items-center">
+            <span className="font-medium">Valor:</span>
+            <span className="font-bold">{formatCurrency(checkoutData.value)}</span>
           </div>
-        )}
-
-        {!checkoutData && (
-          <div className="text-center p-4">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">
-              Gerando link de pagamento...
-            </p>
+          
+          <div className="flex justify-between items-center">
+            <span className="font-medium">Vencimento:</span>
+            <span>{new Date(checkoutData.dueDate).toLocaleDateString()}</span>
           </div>
-        )}
+          
+          <div className="flex justify-between items-center">
+            <span className="font-medium">Status:</span>
+            <Badge variant={checkoutData.status === 'CONFIRMED' ? 'default' : 'outline'}>
+              {checkoutData.status === 'CONFIRMED' ? 'Pago' : 'Pendente'}
+            </Badge>
+          </div>
 
-        {checkoutData && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <p className="text-lg font-semibold">
-                Valor: R$ {checkoutData.value.toFixed(2).replace(".", ",")}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Vencimento: {new Date(checkoutData.dueDate).toLocaleDateString()}
-              </p>
-            </div>
-
-            {checkoutData.billingType === "PIX" && checkoutData.pix?.encodedImage && (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="bg-white p-2 rounded-lg shadow">
-                  <img 
-                    src={`data:image/png;base64,${checkoutData.pix.encodedImage}`}
-                    alt="QR Code PIX" 
-                    className="w-52 h-52"
-                  />
-                </div>
-                
-                {checkoutData.pix?.payload && (
-                  <div className="w-full space-y-2">
-                    <p className="text-xs text-center text-muted-foreground">
-                      Ou copie e cole o código PIX abaixo:
-                    </p>
-                    <div className="flex items-center space-x-2 rounded-md border px-3 py-2 text-xs">
-                      <code className="flex-1 break-all">{checkoutData.pix.payload}</code>
-                      <button 
-                        onClick={() => handleCopyToClipboard(checkoutData.pix?.payload || "")}
-                        className="p-1 rounded-md hover:bg-muted"
-                      >
-                        {copiedText === checkoutData.pix.payload ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
+          <div className="pt-2">
+            <Button 
+              onClick={handleOpenPaymentLink} 
+              className="w-full"
+            >
+              Abrir Link de Pagamento
+            </Button>
+          </div>
+          
+          {/* Instruction text */}
+          <div className="text-sm text-muted-foreground mt-4">
+            <p>Após completar o pagamento, seu plano será ativado automaticamente.</p>
+            {isVerifyingPayment && (
+              <div className="flex items-center mt-2 text-amber-600">
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <span>Verificando status do pagamento...</span>
               </div>
             )}
-
-            {checkoutData.invoiceUrl && checkoutData.billingType !== "PIX" && (
-              <Button
-                className="w-full"
-                onClick={() => window.location.href = checkoutData.invoiceUrl}
-              >
-                Ir para página de pagamento
-              </Button>
-            )}
           </div>
-        )}
-
-        <DialogClose asChild>
-          <Button variant="outline">Fechar</Button>
-        </DialogClose>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -13,7 +13,7 @@ interface PaymentData {
   value: number;
   dueDate: string;
   billingType: string;
-  invoiceUrl: string;
+  invoiceUrl: string;  // Using invoiceUrl consistently
   paymentId: string;
   paymentLink?: string;
   pix?: {
@@ -62,7 +62,7 @@ export function useBusinessPlanSubscription() {
         businessProfileId = businessProfile.id;
       }
 
-      console.log("Criando assinatura de plano para empresa:", businessProfileId, "plano:", planId);
+      console.log("Criando assinatura de plano para empresa:", businessProfileId, "plano:", planId, "método de pagamento:", paymentMethod);
 
       // Get plan details
       const { data: planDetails, error: planError } = await supabase
@@ -86,13 +86,13 @@ export function useBusinessPlanSubscription() {
         throw new Error(`Erro ao buscar perfil da empresa: ${profileError.message}`);
       }
 
-      // Criar ou obter cliente Asaas
+      // Create or get Asaas customer
       const { asaasCustomerId, customerId } = await findOrCreateAsaasCustomer(
         user.id, 
         businessProfile
       );
 
-      // Criar assinatura no DB primeiro
+      // Create subscription in the DB first
       const newSubscription = await createBusinessSubscription({
         businessId: businessProfileId,
         planId,
@@ -100,7 +100,7 @@ export function useBusinessPlanSubscription() {
         paymentMethod
       });
 
-      // Criar pagamento via link de pagamento
+      // Create payment via payment link
       const paymentResponse: PaymentResponse = await createAsaasPayment({
         customer: asaasCustomerId,
         planName: planDetails.name,
@@ -109,7 +109,7 @@ export function useBusinessPlanSubscription() {
         subscriptionId: newSubscription.id
       });
 
-      // Salvar dados do pagamento
+      // Save payment data - using invoiceUrl field
       await savePaymentData({
         asaasId: paymentResponse.payment.id,
         customerId,
@@ -118,19 +118,19 @@ export function useBusinessPlanSubscription() {
         billingType: paymentResponse.payment.billingType,
         status: paymentResponse.payment.status,
         dueDate: paymentResponse.payment.dueDate,
-        paymentLink: paymentResponse.payment.invoiceUrl
+        invoiceUrl: paymentResponse.payment.invoiceUrl
       });
 
-      // Atualizar assinatura com informações de pagamento
+      // Update subscription with payment details
       await updateSubscriptionPaymentDetails({
         subscriptionId: newSubscription.id,
-        paymentLink: paymentResponse.payment.invoiceUrl,
+        paymentLink: paymentResponse.payment.invoiceUrl, // Use invoiceUrl here
         customerId: asaasCustomerId,
         paymentMethod,
         totalValue: planDetails.monthly_cost
       });
 
-      // Preparar dados para o diálogo de checkout e redirecionar
+      // Prepare checkout data
       const checkoutData: PaymentData = {
         status: paymentResponse.payment.status,
         value: paymentResponse.payment.value,
@@ -148,8 +148,14 @@ export function useBusinessPlanSubscription() {
         description: "Você será redirecionado para a página de pagamento do Asaas."
       });
 
-      // Redirecionar automaticamente para o link de pagamento
-      window.location.href = paymentResponse.payment.invoiceUrl;
+      // Redirect to payment link - using invoiceUrl which is always available
+      const paymentUrl = paymentResponse.payment.invoiceUrl;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+      } else {
+        setShowCheckout(true);
+        console.error("Link de pagamento não encontrado na resposta");
+      }
       
       return newSubscription;
     } catch (error: any) {
@@ -160,7 +166,7 @@ export function useBusinessPlanSubscription() {
         description: error.message || "Ocorreu um erro ao processar sua solicitação",
       });
 
-      // Limpar dados em caso de erro
+      // Clean up data in case of error
       setCheckoutData(null);
       setShowCheckout(false);
       setIsVerifyingPayment(false);
