@@ -23,7 +23,7 @@ export function useBusinessPlanSubscription() {
     }
   });
 
-  const handleSubscribe = async (planId: string, paymentMethod: string = "PIX", businessId?: string) => {
+  const handleSubscribe = async (planId: string, paymentMethod: string = "pix", businessId?: string) => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
@@ -31,10 +31,17 @@ export function useBusinessPlanSubscription() {
 
       setIsSubscribing(true);
       
+      // Ensure we have a valid payment method for database storage
+      // while using UNDEFINED in the actual Asaas API call
+      let effectivePaymentMethod = paymentMethod.toLowerCase();
+      if (effectivePaymentMethod === "undefined") {
+        effectivePaymentMethod = "pix"; // Default to pix as fallback for DB storage
+      }
+      
       // Step 1: Create subscription
       const { subscription, businessProfile, planDetails, asaasCustomerId } = await createBusinessSubscription(
         planId, 
-        paymentMethod, 
+        effectivePaymentMethod, 
         businessId
       );
 
@@ -43,7 +50,7 @@ export function useBusinessPlanSubscription() {
         planDetails,
         subscription,
         asaasCustomerId,
-        paymentMethod.toLowerCase()
+        effectivePaymentMethod
       );
 
       // Set checkout data for the dialog

@@ -37,7 +37,7 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
   const { customer, planName, planCost, paymentMethod, subscriptionId, successUrl, failureUrl } = config;
   
   try {
-    // We'll use UNDEFINED for billing type to allow customer to choose payment method
+    // For payment links, we'll use UNDEFINED to allow customer to choose payment method
     // This is the recommended approach from Asaas docs for payment links
     const billingType = "UNDEFINED";
     
@@ -100,6 +100,9 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
   try {
     console.log("Salvando dados de pagamento:", paymentData);
     
+    // Use a valid status value that matches the database enum
+    const validStatus = paymentData.status || "PENDING";
+    
     const { error } = await supabase
       .from("asaas_payments")
       .insert({
@@ -108,7 +111,7 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
         subscription_id: paymentData.subscriptionId,
         amount: paymentData.amount,
         billing_type: paymentData.billingType,
-        status: paymentData.status,
+        status: validStatus,
         due_date: paymentData.dueDate,
         invoice_url: paymentData.invoiceUrl,
         external_reference: paymentData.subscriptionId

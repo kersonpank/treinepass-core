@@ -47,10 +47,15 @@ export function useSubscriptionCreation() {
         throw new Error("ID do plano não fornecido");
       }
 
-      // Store lowercase payment method in the database
-      // The payment method is actually just for reference since we're using UNDEFINED
-      // to allow the customer to choose the payment method in Asaas checkout
-      const effectivePaymentMethod = paymentMethod.toLowerCase();
+      // Ensure we have a valid payment method
+      // This should be one of: "pix", "credit_card", "boleto", "transfer", "debit_card"
+      // But for payment links, we'll actually use "UNDEFINED" in the Asaas API
+      // while storing a valid value in our database
+      let effectivePaymentMethod = paymentMethod.toLowerCase();
+      if (effectivePaymentMethod === "undefined") {
+        effectivePaymentMethod = "pix"; // Default to pix as fallback for DB storage
+      }
+      
       console.log("Using payment method (reference only):", effectivePaymentMethod);
       
       setIsSubscribing(true);

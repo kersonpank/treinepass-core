@@ -4,6 +4,15 @@ import { savePaymentData } from "./useAsaasPayment";
 
 export async function createSubscriptionRecord(userId: string, planId: string, paymentMethod: string) {
   try {
+    // Normalize payment method to a valid enum value
+    // Valid values should be: "pix", "credit_card", "boleto", "transfer", "debit_card"
+    let normalizedPaymentMethod = paymentMethod.toLowerCase();
+    
+    // If it's "undefined", default to "pix" as a valid fallback
+    if (normalizedPaymentMethod === "undefined") {
+      normalizedPaymentMethod = "pix";
+    }
+    
     const { data: newSubscription, error: subscriptionError } = await supabase
       .from("user_plan_subscriptions")
       .insert({
@@ -13,7 +22,7 @@ export async function createSubscriptionRecord(userId: string, planId: string, p
         end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString(),
         status: "pending",
         payment_status: "pending",
-        payment_method: paymentMethod.toLowerCase()  // Store lowercase in database
+        payment_method: normalizedPaymentMethod  // Use normalized value
       })
       .select()
       .single();
