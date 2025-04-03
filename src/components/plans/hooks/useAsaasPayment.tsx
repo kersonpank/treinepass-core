@@ -10,8 +10,8 @@ interface PaymentConfig {
 }
 
 export interface PaymentResponse {
-  success: boolean;
-  payment: {
+  success?: boolean;
+  payment?: {
     id: string;
     status: string;
     value: number;
@@ -24,6 +24,11 @@ export interface PaymentResponse {
     encodedImage?: string;
     payload?: string;
   };
+  // Payment link direct response fields
+  id?: string;
+  paymentLink?: string;
+  value?: number;
+  dueDate?: string;
 }
 
 export async function createAsaasPayment(config: PaymentConfig): Promise<PaymentResponse> {
@@ -55,11 +60,8 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
       throw new Error(`Erro no processamento do pagamento: ${error.message}`);
     }
     
-    if (!data?.success || !data?.payment) {
-      console.error("Resposta de pagamento inválida:", data);
-      throw new Error('Falha ao criar pagamento: Resposta inválida do servidor');
-    }
-
+    console.log("Resposta do createPaymentLink:", data);
+    
     return data as PaymentResponse;
   } catch (error: any) {
     console.error("Erro ao criar pagamento:", error);
@@ -75,7 +77,7 @@ interface PaymentDataToSave {
   billingType: string;
   status: string;
   dueDate: string;
-  invoiceUrl: string;  // Changed from paymentLink to invoiceUrl to match DB schema
+  invoiceUrl: string;  // Using invoiceUrl to match DB schema
 }
 
 export async function savePaymentData(paymentData: PaymentDataToSave) {
@@ -92,7 +94,7 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
         billing_type: paymentData.billingType,
         status: paymentData.status,
         due_date: paymentData.dueDate,
-        invoice_url: paymentData.invoiceUrl,  // Changed from payment_link to invoice_url to match DB schema
+        invoice_url: paymentData.invoiceUrl,
         external_reference: paymentData.subscriptionId
       });
 

@@ -100,64 +100,107 @@ export function useBusinessPlanSubscription() {
         paymentMethod
       });
 
-      // Create payment via payment link
-      const paymentResponse: PaymentResponse = await createAsaasPayment({
-        customer: asaasCustomerId,
-        planName: planDetails.name,
-        planCost: planDetails.monthly_cost,
-        paymentMethod,
-        subscriptionId: newSubscription.id
-      });
+      try {
+        // Create payment via payment link
+        const paymentResponse: PaymentResponse = await createAsaasPayment({
+          customer: asaasCustomerId,
+          planName: planDetails.name,
+          planCost: planDetails.monthly_cost,
+          paymentMethod,
+          subscriptionId: newSubscription.id
+        });
+        
+        console.log("Resposta do serviço de pagamento:", paymentResponse);
+        
+        // Check for a valid response - Accept both payment object and paymentLink formats
+        if (!paymentResponse || (!paymentResponse.payment && !paymentResponse.paymentLink)) {
+          throw new Error("Resposta de pagamento inválida ou incompleta");
+        }
 
-      // Save payment data - using invoiceUrl field
-      await savePaymentData({
-        asaasId: paymentResponse.payment.id,
-        customerId,
-        subscriptionId: newSubscription.id,
-        amount: paymentResponse.payment.value,
-        billingType: paymentResponse.payment.billingType,
-        status: paymentResponse.payment.status,
-        dueDate: paymentResponse.payment.dueDate,
-        invoiceUrl: paymentResponse.payment.invoiceUrl
-      });
+        // Set defaults for response format with payment object
+        let paymentStatus = "PENDING";
+        let paymentValue = planDetails.monthly_cost;
+        let paymentDueDate = new Date().toISOString().split('T')[0];
+        let paymentId = "";
+        let billingType = paymentMethod || "UNDEFINED";
+        let invoiceUrl = "";
+        let paymentLinkUrl = "";
+        let pixData = undefined;
 
-      // Update subscription with payment details
-      await updateSubscriptionPaymentDetails({
-        subscriptionId: newSubscription.id,
-        paymentLink: paymentResponse.payment.invoiceUrl, // Use invoiceUrl here
-        customerId: asaasCustomerId,
-        paymentMethod,
-        totalValue: planDetails.monthly_cost
-      });
+        // Handle different response formats
+        if (paymentResponse.payment) {
+          // Standard payment response
+          paymentStatus = paymentResponse.payment.status;
+          paymentValue = paymentResponse.payment.value;
+          paymentDueDate = paymentResponse.payment.dueDate;
+          paymentId = paymentResponse.payment.id;
+          billingType = paymentResponse.payment.billingType;
+          invoiceUrl = paymentResponse.payment.invoiceUrl;
+          paymentLinkUrl = paymentResponse.payment.paymentLink || paymentResponse.payment.invoiceUrl;
+          pixData = paymentResponse.pix;
+        } else if (paymentResponse.paymentLink) {
+          // Direct payment link response
+          paymentId = paymentResponse.id || "";
+          paymentValue = paymentResponse.value || planDetails.monthly_cost;
+          paymentDueDate = paymentResponse.dueDate || paymentDueDate;
+          paymentLinkUrl = paymentResponse.paymentLink;
+          invoiceUrl = paymentResponse.paymentLink; // Use paymentLink as invoiceUrl in this case
+        }
 
-      // Prepare checkout data
-      const checkoutData: PaymentData = {
-        status: paymentResponse.payment.status,
-        value: paymentResponse.payment.value,
-        dueDate: paymentResponse.payment.dueDate,
-        billingType: paymentResponse.payment.billingType,
-        invoiceUrl: paymentResponse.payment.invoiceUrl,
-        paymentId: paymentResponse.payment.id,
-        paymentLink: paymentResponse.payment.paymentLink || paymentResponse.payment.invoiceUrl
-      };
+        // Save payment data using available information
+        await savePaymentData({
+          asaasId: paymentId,
+          customerId,
+          subscriptionId: newSubscription.id,
+          amount: paymentValue,
+          billingType: billingType,
+          status: paymentStatus,
+          dueDate: paymentDueDate,
+          invoiceUrl: invoiceUrl || paymentLinkUrl // Ensure we have a URL
+        });
 
-      setCheckoutData(checkoutData);
-      
-      toast({
-        title: "Link de pagamento gerado!",
-        description: "Você será redirecionado para a página de pagamento do Asaas."
-      });
+        // Update subscription with payment details
+        await updateSubscriptionPaymentDetails({
+          subscriptionId: newSubscription.id,
+          paymentLink: paymentLinkUrl || invoiceUrl, // Use either one
+          customerId: asaasCustomerId,
+          paymentMethod,
+          totalValue: planDetails.monthly_cost
+        });
 
-      // Redirect to payment link - using invoiceUrl which is always available
-      const paymentUrl = paymentResponse.payment.invoiceUrl;
-      if (paymentUrl) {
-        window.location.href = paymentUrl;
-      } else {
-        setShowCheckout(true);
-        console.error("Link de pagamento não encontrado na resposta");
+        // Prepare checkout data with all available information
+        const checkoutData: PaymentData = {
+          status: paymentStatus,
+          value: paymentValue,
+          dueDate: paymentDueDate,
+          billingType: billingType,
+          invoiceUrl: invoiceUrl || paymentLinkUrl, // Ensure we have a URL
+          paymentId: paymentId,
+          paymentLink: paymentLinkUrl || invoiceUrl, // Ensure we have a URL
+          pix: pixData
+        };
+
+        setCheckoutData(checkoutData);
+        
+        toast({
+          title: "Link de pagamento gerado!",
+          description: "Você será redirecionado para a página de pagamento do Asaas."
+        });
+
+        // Redirect to payment link - using the available URL
+        const paymentUrl = paymentLinkUrl || invoiceUrl;
+        if (paymentUrl) {
+          window.location.href = paymentUrl;
+        } else {
+          setShowCheckout(true);
+          console.error("Link de pagamento não encontrado na resposta");
+        }
+        
+        return newSubscription;
+      } catch (paymentError: any) {
+        console.error("Erro ao criar pagamento:", paymentError);
+        throw new Error(`Falha ao criar pagamento: ${paymentError.message}`);
       }
-      
-      return newSubscription;
     } catch (error: any) {
       console.error("Erro ao assinar plano:", error);
       toast({
