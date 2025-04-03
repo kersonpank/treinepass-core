@@ -31,13 +31,19 @@ export function usePaymentCreation() {
         externalReference: newSubscription.id
       });
 
+      // Define URLs de redirecionamento para sucesso e falha
+      const returnSuccessUrl = `${window.location.origin}/payment/success?subscription=${newSubscription.id}`;
+      const returnFailureUrl = `${window.location.origin}/payment/failure?subscription=${newSubscription.id}`;
+
       // Create payment link allowing customer to choose payment method
       const paymentResponse = await createAsaasPayment({
         customer: asaasCustomerId,
         planName: planDetails.name,
         planCost: planDetails.monthly_cost,
         paymentMethod: paymentMethod.toLowerCase(), // Just for reference
-        subscriptionId: newSubscription.id
+        subscriptionId: newSubscription.id,
+        successUrl: returnSuccessUrl,
+        failureUrl: returnFailureUrl
       });
 
       console.log("Resposta do serviço de pagamento:", paymentResponse);

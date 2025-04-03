@@ -7,6 +7,8 @@ interface PaymentConfig {
   planCost: number;
   paymentMethod: string;
   subscriptionId: string;
+  successUrl?: string;
+  failureUrl?: string;
 }
 
 export interface PaymentResponse {
@@ -32,7 +34,7 @@ export interface PaymentResponse {
 }
 
 export async function createAsaasPayment(config: PaymentConfig): Promise<PaymentResponse> {
-  const { customer, planName, planCost, paymentMethod, subscriptionId } = config;
+  const { customer, planName, planCost, paymentMethod, subscriptionId, successUrl, failureUrl } = config;
   
   try {
     // We'll use UNDEFINED for billing type to allow customer to choose payment method
@@ -40,6 +42,10 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
     const billingType = "UNDEFINED";
     
     console.log(`Creating payment link with billing type: ${billingType}`);
+    
+    // Define URLs para redirecionamento após pagamento
+    const returnSuccessUrl = successUrl || `${window.location.origin}/payment/success`;
+    const returnFailureUrl = failureUrl || `${window.location.origin}/payment/failure`;
     
     // Call Edge function to create payment in Asaas
     const { data, error } = await supabase.functions.invoke(
@@ -57,7 +63,9 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
             chargeType: "DETACHED",
             externalReference: subscriptionId,
             maxInstallmentCount: 12, // Allow up to 12 installments for credit card
-            notificationEnabled: true
+            notificationEnabled: true,
+            successUrl: returnSuccessUrl,
+            failureUrl: returnFailureUrl
           }
         }
       }

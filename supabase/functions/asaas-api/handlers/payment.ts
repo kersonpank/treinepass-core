@@ -7,10 +7,16 @@ export async function handleCreatePayment(data: any, apiKey: string, baseUrl: st
     throw new Error('Payment data incomplete. Customer and value are required.');
   }
 
-  // Set default billing type if not provided
-  if (!data.billingType) {
-    data.billingType = 'UNDEFINED';
-  }
+  // Add basic defaults if not provided
+  const paymentData = {
+    ...data,
+    billingType: data.billingType || "UNDEFINED", // Default to allow customer to choose
+    description: data.description || "Pagamento",
+    // URLs de redirecionamento após pagamento
+    callbackUrl: data.callbackUrl || process.env.WEBHOOK_URL,
+    successUrl: data.successUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/success",
+    failureUrl: data.failureUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/failure"
+  };
 
   // Make API request to Asaas
   const asaasResponse = await fetch(`${baseUrl}/payments`, {
@@ -19,53 +25,59 @@ export async function handleCreatePayment(data: any, apiKey: string, baseUrl: st
       'Content-Type': 'application/json',
       'access_token': apiKey
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(paymentData)
   });
 
   // Parse response
-  const paymentData = await asaasResponse.json();
-  console.log(`Asaas payment response:`, paymentData);
+  const paymentResult = await asaasResponse.json();
+  console.log(`Asaas payment response:`, paymentResult);
 
   if (!asaasResponse.ok) {
-    throw new Error(`Asaas API error: ${paymentData.errors?.[0]?.description || 'Unknown error'}`);
+    throw new Error(`Asaas API error: ${paymentResult.errors?.[0]?.description || 'Unknown error'}`);
   }
 
-  const response = {
-    success: true,
-    payment: paymentData
-  };
+  // Check if we need to fetch PIX code for PIX payments
+  let pixInfo = {};
+  if (data.billingType === 'PIX' && paymentResult.id) {
+    try {
+      const pixResponse = await fetch(`${baseUrl}/payments/${paymentResult.id}/pixQrCode`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'access_token': apiKey
+        }
+      });
 
-  // If it's a PIX payment, get the QR code
-  if (data.billingType === 'PIX') {
-    console.log(`Getting PIX QR code for payment ${paymentData.id}`);
-    
-    const pixResponse = await fetch(`${baseUrl}/payments/${paymentData.id}/pixQrCode`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'access_token': apiKey
+      if (pixResponse.ok) {
+        const pixData = await pixResponse.json();
+        pixInfo = {
+          pix: {
+            encodedImage: pixData.encodedImage,
+            payload: pixData.payload
+          }
+        };
       }
-    });
-
-    // Parse PIX response
-    const pixData = await pixResponse.json();
-    console.log(`Asaas PIX response:`, pixData);
-
-    if (!pixResponse.ok) {
-      console.error(`Error getting PIX QR code: ${pixData.errors?.[0]?.description || 'Unknown error'}`);
-    } else {
-      response.pix = pixData;
+    } catch (pixError) {
+      console.error("Error fetching PIX QR code:", pixError);
     }
   }
 
-  return response;
+  return {
+    success: true,
+    payment: paymentResult,
+    ...pixInfo
+  };
 }
 
 export async function handleGetPayment(data: any, apiKey: string, baseUrl: string) {
+  console.log(`Getting payment with data:`, data);
+  
+  // Validate required fields
   if (!data.id) {
     throw new Error('Payment ID is required.');
   }
 
+  // Make API request to Asaas
   const asaasResponse = await fetch(`${baseUrl}/payments/${data.id}`, {
     method: 'GET',
     headers: {
@@ -74,15 +86,16 @@ export async function handleGetPayment(data: any, apiKey: string, baseUrl: strin
     }
   });
 
-  const paymentData = await asaasResponse.json();
-  console.log(`Asaas get payment response:`, paymentData);
+  // Parse response
+  const paymentResult = await asaasResponse.json();
+  console.log(`Asaas payment get response:`, paymentResult);
 
   if (!asaasResponse.ok) {
-    throw new Error(`Asaas API error: ${paymentData.errors?.[0]?.description || 'Unknown error'}`);
+    throw new Error(`Asaas API error: ${paymentResult.errors?.[0]?.description || 'Unknown error'}`);
   }
 
   return {
     success: true,
-    payment: paymentData
+    payment: paymentResult
   };
 }

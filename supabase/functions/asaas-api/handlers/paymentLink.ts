@@ -18,7 +18,10 @@ export async function handleCreatePaymentLink(data: any, apiKey: string, baseUrl
     maxInstallmentCount: data.maxInstallmentCount || 12, // Allow up to 12 installments
     chargeType: data.chargeType || "DETACHED",
     externalReference: data.externalReference,
-    notificationEnabled: true
+    notificationEnabled: true,
+    // URLs de redirecionamento após pagamento
+    successUrl: data.successUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/success",
+    failureUrl: data.failureUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/failure"
   };
 
   console.log("Payment link request:", paymentLinkData);
@@ -67,7 +70,11 @@ export async function handleCreatePaymentLink(data: any, apiKey: string, baseUrl
       value: data.value,
       description: data.description || "Assinatura de plano",
       dueDate: new Date(new Date().setDate(new Date().getDate() + (data.dueDateLimitDays || 5))).toISOString().split('T')[0],
-      externalReference: data.externalReference
+      externalReference: data.externalReference,
+      // URLs de redirecionamento para o fallback
+      callbackUrl: data.callbackUrl || process.env.WEBHOOK_URL,
+      successUrl: data.successUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/success",
+      failureUrl: data.failureUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/failure"
     };
     
     const paymentResponse = await fetch(`${baseUrl}/payments`, {

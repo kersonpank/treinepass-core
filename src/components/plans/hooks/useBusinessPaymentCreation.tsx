@@ -18,12 +18,18 @@ export function useBusinessPaymentCreation() {
       setIsProcessing(true);
       console.log("Criando pagamento para assinatura:", subscription.id);
       
+      // Define URLs de redirecionamento para sucesso e falha
+      const returnSuccessUrl = `${window.location.origin}/payment/success?subscription=${subscription.id}&business=true`;
+      const returnFailureUrl = `${window.location.origin}/payment/failure?subscription=${subscription.id}&business=true`;
+      
       const paymentResponse = await createAsaasPayment({
         customer: asaasCustomerId,
         planName: planDetails.name,
         planCost: planDetails.monthly_cost,
         paymentMethod: paymentMethod,
-        subscriptionId: subscription.id
+        subscriptionId: subscription.id,
+        successUrl: returnSuccessUrl,
+        failureUrl: returnFailureUrl
       });
       
       console.log("Resposta do serviço de pagamento:", paymentResponse);

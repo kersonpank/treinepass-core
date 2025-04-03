@@ -7,6 +7,14 @@ export async function handleCreateSubscription(data: any, apiKey: string, baseUr
     throw new Error('Subscription data incomplete. Customer and value are required.');
   }
 
+  // Add URLs de redirecionamento após pagamento
+  const subscriptionData = {
+    ...data,
+    callbackUrl: data.callbackUrl || process.env.WEBHOOK_URL,
+    successUrl: data.successUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/success",
+    failureUrl: data.failureUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/failure"
+  };
+
   // Make API request to Asaas
   const asaasResponse = await fetch(`${baseUrl}/subscriptions`, {
     method: 'POST',
@@ -14,20 +22,20 @@ export async function handleCreateSubscription(data: any, apiKey: string, baseUr
       'Content-Type': 'application/json',
       'access_token': apiKey
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(subscriptionData)
   });
 
   // Parse response
-  const subscriptionData = await asaasResponse.json();
-  console.log(`Asaas subscription response:`, subscriptionData);
+  const subscriptionResult = await asaasResponse.json();
+  console.log(`Asaas subscription response:`, subscriptionResult);
 
   if (!asaasResponse.ok) {
-    throw new Error(`Asaas API error: ${subscriptionData.errors?.[0]?.description || 'Unknown error'}`);
+    throw new Error(`Asaas API error: ${subscriptionResult.errors?.[0]?.description || 'Unknown error'}`);
   }
 
   // Get the invoice URL from the first payment
-  if (subscriptionData.id) {
-    const paymentsResponse = await fetch(`${baseUrl}/subscriptions/${subscriptionData.id}/payments`, {
+  if (subscriptionResult.id) {
+    const paymentsResponse = await fetch(`${baseUrl}/subscriptions/${subscriptionResult.id}/payments`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -39,12 +47,12 @@ export async function handleCreateSubscription(data: any, apiKey: string, baseUr
     console.log(`Asaas subscription payments:`, paymentsData);
 
     if (paymentsResponse.ok && paymentsData.data && paymentsData.data.length > 0) {
-      subscriptionData.invoiceUrl = paymentsData.data[0].invoiceUrl;
+      subscriptionResult.invoiceUrl = paymentsData.data[0].invoiceUrl;
     }
   }
 
   return {
     success: true,
-    ...subscriptionData
+    ...subscriptionResult
   };
 }
