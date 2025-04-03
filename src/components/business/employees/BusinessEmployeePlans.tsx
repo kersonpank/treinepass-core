@@ -35,8 +35,9 @@ export function BusinessEmployeePlans() {
         return;
       }
       
-      // Subscribe to the plan (the payment method is just a reference now)
-      // The actual payment method will be selected by the user in the Asaas checkout
+      // Subscribe to the plan - we're using "pix" as the default payment method
+      // but the actual payment method will be selected by the user in the Asaas checkout
+      // as we're using UNDEFINED billing type
       await handleSubscribe(planId, "pix");
       
       // Refresh user subscription data
