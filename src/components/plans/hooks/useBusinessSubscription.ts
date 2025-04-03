@@ -1,13 +1,15 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-export async function createBusinessSubscription(params: {
+interface BusinessSubscriptionData {
   businessId: string;
   planId: string;
   userId: string;
   paymentMethod: string;
-}) {
-  const { businessId, planId, userId, paymentMethod } = params;
+}
+
+export async function createBusinessSubscription(data: BusinessSubscriptionData) {
+  const { businessId, planId, userId, paymentMethod } = data;
   
   try {
     // Normalize payment method to a valid value
@@ -47,33 +49,37 @@ export async function createBusinessSubscription(params: {
   }
 }
 
-export async function updateSubscriptionPaymentDetails(params: {
+interface SubscriptionUpdateData {
   subscriptionId: string;
-  paymentLink: string;
+  paymentLink: string;  // Using consistent naming
   customerId: string;
   paymentMethod: string;
   totalValue: number;
-}) {
-  const { subscriptionId, paymentLink, customerId, totalValue } = params;
+}
+
+export async function updateSubscriptionPaymentDetails(data: SubscriptionUpdateData) {
+  const { subscriptionId, paymentLink, customerId, paymentMethod, totalValue } = data;
   
   try {
+    // Using asaas_payment_link which matches the DB schema
     const { error } = await supabase
       .from("business_plan_subscriptions")
-      .update({ 
+      .update({
         asaas_payment_link: paymentLink,
         asaas_customer_id: customerId,
+        payment_method: paymentMethod,
         total_value: totalValue
       })
       .eq("id", subscriptionId);
-    
+
     if (error) {
-      console.error("Erro ao atualizar dados da assinatura:", error);
+      console.error("Erro ao atualizar detalhes de pagamento:", error);
       throw error;
     }
     
     return true;
   } catch (error) {
-    console.error("Erro ao atualizar dados da assinatura:", error);
+    console.error("Erro ao atualizar detalhes de pagamento:", error);
     throw error;
   }
 }
