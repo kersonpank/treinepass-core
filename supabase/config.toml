@@ -1,3 +1,4 @@
 
 [functions.asaas-webhook]
 verify_jwt = false
+
