@@ -44,8 +44,8 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
     console.log(`Creating payment link with billing type: ${billingType}`);
     
     // Define URLs para redirecionamento após pagamento
-    const returnSuccessUrl = successUrl || `${window.location.origin}/payment/success`;
-    const returnFailureUrl = failureUrl || `${window.location.origin}/payment/failure`;
+    const returnSuccessUrl = successUrl || `${window.location.origin}/payment/success?subscription=${subscriptionId}`;
+    const returnFailureUrl = failureUrl || `${window.location.origin}/payment/failure?subscription=${subscriptionId}`;
     
     // Call Edge function to create payment in Asaas
     const { data, error } = await supabase.functions.invoke(

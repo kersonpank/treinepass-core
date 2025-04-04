@@ -18,18 +18,19 @@ export function usePaymentCreation() {
     paymentMethod: string
   ) => {
     try {
-      // Create or get Asaas customer
+      setIsProcessing(true);
+      
+      // Step 1: Create or get Asaas customer for this user
+      console.log("Creating or retrieving Asaas customer for user", user.id);
       const { asaasCustomerId, customerId } = await findOrCreateAsaasCustomer(
         user.id,
         userProfile
       );
 
-      console.log("Criando assinatura no Asaas:", {
-        customer: asaasCustomerId,
-        value: planDetails.monthly_cost,
-        description: planDetails.description || planDetails.name,
-        externalReference: newSubscription.id
-      });
+      console.log("Asaas customer ID:", asaasCustomerId);
+
+      // Step 2: Create payment link using the customer ID
+      console.log("Creating payment for subscription:", newSubscription.id);
 
       // Define URLs de redirecionamento para sucesso e falha
       const returnSuccessUrl = `${window.location.origin}/payment/success?subscription=${newSubscription.id}`;
@@ -46,11 +47,11 @@ export function usePaymentCreation() {
         failureUrl: returnFailureUrl
       });
 
-      console.log("Resposta do serviço de pagamento:", paymentResponse);
+      console.log("Payment service response:", paymentResponse);
       
       // Check for valid response - Support both payment object and direct paymentLink responses
       if (!paymentResponse || (!paymentResponse.payment && !paymentResponse.paymentLink && !paymentResponse.id)) {
-        throw new Error("Resposta de pagamento vazia ou inválida");
+        throw new Error("Empty or invalid payment response");
       }
       
       // Set defaults for response parsing
@@ -83,30 +84,34 @@ export function usePaymentCreation() {
         invoiceUrl = paymentLinkUrl; // Use paymentLink as invoiceUrl
       }
 
-      // Update subscription with payment link - use either one that's available
+      // Step 3: Update subscription with payment link and customer ID
       const paymentUrl = paymentLinkUrl || invoiceUrl;
       if (paymentUrl) {
-        await updateSubscriptionWithPaymentDetails(newSubscription.id, paymentUrl, asaasCustomerId);
-      } else {
-        console.warn("Nenhum URL de pagamento encontrado na resposta");
+        await updateSubscriptionWithPaymentDetails(
+          newSubscription.id, 
+          paymentUrl, 
+          asaasCustomerId
+        );
       }
 
-      // Prepare and return payment data
+      // Return payment data for further processing
       return {
         status: paymentStatus,
         value: paymentValue,
         dueDate: paymentDueDate,
         billingType: billingType,
-        invoiceUrl: invoiceUrl || paymentLinkUrl || "", // Use either URL that's available
+        invoiceUrl: invoiceUrl || paymentLinkUrl || "", 
         paymentId: paymentId,
-        paymentLink: paymentLinkUrl || invoiceUrl || "", // Use either URL that's available
+        paymentLink: paymentLinkUrl || invoiceUrl || "", 
         pix: pixData,
         customerId,
         asaasCustomerId
       };
     } catch (error: any) {
-      console.error("Erro ao processar pagamento:", error);
+      console.error("Error processing payment:", error);
       throw error;
+    } finally {
+      setIsProcessing(false);
     }
   };
 

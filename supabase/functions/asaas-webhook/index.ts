@@ -55,12 +55,14 @@ serve(async (req) => {
     const eventType = payload.event;
     const paymentStatus = payload.payment?.status;
     const externalReference = payload.payment?.externalReference || payload.subscription?.externalReference;
+    const customerData = payload.customer || {};
     
     console.log(`Processing ${eventType} event:`, {
       paymentId,
       subscriptionId,
       status: paymentStatus,
-      externalReference
+      externalReference,
+      customer: customerData?.id
     });
     
     // Save the webhook event to the database
@@ -113,6 +115,7 @@ serve(async (req) => {
                 payment_status: internalPaymentStatus,
                 status: internalSubscriptionStatus,
                 last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
+                next_payment_date: calculateNextPaymentDate(payload),
                 updated_at: new Date().toISOString()
               })
               .eq("id", directMatchSubscription.id);
@@ -170,6 +173,7 @@ serve(async (req) => {
                 payment_status: internalPaymentStatus,
                 status: internalSubscriptionStatus,
                 last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
+                next_payment_date: calculateNextPaymentDate(payload),
                 updated_at: new Date().toISOString()
               })
               .eq("id", paymentData.subscription_id);
@@ -183,6 +187,33 @@ serve(async (req) => {
         }
       } catch (err) {
         console.error("Error updating subscription status:", err);
+      }
+    }
+
+    // Also handle customer creation/update events
+    if (eventType.startsWith('CUSTOMER_') && customerData?.id) {
+      try {
+        // Check if we need to save/update this customer
+        const { data: existingCustomer } = await supabase
+          .from("asaas_customers")
+          .select("id")
+          .eq("asaas_id", customerData.id)
+          .maybeSingle();
+          
+        if (existingCustomer) {
+          // Update existing customer
+          await supabase
+            .from("asaas_customers")
+            .update({
+              name: customerData.name,
+              email: customerData.email,
+              cpf_cnpj: customerData.cpfCnpj,
+              updated_at: new Date().toISOString()
+            })
+            .eq("asaas_id", customerData.id);
+        }
+      } catch (err) {
+        console.error("Error processing customer data:", err);
       }
     }
 
@@ -231,5 +262,49 @@ function mapAsaasPaymentStatus(asaasStatus: string): string {
       return "cancelled";
     default:
       return "pending";
+  }
+}
+
+// Helper function to calculate next payment date based on subscription cycle
+function calculateNextPaymentDate(payload: any): string | null {
+  try {
+    // Get the current payment date or due date
+    const currentDate = payload.payment?.paymentDate || payload.payment?.dueDate;
+    
+    if (!currentDate) return null;
+    
+    // Get the subscription cycle or default to MONTHLY
+    const cycle = payload.subscription?.cycle || 'MONTHLY';
+    
+    // Calculate next payment date based on cycle
+    const date = new Date(currentDate);
+    
+    switch (cycle) {
+      case 'WEEKLY':
+        date.setDate(date.getDate() + 7);
+        break;
+      case 'BIWEEKLY':
+        date.setDate(date.getDate() + 14);
+        break;
+      case 'MONTHLY':
+        date.setMonth(date.getMonth() + 1);
+        break;
+      case 'QUARTERLY':
+        date.setMonth(date.getMonth() + 3);
+        break;
+      case 'SEMIANNUALLY':
+        date.setMonth(date.getMonth() + 6);
+        break;
+      case 'YEARLY':
+        date.setFullYear(date.getFullYear() + 1);
+        break;
+      default:
+        date.setMonth(date.getMonth() + 1); // Default to monthly
+    }
+    
+    return date.toISOString();
+  } catch (error) {
+    console.error("Error calculating next payment date:", error);
+    return null;
   }
 }

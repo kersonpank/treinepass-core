@@ -7,10 +7,10 @@ export async function handleCreatePaymentLink(data: any, apiKey: string, baseUrl
     throw new Error('Payment link data incomplete. Customer and value are required.');
   }
   
-  // Prepare payment link request body
+  // Prepare payment link request body with improved metadata
   const paymentLinkData = {
     customer: data.customer,
-    billingType: data.billingType || "UNDEFINED", // Allow customer to choose payment method
+    billingType: data.billingType || "UNDEFINED", // Allow customer to choose payment method if not specified
     value: data.value,
     name: data.name || "Assinatura de Plano",
     description: data.description || "Assinatura de plano", 

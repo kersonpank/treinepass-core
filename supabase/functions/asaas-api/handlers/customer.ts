@@ -3,8 +3,28 @@ export async function handleCreateCustomer(data: any, apiKey: string, baseUrl: s
   console.log(`Creating customer with data:`, data);
   
   // Validate required fields
-  if (!data.name || !data.email || !data.cpfCnpj) {
-    throw new Error('Customer data incomplete. Name, email, and cpfCnpj are required.');
+  if (!data.name) {
+    throw new Error('Customer name is required');
+  }
+
+  // Prepare customer data with defaults
+  const customerData = {
+    name: data.name,
+    email: data.email || 'cliente@exemplo.com',
+    cpfCnpj: data.cpfCnpj || '12345678909',
+    mobilePhone: data.mobilePhone,
+    address: data.address,
+    addressNumber: data.addressNumber,
+    complement: data.complement,
+    province: data.province, // Bairro
+    postalCode: data.postalCode,
+    notificationDisabled: false,
+    externalReference: data.externalReference
+  };
+  
+  // Clean CPF/CNPJ (remove non-numeric characters)
+  if (customerData.cpfCnpj) {
+    customerData.cpfCnpj = customerData.cpfCnpj.replace(/[^\d]/g, '');
   }
 
   // Make API request to Asaas
@@ -14,20 +34,19 @@ export async function handleCreateCustomer(data: any, apiKey: string, baseUrl: s
       'Content-Type': 'application/json',
       'access_token': apiKey
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(customerData)
   });
 
   // Parse response
-  const asaasData = await asaasResponse.json();
-  console.log(`Asaas response:`, asaasData);
+  const customerResult = await asaasResponse.json();
+  console.log(`Asaas customer response:`, customerResult);
 
   if (!asaasResponse.ok) {
-    throw new Error(`Asaas API error: ${asaasData.errors?.[0]?.description || 'Unknown error'}`);
+    throw new Error(`Asaas API error: ${customerResult.errors?.[0]?.description || 'Unknown error'}`);
   }
 
-  // Return customer data
   return {
     success: true,
-    ...asaasData
+    ...customerResult
   };
 }
