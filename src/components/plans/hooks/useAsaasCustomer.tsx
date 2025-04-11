@@ -6,6 +6,7 @@ interface CustomerData {
   email: string;
   cpfCnpj: string;
   mobilePhone?: string;
+  phone?: string;
   address?: string;
   addressNumber?: string;
   complement?: string;
@@ -33,16 +34,17 @@ export async function findOrCreateAsaasCustomer(
       };
     }
 
-    // If not found, we need to collect user data and create a customer in Asaas
+    // If not found, we need to collect user data to create a customer in Asaas
     let userData: CustomerData;
 
     if (profileData) {
       // If profile data was provided (for business customers)
       userData = {
         name: profileData.company_name || profileData.full_name || "Cliente",
-        email: profileData.email || "cliente@exemplo.com",
+        email: profileData.email || profileData.contact_email || "cliente@exemplo.com",
         cpfCnpj: profileData.cnpj || profileData.cpf || "12345678909",
-        mobilePhone: profileData.phone || profileData.telefone,
+        mobilePhone: profileData.phone || profileData.contact_phone || profileData.telefone,
+        phone: profileData.phone || profileData.contact_phone || profileData.telefone,
         address: profileData.address || profileData.endereco,
         postalCode: profileData.postal_code || profileData.cep
       };
@@ -66,6 +68,7 @@ export async function findOrCreateAsaasCustomer(
         email: userProfile?.email || user?.email || "cliente@exemplo.com",
         cpfCnpj: userProfile?.cpf || user?.user_metadata?.cpf || "12345678909",
         mobilePhone: userProfile?.phone || user?.user_metadata?.phone,
+        phone: userProfile?.phone || user?.phone_number || user?.user_metadata?.phone,
         address: userProfile?.address || user?.user_metadata?.address,
         postalCode: userProfile?.postal_code || user?.user_metadata?.postal_code
       };

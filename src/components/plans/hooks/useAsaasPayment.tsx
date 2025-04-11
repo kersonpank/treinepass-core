@@ -100,8 +100,8 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
   try {
     console.log("Salvando dados de pagamento:", paymentData);
     
-    // Use a valid status value that matches the database enum
-    const validStatus = paymentData.status || "PENDING";
+    // Convert Asaas status to our internal status format
+    const paymentStatus = mapAsaasStatusToInternal(paymentData.status);
     
     const { error } = await supabase
       .from("asaas_payments")
@@ -111,7 +111,7 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
         subscription_id: paymentData.subscriptionId,
         amount: paymentData.amount,
         billing_type: paymentData.billingType,
-        status: validStatus,
+        status: paymentStatus,
         due_date: paymentData.dueDate,
         invoice_url: paymentData.invoiceUrl,
         external_reference: paymentData.subscriptionId
@@ -126,5 +126,27 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
   } catch (error) {
     console.error("Erro ao salvar dados de pagamento:", error);
     throw error;
+  }
+}
+
+// Helper function to map Asaas status to our internal status
+function mapAsaasStatusToInternal(asaasStatus: string): string {
+  switch (asaasStatus) {
+    case "CONFIRMED":
+    case "RECEIVED":
+    case "RECEIVED_IN_CASH":
+      return "RECEIVED";
+    case "PENDING":
+    case "AWAITING_RISK_ANALYSIS":
+      return "PENDING";
+    case "OVERDUE":
+      return "OVERDUE";
+    case "REFUNDED":
+    case "REFUND_REQUESTED":
+      return "REFUNDED";
+    case "CANCELLED":
+      return "CANCELED";
+    default:
+      return "PENDING";
   }
 }

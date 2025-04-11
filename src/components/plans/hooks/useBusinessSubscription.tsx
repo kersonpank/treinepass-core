@@ -1,76 +1,80 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-interface BusinessSubscriptionData {
-  businessId: string;
-  planId: string;
-  userId: string;
-  paymentMethod: string;
-}
-
-export async function createBusinessSubscription(data: BusinessSubscriptionData) {
-  const { businessId, planId, userId, paymentMethod } = data;
-  
-  try {
-    // Make sure we're using the correct column names according to the database
-    const { data: newSubscription, error } = await supabase
-      .from("business_plan_subscriptions")
-      .insert({
-        business_id: businessId,
-        plan_id: planId,
-        user_id: userId,
-        start_date: new Date().toISOString(),
-        status: "pending",
-        payment_status: "pending",
-        payment_method: paymentMethod,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Erro na criação da assinatura:", error);
-      throw error;
-    }
-
-    console.log("Assinatura empresarial criada:", newSubscription);
-    return newSubscription;
-  } catch (error) {
-    console.error("Erro ao criar assinatura:", error);
-    throw error;
-  }
-}
-
-interface SubscriptionUpdateData {
+interface SubscriptionPaymentDetails {
   subscriptionId: string;
-  paymentLink: string;  // Using consistent naming
+  paymentLink: string;
   customerId: string;
   paymentMethod: string;
   totalValue: number;
 }
 
-export async function updateSubscriptionPaymentDetails(data: SubscriptionUpdateData) {
-  const { subscriptionId, paymentLink, customerId, paymentMethod, totalValue } = data;
-  
+export async function updateSubscriptionPaymentDetails(details: SubscriptionPaymentDetails) {
   try {
-    // Using asaas_payment_link which matches the DB schema
     const { error } = await supabase
       .from("business_plan_subscriptions")
       .update({
-        asaas_payment_link: paymentLink,
-        asaas_customer_id: customerId,
-        payment_method: paymentMethod,
-        total_value: totalValue
+        asaas_payment_link: details.paymentLink,
+        asaas_customer_id: details.customerId,
+        payment_method: details.paymentMethod,
+        total_value: details.totalValue,
+        updated_at: new Date().toISOString()
       })
-      .eq("id", subscriptionId);
+      .eq("id", details.subscriptionId);
 
     if (error) {
-      console.error("Erro ao atualizar detalhes de pagamento:", error);
+      console.error("Error updating subscription with payment details:", error);
       throw error;
     }
     
     return true;
   } catch (error) {
-    console.error("Erro ao atualizar detalhes de pagamento:", error);
+    console.error("Error updating subscription:", error);
+    throw error;
+  }
+}
+
+export async function getBusinessPlanSubscription(subscriptionId: string) {
+  try {
+    const { data, error } = await supabase
+      .from("business_plan_subscriptions")
+      .select(`
+        *,
+        business_profiles(*),
+        benefit_plans(*)
+      `)
+      .eq("id", subscriptionId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error fetching subscription:", error);
+    throw error;
+  }
+}
+
+export async function updateBusinessSubscriptionStatus(subscriptionId: string, status: string, paymentStatus: string) {
+  try {
+    const { error } = await supabase
+      .from("business_plan_subscriptions")
+      .update({
+        status,
+        payment_status: paymentStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", subscriptionId);
+
+    if (error) {
+      throw error;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error updating subscription status:", error);
     throw error;
   }
 }

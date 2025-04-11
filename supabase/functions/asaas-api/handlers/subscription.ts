@@ -7,19 +7,30 @@ export async function handleCreateSubscription(data: any, apiKey: string, baseUr
     throw new Error('Subscription data incomplete. Customer and value are required.');
   }
 
+  // Format next due date if provided as Date object
+  let nextDueDate = data.nextDueDate;
+  if (nextDueDate instanceof Date) {
+    nextDueDate = nextDueDate.toISOString().split('T')[0];
+  } else if (!nextDueDate) {
+    // Default to 7 days from now if not provided
+    nextDueDate = new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0];
+  }
+
   // Prepare subscription request
   const subscriptionData = {
-    ...data,
+    customer: data.customer,
+    billingType: data.billingType || "UNDEFINED", // Allow customer to choose
+    value: data.value,
+    nextDueDate: nextDueDate,
+    description: data.description || `Assinatura ${data.planName || 'TreinePass'}`,
+    cycle: data.cycle || "MONTHLY",
+    externalReference: data.externalReference,
     callbackUrl: data.callbackUrl || process.env.WEBHOOK_URL,
     successUrl: data.successUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/success",
     failureUrl: data.failureUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/failure",
-    // Ensure billing type is set to UNDEFINED to allow customer to choose
-    billingType: data.billingType || "UNDEFINED",
-    // Set default cycle if not provided
-    cycle: data.cycle || "MONTHLY",
-    // Set next due date if not provided (default to 7 days from now)
-    nextDueDate: data.nextDueDate || new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0]
   };
+
+  console.log("Sending subscription data to Asaas:", subscriptionData);
 
   // Make API request to Asaas
   const asaasResponse = await fetch(`${baseUrl}/subscriptions`, {

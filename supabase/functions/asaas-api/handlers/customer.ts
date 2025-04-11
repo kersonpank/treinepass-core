@@ -7,25 +7,25 @@ export async function handleCreateCustomer(data: any, apiKey: string, baseUrl: s
     throw new Error('Customer name is required');
   }
 
-  // Prepare customer data with defaults
+  // Clean CPF/CNPJ (remove non-numeric characters)
+  if (data.cpfCnpj) {
+    data.cpfCnpj = data.cpfCnpj.replace(/[^\d]/g, '');
+  }
+
+  // Prepare customer data with defaults for required Asaas fields
   const customerData = {
     name: data.name,
     email: data.email || 'cliente@exemplo.com',
     cpfCnpj: data.cpfCnpj || '12345678909',
-    mobilePhone: data.mobilePhone,
+    mobilePhone: data.mobilePhone || data.phone,
     address: data.address,
     addressNumber: data.addressNumber,
     complement: data.complement,
     province: data.province, // Bairro
     postalCode: data.postalCode,
-    notificationDisabled: false,
+    notificationDisabled: data.notificationDisabled || false,
     externalReference: data.externalReference
   };
-  
-  // Clean CPF/CNPJ (remove non-numeric characters)
-  if (customerData.cpfCnpj) {
-    customerData.cpfCnpj = customerData.cpfCnpj.replace(/[^\d]/g, '');
-  }
 
   // Make API request to Asaas
   const asaasResponse = await fetch(`${baseUrl}/customers`, {
