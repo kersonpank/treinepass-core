@@ -1,5 +1,7 @@
-
 type NestedValue = string | number | boolean | null | undefined;
+
+type PaymentMethod = 'CREDIT_CARD' | 'BOLETO' | 'PIX' | 'UNDEFINED';
+type PaymentCycle = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY';
 
 export const EVENT_TYPE_MAPPING: Record<string, string> = {
   "PAYMENT_CREATED": "Pagamento Criado",
@@ -16,6 +18,27 @@ export const EVENT_TYPE_MAPPING: Record<string, string> = {
   "SUBSCRIPTION_DELETED": "Assinatura Excluída",
   "SUBSCRIPTION_RENEWED": "Assinatura Renovada"
 };
+
+export interface AsaasCustomerData {
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  mobilePhone?: string;
+  address?: string;
+  addressNumber?: string;
+  postalCode?: string;
+}
+
+export interface AsaasSubscriptionData {
+  customer: string; // Asaas customer ID
+  billingType: PaymentMethod;
+  nextDueDate?: string;
+  value: number;
+  cycle: PaymentCycle;
+  description?: string;
+  externalReference?: string;
+  updatePendingPayments?: boolean;
+}
 
 export const getEventTypeLabel = (eventType: string): string => {
   return EVENT_TYPE_MAPPING[eventType] || eventType;
@@ -46,3 +69,12 @@ export const getNestedValue = (
   }
 };
 
+export const calculateNextDueDate = (days: number = 7): string => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+};
+
+export const cleanupCpfCnpj = (cpfCnpj: string): string => {
+  return cpfCnpj.replace(/[^\d]/g, '');
+};

@@ -34,8 +34,6 @@ export interface PaymentResponse {
 }
 
 export async function createAsaasPayment(config: PaymentConfig): Promise<PaymentResponse> {
-  const { customer, planName, planCost, paymentMethod, subscriptionId, successUrl, failureUrl } = config;
-  
   try {
     // For payment links, we'll use UNDEFINED to allow customer to choose payment method
     // This is the recommended approach from Asaas docs for payment links
@@ -44,8 +42,8 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
     console.log(`Creating payment link with billing type: ${billingType}`);
     
     // Define URLs para redirecionamento após pagamento
-    const returnSuccessUrl = successUrl || `${window.location.origin}/payment/success?subscription=${subscriptionId}`;
-    const returnFailureUrl = failureUrl || `${window.location.origin}/payment/failure?subscription=${subscriptionId}`;
+    const returnSuccessUrl = config.successUrl || `${window.location.origin}/payment/success?subscription=${config.subscriptionId}`;
+    const returnFailureUrl = config.failureUrl || `${window.location.origin}/payment/failure?subscription=${config.subscriptionId}`;
     
     // Call Edge function to create payment in Asaas
     const { data, error } = await supabase.functions.invoke(
@@ -54,14 +52,14 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
         body: {
           action: "createPaymentLink",
           data: {
-            customer,
+            customer: config.customer,
             billingType, // Use UNDEFINED to allow customer to choose payment method
-            value: planCost,
-            name: `Plano ${planName}`,
-            description: `Assinatura do plano ${planName}`,
+            value: config.planCost,
+            name: `Plano ${config.planName}`,
+            description: `Assinatura do plano ${config.planName}`,
             dueDateLimitDays: 5,
             chargeType: "DETACHED",
-            externalReference: subscriptionId,
+            externalReference: config.subscriptionId,
             maxInstallmentCount: 12, // Allow up to 12 installments for credit card
             notificationEnabled: true,
             successUrl: returnSuccessUrl,
@@ -72,15 +70,15 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
     );
 
     if (error) {
-      console.error("Erro no pagamento:", error);
+      console.error("Error in payment:", error);
       throw new Error(`Erro no processamento do pagamento: ${error.message}`);
     }
     
-    console.log("Resposta do createPaymentLink:", data);
+    console.log("Payment link response:", data);
     
     return data as PaymentResponse;
   } catch (error: any) {
-    console.error("Erro ao criar pagamento:", error);
+    console.error("Error creating payment:", error);
     throw error;
   }
 }
@@ -98,7 +96,7 @@ interface PaymentDataToSave {
 
 export async function savePaymentData(paymentData: PaymentDataToSave) {
   try {
-    console.log("Salvando dados de pagamento:", paymentData);
+    console.log("Saving payment data:", paymentData);
     
     // Convert Asaas status to our internal status format
     const paymentStatus = mapAsaasStatusToInternal(paymentData.status);
@@ -118,13 +116,13 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
       });
 
     if (error) {
-      console.error("Erro ao salvar dados de pagamento:", error);
+      console.error("Error saving payment data:", error);
       throw error;
     }
     
     return true;
   } catch (error) {
-    console.error("Erro ao salvar dados de pagamento:", error);
+    console.error("Error saving payment data:", error);
     throw error;
   }
 }
