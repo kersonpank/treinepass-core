@@ -13,6 +13,37 @@ export async function createSubscriptionRecord(userId: string, planId: string, p
       normalizedPaymentMethod = "pix";
     }
     
+    // First check if user has any active subscriptions
+    const { data: activeSubscriptions } = await supabase
+      .from("user_plan_subscriptions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .eq("payment_status", "paid");
+    
+    // If user already has active subscriptions, mark them as pending cancellation
+    if (activeSubscriptions && activeSubscriptions.length > 0) {
+      console.log("User has active subscriptions, marking them as pending cancellation");
+      await supabase
+        .from("user_plan_subscriptions")
+        .update({
+          status: "pending_cancellation"
+        })
+        .eq("user_id", userId)
+        .eq("status", "active");
+    }
+    
+    // Cancel any pending subscriptions
+    await supabase
+      .from("user_plan_subscriptions")
+      .update({
+        status: "cancelled",
+        updated_at: new Date().toISOString()
+      })
+      .eq("user_id", userId)
+      .eq("status", "pending");
+    
+    // Create the new subscription
     const { data: newSubscription, error: subscriptionError } = await supabase
       .from("user_plan_subscriptions")
       .insert({
