@@ -30,20 +30,31 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
   
   try {
     // Clean up customer data if provided
-    let cleanedCustomerData = null;
+    let customerData = null;
     if (data.customerData) {
-      cleanedCustomerData = {
+      // Remove undefined values and format data correctly
+      customerData = {
         name: data.customerData.name,
         cpfCnpj: data.customerData.cpfCnpj ? data.customerData.cpfCnpj.replace(/[^\d]/g, '') : '',
-        email: data.customerData.email,
-        phone: data.customerData.phone,
-        address: data.customerData.address,
-        addressNumber: data.customerData.addressNumber,
-        complement: data.customerData.complement,
-        postalCode: data.customerData.postalCode ? data.customerData.postalCode.replace(/[^\d]/g, '') : undefined,
-        province: data.customerData.province,
-        city: data.customerData.city
+        email: data.customerData.email
       };
+      
+      // Only add optional fields if they exist and are not undefined
+      if (data.customerData.phone) {
+        customerData.phone = data.customerData.phone.replace(/\D/g, '');
+      }
+      
+      if (typeof data.customerData.address === 'string') {
+        customerData.address = data.customerData.address;
+      }
+      
+      if (typeof data.customerData.postalCode === 'string') {
+        customerData.postalCode = data.customerData.postalCode.replace(/\D/g, '');
+      }
+      
+      if (typeof data.customerData.province === 'string') {
+        customerData.province = data.customerData.province;
+      }
     }
 
     // Prepare the checkout session request
@@ -51,19 +62,32 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
       billingTypes: data.billingTypes,
       chargeTypes: data.chargeTypes,
       minutesToExpire: data.minutesToExpire || 60,
-      callback: {
-        successUrl: data.callback?.successUrl,
-        failureUrl: data.callback?.failureUrl,
-        cancelUrl: data.callback?.cancelUrl || data.callback?.failureUrl // Fallback to failureUrl if cancelUrl not provided
-      },
       items: [{
         name: data.description,
         value: data.value,
         quantity: 1
       }],
-      customerData: cleanedCustomerData,
       externalReference: data.externalReference
     };
+    
+    // Only add callback URLs if they exist
+    if (data.callback) {
+      checkoutData['callback'] = {};
+      if (data.callback.successUrl) {
+        checkoutData['callback'].successUrl = data.callback.successUrl;
+      }
+      if (data.callback.failureUrl) {
+        checkoutData['callback'].failureUrl = data.callback.failureUrl;
+      }
+      if (data.callback.cancelUrl) {
+        checkoutData['callback'].cancelUrl = data.callback.cancelUrl || data.callback.failureUrl;
+      }
+    }
+    
+    // Only add customer data if it exists
+    if (customerData) {
+      checkoutData['customerData'] = customerData;
+    }
 
     console.log(`Sending checkout request to Asaas:`, JSON.stringify(checkoutData, null, 2));
 

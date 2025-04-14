@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "./cors.ts";
 import { getAsaasApiKey } from "./config.ts";
 import { handleAction } from "./actions.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -53,6 +54,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Import at the bottom to avoid Deno circular dependency issues
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";

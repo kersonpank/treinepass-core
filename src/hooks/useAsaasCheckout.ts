@@ -51,12 +51,23 @@ export function useAsaasCheckout() {
         ? paymentMethods 
         : ['CREDIT_CARD', 'PIX'];
 
+      // Clean customer data to ensure no undefined values
+      const cleanedCustomerData = customerData ? {
+        name: customerData.name,
+        cpfCnpj: customerData.cpfCnpj,
+        email: customerData.email,
+        phone: customerData.phone || undefined,
+        address: typeof customerData.address === 'string' ? customerData.address : undefined,
+        postalCode: typeof customerData.postalCode === 'string' ? customerData.postalCode : undefined,
+        province: typeof customerData.province === 'string' ? customerData.province : undefined
+      } : undefined;
+
       // Create payment session with customer data
       const { data: checkoutData, error } = await supabase.functions.invoke('asaas-api', {
         body: {
           action: "createCheckoutSession",
           data: {
-            customerData: customerData,
+            customerData: cleanedCustomerData,
             billingTypes: billingTypes,
             chargeTypes: ["DETACHED"], // Single payment
             value,

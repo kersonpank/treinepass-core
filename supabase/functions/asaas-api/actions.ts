@@ -1,43 +1,36 @@
 
+import { handleCreateCheckoutSession } from "./handlers/checkoutSession.ts";
 import { handleCreateCustomer } from "./handlers/customer.ts";
-import { handleCreatePayment, handleGetPayment } from "./handlers/payment.ts";
+import { handleCreatePayment } from "./handlers/payment.ts";
 import { handleCreatePaymentLink } from "./handlers/paymentLink.ts";
 import { handleCreateSubscription } from "./handlers/subscription.ts";
-import { handleCreateCheckoutSession } from "./handlers/checkoutSession.ts";
 
-export async function handleAction(action: string, data: any, apiKey: string, baseUrl: string, supabase: any) {
-  let response = {
-    success: false
-  };
-
+export async function handleAction(
+  action: string,
+  data: any,
+  apiKey: string,
+  baseUrl: string,
+  supabase: any
+) {
+  console.log(`Handling action: ${action}`);
+  
   switch (action) {
-    case 'createCustomer': 
-      response = await handleCreateCustomer(data, apiKey, baseUrl);
-      break;
-      
-    case 'createPayment':
-      response = await handleCreatePayment(data, apiKey, baseUrl);
-      break;
-      
-    case 'createPaymentLink':
-      response = await handleCreatePaymentLink(data, apiKey, baseUrl);
-      break;
-      
-    case 'createSubscription':
-      response = await handleCreateSubscription(data, apiKey, baseUrl);
-      break;
-      
-    case 'getPayment':
-      response = await handleGetPayment(data, apiKey, baseUrl);
-      break;
-      
-    case 'createCheckoutSession':
-      response = await handleCreateCheckoutSession(data, apiKey, baseUrl);
-      break;
-      
+    case "createCustomer":
+      return await handleCreateCustomer(data, apiKey, baseUrl);
+    
+    case "createPayment":
+      return await handleCreatePayment(data, apiKey, baseUrl);
+    
+    case "createPaymentLink":
+      return await handleCreatePaymentLink(data, apiKey, baseUrl);
+    
+    case "createSubscription":
+      return await handleCreateSubscription(data, apiKey, baseUrl);
+    
+    case "createCheckoutSession":
+      return await handleCreateCheckoutSession(data, apiKey, baseUrl);
+    
     default:
-      throw new Error(`Unsupported action: ${action}`);
+      throw new Error(`Action not supported: ${action}`);
   }
-
-  return response;
 }

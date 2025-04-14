@@ -55,10 +55,7 @@ export function usePaymentCreation() {
           name: profile.full_name,
           cpfCnpj: profile.cpf,
           email: profile.email,
-          phone: formattedPhone,
-          address: profile.address,
-          postalCode: profile.postal_code,
-          province: profile.province
+          phone: formattedPhone
         },
         successUrl: `${window.location.origin}/payment/success?subscription=${newSubscription.id}`,
         failureUrl: `${window.location.origin}/payment/failure?subscription=${newSubscription.id}`
@@ -77,10 +74,11 @@ export function usePaymentCreation() {
         })
         .eq("id", newSubscription.id);
 
-      // Redirect to checkout
-      window.location.href = checkoutResponse.checkoutUrl;
-      
-      return checkoutResponse;
+      return {
+        success: true,
+        checkoutUrl: checkoutResponse.checkoutUrl,
+        ...checkoutResponse.checkoutData
+      };
 
     } catch (error: any) {
       console.error("Error processing payment:", error);

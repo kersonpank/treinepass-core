@@ -43,7 +43,7 @@ export function useBusinessPaymentCreation() {
       const formattedPhone = businessProfile.phone ? businessProfile.phone.replace(/\D/g, '') : 
                              businessProfile.contact_phone ? businessProfile.contact_phone.replace(/\D/g, '') : undefined;
 
-      // Create checkout session
+      // Create checkout session with clean data
       const checkoutResponse = await createCheckoutSession({
         value: planDetails.monthly_cost,
         description: `Assinatura empresarial do plano ${planDetails.name}`,
@@ -53,8 +53,10 @@ export function useBusinessPaymentCreation() {
           cpfCnpj: businessProfile.cnpj,
           email: businessProfile.contact_email || businessProfile.email,
           phone: formattedPhone,
-          address: businessProfile.address,
-          postalCode: businessProfile.postal_code
+          // Only include address if it's a string
+          address: typeof businessProfile.address === 'string' ? businessProfile.address : undefined,
+          // Only include postal_code if it's a string
+          postalCode: typeof businessProfile.postal_code === 'string' ? businessProfile.postal_code : undefined
         },
         successUrl: returnSuccessUrl,
         failureUrl: returnFailureUrl
@@ -73,9 +75,7 @@ export function useBusinessPaymentCreation() {
         })
         .eq("id", subscription.id);
 
-      // Redirect to checkout
-      window.location.href = checkoutResponse.checkoutUrl;
-      
+      // Return success data
       return {
         success: true,
         checkoutUrl: checkoutResponse.checkoutUrl
