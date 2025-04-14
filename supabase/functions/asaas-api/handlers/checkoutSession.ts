@@ -26,9 +26,26 @@ interface CheckoutSessionData {
 }
 
 export async function handleCreateCheckoutSession(data: CheckoutSessionData, apiKey: string, baseUrl: string) {
-  console.log(`Creating checkout session with data:`, data);
+  console.log(`Creating checkout session with data:`, JSON.stringify(data, null, 2));
   
   try {
+    // Clean up customer data if provided
+    let cleanedCustomerData = null;
+    if (data.customerData) {
+      cleanedCustomerData = {
+        name: data.customerData.name,
+        cpfCnpj: data.customerData.cpfCnpj ? data.customerData.cpfCnpj.replace(/[^\d]/g, '') : '',
+        email: data.customerData.email,
+        phone: data.customerData.phone,
+        address: data.customerData.address,
+        addressNumber: data.customerData.addressNumber,
+        complement: data.customerData.complement,
+        postalCode: data.customerData.postalCode ? data.customerData.postalCode.replace(/[^\d]/g, '') : undefined,
+        province: data.customerData.province,
+        city: data.customerData.city
+      };
+    }
+
     // Prepare the checkout session request
     const checkoutData = {
       billingTypes: data.billingTypes,
@@ -37,24 +54,14 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
       callback: {
         successUrl: data.callback?.successUrl,
         failureUrl: data.callback?.failureUrl,
-        cancelUrl: data.callback?.failureUrl // Fallback to failureUrl if cancelUrl not provided
+        cancelUrl: data.callback?.cancelUrl || data.callback?.failureUrl // Fallback to failureUrl if cancelUrl not provided
       },
       items: [{
         name: data.description,
         value: data.value,
         quantity: 1
       }],
-      customerData: data.customerData ? {
-        name: data.customerData.name,
-        cpfCnpj: data.customerData.cpfCnpj.replace(/[^\d]/g, ''), // Clean CPF format
-        email: data.customerData.email,
-        phone: data.customerData.phone,
-        address: data.customerData.address,
-        addressNumber: data.customerData.addressNumber,
-        complement: data.customerData.complement,
-        postalCode: data.customerData.postalCode ? data.customerData.postalCode.replace(/[^\d]/g, '') : undefined,
-        province: data.customerData.province
-      } : undefined,
+      customerData: cleanedCustomerData,
       externalReference: data.externalReference
     };
 
@@ -78,11 +85,13 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
     const result = responseText ? JSON.parse(responseText) : {};
 
     if (!response.ok) {
-      throw new Error(`Asaas API error: ${result.errors?.[0]?.description || 'Unknown error'}`);
+      console.error(`Asaas API error:`, result);
+      throw new Error(`Asaas API error: ${result.errors?.[0]?.description || result.message || 'Unknown error'}`);
     }
 
     return {
       success: true,
+      checkoutUrl: `https://asaas.com/checkoutSession/show?id=${result.id}`,
       ...result
     };
   } catch (error) {

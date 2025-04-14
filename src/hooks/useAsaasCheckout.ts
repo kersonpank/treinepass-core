@@ -22,6 +22,7 @@ export interface AsaasCheckoutProps {
   customerData?: CustomerData;
   successUrl?: string;
   failureUrl?: string;
+  paymentMethods?: string[]; // e.g. ['CREDIT_CARD', 'PIX']
 }
 
 export function useAsaasCheckout() {
@@ -34,36 +35,38 @@ export function useAsaasCheckout() {
     externalReference,
     customerData,
     successUrl,
-    failureUrl
+    failureUrl,
+    paymentMethods = ['CREDIT_CARD', 'PIX']
   }: AsaasCheckoutProps) => {
     try {
       setIsLoading(true);
+      console.log("Creating checkout with data:", { 
+        value, description, externalReference, 
+        customerData: customerData ? {...customerData} : null,
+        successUrl, failureUrl
+      });
+
+      // Determine billing types based on payment methods
+      const billingTypes = paymentMethods && paymentMethods.length > 0 
+        ? paymentMethods 
+        : ['CREDIT_CARD', 'PIX'];
 
       // Create payment session with customer data
       const { data: checkoutData, error } = await supabase.functions.invoke('asaas-api', {
         body: {
           action: "createCheckoutSession",
           data: {
-            customerData: customerData ? {
-              name: customerData.name || "",
-              cpfCnpj: customerData.cpfCnpj ? customerData.cpfCnpj.replace(/[^\d]/g, '') : "", // Clean CPF format
-              email: customerData.email || "",
-              phone: customerData.phone,
-              address: customerData.address,
-              addressNumber: customerData.addressNumber,
-              complement: customerData.complement,
-              postalCode: customerData.postalCode ? customerData.postalCode.replace(/[^\d]/g, '') : undefined,
-              province: customerData.province
-            } : undefined,
-            billingTypes: ["CREDIT_CARD", "PIX"],
-            chargeTypes: ["DETACHED"],
+            customerData: customerData,
+            billingTypes: billingTypes,
+            chargeTypes: ["DETACHED"], // Single payment
             value,
             description,
             externalReference,
             minutesToExpire: 60, // Checkout link expires in 1 hour
             callback: {
               successUrl: successUrl || `${window.location.origin}/payment/success`,
-              failureUrl: failureUrl || `${window.location.origin}/payment/failure`
+              failureUrl: failureUrl || `${window.location.origin}/payment/failure`,
+              cancelUrl: `${window.location.origin}/payment/failure`
             }
           }
         }
@@ -74,14 +77,12 @@ export function useAsaasCheckout() {
         throw new Error(error.message || "Erro ao criar checkout");
       }
 
-      if (!checkoutData || !checkoutData.id) {
+      if (!checkoutData || !checkoutData.checkoutUrl) {
         console.error('Invalid checkout data returned:', checkoutData);
         throw new Error("Resposta inválida do serviço de pagamento");
       }
 
-      // Return the checkout URL
-      const checkoutUrl = `https://asaas.com/checkoutSession/show?id=${checkoutData.id}`;
-      return { success: true, checkoutUrl, checkoutData };
+      return { success: true, checkoutUrl: checkoutData.checkoutUrl, checkoutData };
 
     } catch (error: any) {
       console.error('Error creating checkout:', error);

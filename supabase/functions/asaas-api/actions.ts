@@ -3,6 +3,7 @@ import { handleCreateCustomer } from "./handlers/customer.ts";
 import { handleCreatePayment, handleGetPayment } from "./handlers/payment.ts";
 import { handleCreatePaymentLink } from "./handlers/paymentLink.ts";
 import { handleCreateSubscription } from "./handlers/subscription.ts";
+import { handleCreateCheckoutSession } from "./handlers/checkoutSession.ts";
 
 export async function handleAction(action: string, data: any, apiKey: string, baseUrl: string, supabase: any) {
   let response = {
@@ -28,6 +29,10 @@ export async function handleAction(action: string, data: any, apiKey: string, ba
       
     case 'getPayment':
       response = await handleGetPayment(data, apiKey, baseUrl);
+      break;
+      
+    case 'createCheckoutSession':
+      response = await handleCreateCheckoutSession(data, apiKey, baseUrl);
       break;
       
     default:

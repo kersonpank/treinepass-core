@@ -43,6 +43,9 @@ export function usePaymentCreation() {
         email: profile.email
       });
 
+      // Format phone number properly if it exists
+      const formattedPhone = profile.phone ? profile.phone.replace(/\D/g, '') : undefined;
+
       // Create checkout session
       const checkoutResponse = await createCheckoutSession({
         value: planDetails.monthly_cost,
@@ -52,7 +55,7 @@ export function usePaymentCreation() {
           name: profile.full_name,
           cpfCnpj: profile.cpf,
           email: profile.email,
-          phone: profile.phone,
+          phone: formattedPhone,
           address: profile.address,
           postalCode: profile.postal_code,
           province: profile.province
