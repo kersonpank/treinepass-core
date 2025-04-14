@@ -1,3 +1,4 @@
+
 type NestedValue = string | number | boolean | null | undefined;
 
 type PaymentMethod = 'CREDIT_CARD' | 'BOLETO' | 'PIX' | 'UNDEFINED';

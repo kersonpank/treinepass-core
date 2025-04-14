@@ -40,25 +40,64 @@ export function PaymentMonitoring() {
   const { data: payments, isLoading, refetch } = useQuery({
     queryKey: ["payments_monitoring"],
     queryFn: async () => {
+      // Modified query to use proper join with separate queries to avoid relation errors
       const { data, error } = await supabase
         .from("asaas_payments")
         .select(`
-          *,
-          asaas_customers(name, email, cpf_cnpj),
-          user_plan_subscriptions(
-            id,
-            user_id,
-            plan_id,
-            status,
-            payment_status,
-            benefit_plans(name)
-          )
+          *
         `)
         .order("created_at", { ascending: false })
         .limit(50);
 
       if (error) throw error;
-      return data;
+
+      // Fetch additional data separately
+      const paymentsWithDetails = await Promise.all(
+        data.map(async (payment) => {
+          // Get customer data
+          const { data: customerData } = await supabase
+            .from("asaas_customers")
+            .select("name, email, cpf_cnpj")
+            .eq("id", payment.customer_id)
+            .maybeSingle();
+
+          // Get subscription data
+          const { data: subscriptionData } = await supabase
+            .from("user_plan_subscriptions")
+            .select(`
+              id,
+              user_id,
+              plan_id
+            `)
+            .eq("id", payment.subscription_id)
+            .maybeSingle();
+
+          // Get plan data if subscription exists
+          let planData = null;
+          if (subscriptionData?.plan_id) {
+            const { data: planInfo } = await supabase
+              .from("benefit_plans")
+              .select("name")
+              .eq("id", subscriptionData.plan_id)
+              .maybeSingle();
+            
+            planData = planInfo;
+          }
+
+          return {
+            ...payment,
+            asaas_customers: customerData,
+            user_plan_subscriptions: subscriptionData ? {
+              id: subscriptionData.id,
+              user_id: subscriptionData.user_id,
+              plan_id: subscriptionData.plan_id,
+              benefit_plans: planData
+            } : null
+          };
+        })
+      );
+
+      return paymentsWithDetails;
     },
   });
 
@@ -125,45 +164,46 @@ export function PaymentMonitoring() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments?.length === 0 && (
+              {!payments || payments.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-24 text-center">
                     Nenhum pagamento encontrado
                   </TableCell>
                 </TableRow>
+              ) : (
+                payments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell className="font-medium">
+                      {payment.asaas_customers?.name || "N/A"}
+                      <div className="text-xs text-muted-foreground">
+                        {payment.asaas_customers?.email || "N/A"}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {payment.user_plan_subscriptions?.benefit_plans?.name || "N/A"}
+                      <div className="text-xs text-muted-foreground">
+                        {payment.subscription_id || "N/A"}
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatCurrency(payment.amount)}</TableCell>
+                    <TableCell>{getPaymentMethodLabel(payment.billing_type)}</TableCell>
+                    <TableCell>{formatDate(payment.due_date)}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={getStatusColor(payment.status)}
+                      >
+                        {payment.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {payment.payment_date 
+                        ? formatDate(payment.payment_date) 
+                        : "Pendente"}
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
-              {payments?.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell className="font-medium">
-                    {payment.asaas_customers?.name || "N/A"}
-                    <div className="text-xs text-muted-foreground">
-                      {payment.asaas_customers?.email || "N/A"}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {payment.user_plan_subscriptions?.benefit_plans?.name || "N/A"}
-                    <div className="text-xs text-muted-foreground">
-                      {payment.subscription_id || "N/A"}
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatCurrency(payment.amount)}</TableCell>
-                  <TableCell>{getPaymentMethodLabel(payment.billing_type)}</TableCell>
-                  <TableCell>{formatDate(payment.due_date)}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={getStatusColor(payment.status)}
-                    >
-                      {payment.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {payment.payment_date 
-                      ? formatDate(payment.payment_date) 
-                      : "Pendente"}
-                  </TableCell>
-                </TableRow>
-              ))}
             </TableBody>
           </Table>
         </div>

@@ -11,8 +11,9 @@ interface WebhookEventRowProps {
 }
 
 export function WebhookEventRow({ event, onViewPayload }: WebhookEventRowProps) {
-  const paymentStatus = getNestedValue(event.payload, 'payment.status');
-  const subscriptionStatus = getNestedValue(event.payload, 'subscription.status');
+  // Convert nested values to string to avoid type errors
+  const paymentStatus = String(getNestedValue(event.payload, 'payment.status') || '');
+  const subscriptionStatus = String(getNestedValue(event.payload, 'subscription.status') || '');
   const status = paymentStatus || subscriptionStatus;
 
   return (
