@@ -93,8 +93,7 @@ export function useSubscriptionCreation() {
           user,
           userProfile,
           planDetails,
-          newSubscription,
-          effectivePaymentMethod
+          newSubscription
         );
         
         // Save payment data
