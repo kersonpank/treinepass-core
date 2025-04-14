@@ -53,10 +53,11 @@ export function useBusinessPaymentCreation() {
           cpfCnpj: businessProfile.cnpj,
           email: businessProfile.contact_email || businessProfile.email,
           phone: formattedPhone,
-          // Only include address if it's a string
-          address: typeof businessProfile.address === 'string' ? businessProfile.address : undefined,
-          // Only include postal_code if it's a string
-          postalCode: typeof businessProfile.postal_code === 'string' ? businessProfile.postal_code : undefined
+          // Add required address fields with default values
+          address: typeof businessProfile.address === 'string' ? businessProfile.address : "Endereço não informado",
+          addressNumber: businessProfile.address_number || "S/N",
+          province: businessProfile.neighborhood || "Centro",
+          postalCode: typeof businessProfile.postal_code === 'string' ? businessProfile.postal_code : "00000000"
         },
         successUrl: returnSuccessUrl,
         failureUrl: returnFailureUrl

@@ -51,15 +51,18 @@ export function useAsaasCheckout() {
         ? paymentMethods 
         : ['CREDIT_CARD', 'PIX'];
 
-      // Clean customer data to ensure no undefined values
+      // Clean customer data to ensure no undefined values and add default address fields if missing
       const cleanedCustomerData = customerData ? {
         name: customerData.name,
         cpfCnpj: customerData.cpfCnpj,
         email: customerData.email,
         phone: customerData.phone || undefined,
-        address: typeof customerData.address === 'string' ? customerData.address : undefined,
-        postalCode: typeof customerData.postalCode === 'string' ? customerData.postalCode : undefined,
-        province: typeof customerData.province === 'string' ? customerData.province : undefined
+        // Required address fields with defaults if missing
+        address: customerData.address || "Endereço não informado",
+        addressNumber: customerData.addressNumber || "S/N",
+        province: customerData.province || "Centro",
+        postalCode: customerData.postalCode || "00000000",
+        complement: customerData.complement || undefined
       } : undefined;
 
       // Create payment session with customer data

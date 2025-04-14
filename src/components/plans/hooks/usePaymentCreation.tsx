@@ -55,7 +55,12 @@ export function usePaymentCreation() {
           name: profile.full_name,
           cpfCnpj: profile.cpf,
           email: profile.email,
-          phone: formattedPhone
+          phone: formattedPhone,
+          // Add required address fields with default values
+          address: profile.address || "Endereço não informado",
+          addressNumber: profile.address_number || "S/N", 
+          province: profile.neighborhood || "Centro",
+          postalCode: profile.postal_code || "00000000"
         },
         successUrl: `${window.location.origin}/payment/success?subscription=${newSubscription.id}`,
         failureUrl: `${window.location.origin}/payment/failure?subscription=${newSubscription.id}`

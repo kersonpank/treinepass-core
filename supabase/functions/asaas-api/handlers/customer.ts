@@ -18,11 +18,11 @@ export async function handleCreateCustomer(data: any, apiKey: string, baseUrl: s
     email: data.email || 'cliente@exemplo.com',
     cpfCnpj: data.cpfCnpj || '12345678909',
     mobilePhone: data.mobilePhone || data.phone,
-    address: data.address,
-    addressNumber: data.addressNumber,
+    address: data.address || "Endereço não informado",
+    addressNumber: data.addressNumber || "S/N",
     complement: data.complement,
-    province: data.province, // Bairro
-    postalCode: data.postalCode,
+    province: data.province || "Centro", // Bairro
+    postalCode: data.postalCode || "00000000",
     notificationDisabled: data.notificationDisabled || false,
     externalReference: data.externalReference
   };
@@ -32,7 +32,8 @@ export async function handleCreateCustomer(data: any, apiKey: string, baseUrl: s
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'access_token': apiKey
+      'access_token': apiKey,
+      'User-Agent': 'Lovable-FitPass-App'
     },
     body: JSON.stringify(customerData)
   });

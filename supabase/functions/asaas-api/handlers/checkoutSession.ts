@@ -32,11 +32,16 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
     // Clean up customer data if provided
     let customerData = null;
     if (data.customerData) {
-      // Remove undefined values and format data correctly
+      // Always include these required fields with default values if missing
       customerData = {
         name: data.customerData.name,
         cpfCnpj: data.customerData.cpfCnpj ? data.customerData.cpfCnpj.replace(/[^\d]/g, '') : '',
-        email: data.customerData.email
+        email: data.customerData.email,
+        // Required address fields with defaults if missing
+        address: data.customerData.address || "Endereço não informado",
+        addressNumber: data.customerData.addressNumber || "S/N",
+        province: data.customerData.province || "Centro",
+        postalCode: data.customerData.postalCode || "00000000"
       };
       
       // Only add optional fields if they exist and are not undefined
@@ -44,21 +49,13 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
         customerData.phone = data.customerData.phone.replace(/\D/g, '');
       }
       
-      if (typeof data.customerData.address === 'string') {
-        customerData.address = data.customerData.address;
-      }
-      
-      if (typeof data.customerData.postalCode === 'string') {
-        customerData.postalCode = data.customerData.postalCode.replace(/\D/g, '');
-      }
-      
-      if (typeof data.customerData.province === 'string') {
-        customerData.province = data.customerData.province;
+      if (data.customerData.complement) {
+        customerData.complement = data.customerData.complement;
       }
     }
 
     // Prepare the checkout session request
-    const checkoutData = {
+    const checkoutData: any = {
       billingTypes: data.billingTypes,
       chargeTypes: data.chargeTypes,
       minutesToExpire: data.minutesToExpire || 60,
@@ -72,21 +69,21 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
     
     // Only add callback URLs if they exist
     if (data.callback) {
-      checkoutData['callback'] = {};
+      checkoutData.callback = {};
       if (data.callback.successUrl) {
-        checkoutData['callback'].successUrl = data.callback.successUrl;
+        checkoutData.callback.successUrl = data.callback.successUrl;
       }
       if (data.callback.failureUrl) {
-        checkoutData['callback'].failureUrl = data.callback.failureUrl;
+        checkoutData.callback.failureUrl = data.callback.failureUrl;
       }
       if (data.callback.cancelUrl) {
-        checkoutData['callback'].cancelUrl = data.callback.cancelUrl || data.callback.failureUrl;
+        checkoutData.callback.cancelUrl = data.callback.cancelUrl || data.callback.failureUrl;
       }
     }
     
     // Only add customer data if it exists
     if (customerData) {
-      checkoutData['customerData'] = customerData;
+      checkoutData.customerData = customerData;
     }
 
     console.log(`Sending checkout request to Asaas:`, JSON.stringify(checkoutData, null, 2));
@@ -96,7 +93,8 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'access_token': apiKey
+        'access_token': apiKey,
+        'User-Agent': 'Lovable-FitPass-App'
       },
       body: JSON.stringify(checkoutData)
     });
@@ -115,7 +113,7 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
 
     return {
       success: true,
-      checkoutUrl: `https://asaas.com/checkoutSession/show?id=${result.id}`,
+      checkoutUrl: `https://asaas.com/checkoutSession/${result.id}`,
       ...result
     };
   } catch (error) {
