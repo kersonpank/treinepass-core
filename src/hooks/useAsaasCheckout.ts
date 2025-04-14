@@ -50,6 +50,18 @@ export function useAsaasCheckout() {
       const billingTypes = paymentMethods && paymentMethods.length > 0 
         ? paymentMethods 
         : ['CREDIT_CARD', 'PIX'];
+        
+      // Format postal code properly
+      let formattedPostalCode = "";
+      if (customerData?.postalCode) {
+        formattedPostalCode = customerData.postalCode.replace(/\D/g, '');
+        // Ensure it's 8 digits
+        if (formattedPostalCode.length !== 8) {
+          formattedPostalCode = "00000000";
+        }
+      } else {
+        formattedPostalCode = "00000000";
+      }
 
       // Clean customer data to ensure no undefined values and add default address fields if missing
       const cleanedCustomerData = customerData ? {
@@ -61,7 +73,7 @@ export function useAsaasCheckout() {
         address: customerData.address || "Endereço não informado",
         addressNumber: customerData.addressNumber || "S/N",
         province: customerData.province || "Centro",
-        postalCode: customerData.postalCode || "00000000",
+        postalCode: formattedPostalCode,
         complement: customerData.complement || undefined
       } : undefined;
 

@@ -32,6 +32,15 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
     // Clean up customer data if provided
     let customerData = null;
     if (data.customerData) {
+      // Format postal code to ensure it's 8 digits
+      let postalCode = data.customerData.postalCode || "00000000";
+      postalCode = postalCode.replace(/\D/g, '');
+      
+      // If postal code is empty or invalid, use a valid default
+      if (!postalCode || postalCode.length !== 8) {
+        postalCode = "00000000";
+      }
+      
       // Always include these required fields with default values if missing
       customerData = {
         name: data.customerData.name,
@@ -41,7 +50,7 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
         address: data.customerData.address || "Endereço não informado",
         addressNumber: data.customerData.addressNumber || "S/N",
         province: data.customerData.province || "Centro",
-        postalCode: data.customerData.postalCode || "00000000"
+        postalCode: postalCode
       };
       
       // Only add optional fields if they exist and are not undefined
@@ -52,6 +61,8 @@ export async function handleCreateCheckoutSession(data: CheckoutSessionData, api
       if (data.customerData.complement) {
         customerData.complement = data.customerData.complement;
       }
+      
+      console.log("Processed customer data:", customerData);
     }
 
     // Prepare the checkout session request

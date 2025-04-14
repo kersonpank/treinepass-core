@@ -11,6 +11,15 @@ export async function handleCreateCustomer(data: any, apiKey: string, baseUrl: s
   if (data.cpfCnpj) {
     data.cpfCnpj = data.cpfCnpj.replace(/[^\d]/g, '');
   }
+  
+  // Format postal code to ensure it's 8 digits
+  let postalCode = data.postalCode || "00000000";
+  postalCode = postalCode.replace(/\D/g, '');
+  
+  // If postal code is empty or invalid, use a valid default
+  if (!postalCode || postalCode.length !== 8) {
+    postalCode = "00000000";
+  }
 
   // Prepare customer data with defaults for required Asaas fields
   const customerData = {
@@ -22,7 +31,7 @@ export async function handleCreateCustomer(data: any, apiKey: string, baseUrl: s
     addressNumber: data.addressNumber || "S/N",
     complement: data.complement,
     province: data.province || "Centro", // Bairro
-    postalCode: data.postalCode || "00000000",
+    postalCode: postalCode,
     notificationDisabled: data.notificationDisabled || false,
     externalReference: data.externalReference
   };

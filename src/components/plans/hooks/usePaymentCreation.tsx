@@ -45,6 +45,13 @@ export function usePaymentCreation() {
 
       // Format phone number properly if it exists
       const formattedPhone = profile.phone ? profile.phone.replace(/\D/g, '') : undefined;
+      
+      // Format postal code properly
+      let postalCode = profile.postal_code || "00000000";
+      postalCode = postalCode.replace(/\D/g, '');
+      if (postalCode.length !== 8) {
+        postalCode = "00000000";
+      }
 
       // Create checkout session
       const checkoutResponse = await createCheckoutSession({
@@ -60,7 +67,7 @@ export function usePaymentCreation() {
           address: profile.address || "Endereço não informado",
           addressNumber: profile.address_number || "S/N", 
           province: profile.neighborhood || "Centro",
-          postalCode: profile.postal_code || "00000000"
+          postalCode: postalCode
         },
         successUrl: `${window.location.origin}/payment/success?subscription=${newSubscription.id}`,
         failureUrl: `${window.location.origin}/payment/failure?subscription=${newSubscription.id}`

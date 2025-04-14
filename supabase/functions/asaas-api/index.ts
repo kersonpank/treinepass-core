@@ -18,7 +18,7 @@ serve(async (req) => {
 
     // Get request body
     const { action, data } = await req.json();
-    console.log(`Processing ${action} with data:`, data);
+    console.log(`Processing ${action} with data:`, JSON.stringify(data, null, 2));
 
     // Get Asaas API configuration
     const { apiKey, baseUrl } = await getAsaasApiKey(supabase);
@@ -26,6 +26,7 @@ serve(async (req) => {
 
     // Process the action
     const response = await handleAction(action, data, apiKey, baseUrl, supabase);
+    console.log(`Response from ${action}:`, JSON.stringify(response, null, 2));
 
     return new Response(
       JSON.stringify(response),

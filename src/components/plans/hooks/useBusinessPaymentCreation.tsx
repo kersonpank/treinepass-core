@@ -42,6 +42,13 @@ export function useBusinessPaymentCreation() {
       // Format phone number properly if it exists
       const formattedPhone = businessProfile.phone ? businessProfile.phone.replace(/\D/g, '') : 
                              businessProfile.contact_phone ? businessProfile.contact_phone.replace(/\D/g, '') : undefined;
+      
+      // Format postal code properly
+      let postalCode = typeof businessProfile.postal_code === 'string' ? businessProfile.postal_code : "00000000";
+      postalCode = postalCode.replace(/\D/g, '');
+      if (postalCode.length !== 8) {
+        postalCode = "00000000";
+      }
 
       // Create checkout session with clean data
       const checkoutResponse = await createCheckoutSession({
@@ -57,7 +64,7 @@ export function useBusinessPaymentCreation() {
           address: typeof businessProfile.address === 'string' ? businessProfile.address : "Endereço não informado",
           addressNumber: businessProfile.address_number || "S/N",
           province: businessProfile.neighborhood || "Centro",
-          postalCode: typeof businessProfile.postal_code === 'string' ? businessProfile.postal_code : "00000000"
+          postalCode: postalCode
         },
         successUrl: returnSuccessUrl,
         failureUrl: returnFailureUrl
