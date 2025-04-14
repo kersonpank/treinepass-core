@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,17 @@ export function usePaymentCreation() {
         throw new Error(`Erro ao buscar perfil do usuário: ${profileError.message}`);
       }
 
+      // Ensure we have the minimum required customer data
+      if (!profile.full_name || !profile.cpf) {
+        throw new Error("Dados de usuário incompletos. Nome e CPF são obrigatórios.");
+      }
+
+      console.log("Creating checkout with profile data:", {
+        name: profile.full_name,
+        cpf: profile.cpf,
+        email: profile.email
+      });
+
       // Create checkout session
       const checkoutResponse = await createCheckoutSession({
         value: planDetails.monthly_cost,
@@ -42,15 +54,25 @@ export function usePaymentCreation() {
           email: profile.email,
           phone: profile.phone,
           address: profile.address,
-          postalCode: profile.postal_code
+          postalCode: profile.postal_code,
+          province: profile.province
         },
         successUrl: `${window.location.origin}/payment/success?subscription=${newSubscription.id}`,
         failureUrl: `${window.location.origin}/payment/failure?subscription=${newSubscription.id}`
       });
 
       if (!checkoutResponse.success) {
-        throw new Error("Erro ao criar sessão de pagamento");
+        throw new Error(checkoutResponse.error?.message || "Erro ao criar sessão de pagamento");
       }
+
+      // Update subscription with payment link
+      await supabase
+        .from("user_plan_subscriptions")
+        .update({
+          asaas_payment_link: checkoutResponse.checkoutUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", newSubscription.id);
 
       // Redirect to checkout
       window.location.href = checkoutResponse.checkoutUrl;

@@ -44,17 +44,17 @@ export function useAsaasCheckout() {
         body: {
           action: "createCheckoutSession",
           data: {
-            customerData: {
-              name: customerData?.name,
-              cpfCnpj: customerData?.cpfCnpj?.replace(/[^\d]/g, ''), // Clean CPF format
-              email: customerData?.email,
-              phone: customerData?.phone,
-              address: customerData?.address,
-              addressNumber: customerData?.addressNumber,
-              complement: customerData?.complement,
-              postalCode: customerData?.postalCode?.replace(/[^\d]/g, ''),
-              province: customerData?.province,
-            },
+            customerData: customerData ? {
+              name: customerData.name || "",
+              cpfCnpj: customerData.cpfCnpj ? customerData.cpfCnpj.replace(/[^\d]/g, '') : "", // Clean CPF format
+              email: customerData.email || "",
+              phone: customerData.phone,
+              address: customerData.address,
+              addressNumber: customerData.addressNumber,
+              complement: customerData.complement,
+              postalCode: customerData.postalCode ? customerData.postalCode.replace(/[^\d]/g, '') : undefined,
+              province: customerData.province
+            } : undefined,
             billingTypes: ["CREDIT_CARD", "PIX"],
             chargeTypes: ["DETACHED"],
             value,
@@ -69,11 +69,19 @@ export function useAsaasCheckout() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error from Asaas API:', error);
+        throw new Error(error.message || "Erro ao criar checkout");
+      }
+
+      if (!checkoutData || !checkoutData.id) {
+        console.error('Invalid checkout data returned:', checkoutData);
+        throw new Error("Resposta inválida do serviço de pagamento");
+      }
 
       // Return the checkout URL
       const checkoutUrl = `https://asaas.com/checkoutSession/show?id=${checkoutData.id}`;
-      return { success: true, checkoutUrl };
+      return { success: true, checkoutUrl, checkoutData };
 
     } catch (error: any) {
       console.error('Error creating checkout:', error);
