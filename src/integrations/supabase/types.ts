@@ -300,6 +300,7 @@ export type Database = {
       asaas_customers: {
         Row: {
           asaas_id: string
+          business_id: string | null
           cpf_cnpj: string
           created_at: string
           email: string
@@ -310,6 +311,7 @@ export type Database = {
         }
         Insert: {
           asaas_id: string
+          business_id?: string | null
           cpf_cnpj: string
           created_at?: string
           email: string
@@ -320,6 +322,7 @@ export type Database = {
         }
         Update: {
           asaas_id?: string
+          business_id?: string | null
           cpf_cnpj?: string
           created_at?: string
           email?: string
@@ -328,7 +331,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "asaas_customers_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       asaas_ids: {
         Row: {
@@ -370,7 +381,9 @@ export type Database = {
         Row: {
           amount: number
           asaas_id: string
+          asaas_payment_link: string | null
           billing_type: string
+          business_subscription_id: string | null
           created_at: string
           customer_id: string
           deleted: boolean | null
@@ -383,12 +396,12 @@ export type Database = {
           installment: number | null
           interest_value: number | null
           invoice_url: string | null
+          is_business: boolean | null
           net_amount: number | null
           next_due_date: string | null
           payment_cycle_id: string | null
           payment_date: string | null
           payment_date_limit: string | null
-          payment_link: string | null
           payment_method: string | null
           redirect_url: string | null
           status: Database["public"]["Enums"]["asaas_payment_status"]
@@ -402,7 +415,9 @@ export type Database = {
         Insert: {
           amount: number
           asaas_id: string
+          asaas_payment_link?: string | null
           billing_type: string
+          business_subscription_id?: string | null
           created_at?: string
           customer_id: string
           deleted?: boolean | null
@@ -415,12 +430,12 @@ export type Database = {
           installment?: number | null
           interest_value?: number | null
           invoice_url?: string | null
+          is_business?: boolean | null
           net_amount?: number | null
           next_due_date?: string | null
           payment_cycle_id?: string | null
           payment_date?: string | null
           payment_date_limit?: string | null
-          payment_link?: string | null
           payment_method?: string | null
           redirect_url?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
@@ -434,7 +449,9 @@ export type Database = {
         Update: {
           amount?: number
           asaas_id?: string
+          asaas_payment_link?: string | null
           billing_type?: string
+          business_subscription_id?: string | null
           created_at?: string
           customer_id?: string
           deleted?: boolean | null
@@ -447,12 +464,12 @@ export type Database = {
           installment?: number | null
           interest_value?: number | null
           invoice_url?: string | null
+          is_business?: boolean | null
           net_amount?: number | null
           next_due_date?: string | null
           payment_cycle_id?: string | null
           payment_date?: string | null
           payment_date_limit?: string | null
-          payment_link?: string | null
           payment_method?: string | null
           redirect_url?: string | null
           status?: Database["public"]["Enums"]["asaas_payment_status"]
@@ -465,6 +482,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "asaas_payments_business_subscription_id_fkey"
+            columns: ["business_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "business_plan_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "asaas_payments_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -476,13 +500,6 @@ export type Database = {
             columns: ["payment_cycle_id"]
             isOneToOne: false
             referencedRelation: "gym_payout_cycles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "asaas_payments_subscription_id_fkey"
-            columns: ["subscription_id"]
-            isOneToOne: false
-            referencedRelation: "user_plan_subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -812,36 +829,92 @@ export type Database = {
           },
         ]
       }
+      business_employees: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          id: string
+          role: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          id?: string
+          role?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_employees_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_plan_subscriptions: {
         Row: {
+          asaas_customer_id: string | null
+          asaas_payment_link: string | null
           business_id: string
           created_at: string
           end_date: string | null
           id: string
+          payment_method: string | null
+          payment_status: string | null
           plan_id: string
           start_date: string
           status: string
+          total_value: number | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
+          asaas_customer_id?: string | null
+          asaas_payment_link?: string | null
           business_id: string
           created_at?: string
           end_date?: string | null
           id?: string
+          payment_method?: string | null
+          payment_status?: string | null
           plan_id: string
           start_date?: string
           status?: string
+          total_value?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
+          asaas_customer_id?: string | null
+          asaas_payment_link?: string | null
           business_id?: string
           created_at?: string
           end_date?: string | null
           id?: string
+          payment_method?: string | null
+          payment_status?: string | null
           plan_id?: string
           start_date?: string
           status?: string
+          total_value?: number | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2118,23 +2191,15 @@ export type Database = {
     }
     Functions: {
       activate_subscription: {
-        Args: {
-          p_subscription_id: string
-        }
+        Args: { p_subscription_id: string }
         Returns: Json
       }
       asaas_api: {
-        Args: {
-          action: string
-          data: Json
-        }
+        Args: { action: string; data: Json }
         Returns: Json
       }
       calculate_financial_metrics: {
-        Args: {
-          p_start_date: string
-          p_end_date: string
-        }
+        Args: { p_start_date: string; p_end_date: string }
         Returns: {
           total_revenue: number
           total_transfers: number
@@ -2155,36 +2220,30 @@ export type Database = {
         }[]
       }
       can_user_check_in: {
-        Args: {
-          p_user_id: string
-          p_academia_id: string
-        }
+        Args: { p_user_id: string; p_academia_id: string }
         Returns: {
           can_check_in: boolean
           message: string
         }[]
       }
       check_active_subscription: {
-        Args: {
-          p_user_id: string
-        }
+        Args: { p_user_id: string }
         Returns: boolean
       }
       check_and_expire_plans: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      check_business_active_subscription: {
+        Args: { p_business_id: string }
+        Returns: boolean
+      }
       check_employee_limit: {
-        Args: {
-          business_id: string
-          plan_id: string
-        }
+        Args: { business_id: string; plan_id: string }
         Returns: boolean
       }
       check_subscription_status: {
-        Args: {
-          p_subscription_id: string
-        }
+        Args: { p_subscription_id: string }
         Returns: {
           subscription_status: string
           payment_status: string
@@ -2219,21 +2278,15 @@ export type Database = {
         }[]
       }
       check_user_asaas_data: {
-        Args: {
-          user_id: string
-        }
+        Args: { user_id: string }
         Returns: Json
       }
       check_user_by_cpf: {
-        Args: {
-          p_cpf: string
-        }
+        Args: { p_cpf: string }
         Returns: string
       }
       complete_payout_cycle: {
-        Args: {
-          p_cycle_id: string
-        }
+        Args: { p_cycle_id: string }
         Returns: {
           academia_id: string
           asaas_transfer_id: string | null
@@ -2277,10 +2330,7 @@ export type Database = {
         Returns: string
       }
       generate_check_in_token: {
-        Args: {
-          p_user_id: string
-          p_academia_id: string
-        }
+        Args: { p_user_id: string; p_academia_id: string }
         Returns: {
           access_token: string
           expires_at: string
@@ -2289,10 +2339,7 @@ export type Database = {
         }[]
       }
       generate_mobile_access_token: {
-        Args: {
-          p_user_id: string
-          p_academia_id: string
-        }
+        Args: { p_user_id: string; p_academia_id: string }
         Returns: {
           access_token: string
           expires_at: string
@@ -2301,10 +2348,7 @@ export type Database = {
         }[]
       }
       get_active_access_token: {
-        Args: {
-          p_user_id: string
-          p_academia_id: string
-        }
+        Args: { p_user_id: string; p_academia_id: string }
         Returns: {
           access_token: string
           expires_at: string
@@ -2319,71 +2363,84 @@ export type Database = {
           api_url: string
         }[]
       }
+      get_business_active_plans: {
+        Args: { p_business_id: string }
+        Returns: {
+          subscription_id: string
+          plan_id: string
+          plan_name: string
+          plan_type: string
+          monthly_cost: number
+          is_subsidized: boolean
+          start_date: string
+        }[]
+      }
       get_complete_user_data: {
-        Args: {
-          user_id: string
-        }
+        Args: { user_id: string }
         Returns: Json
       }
       get_date_from_timestamp: {
-        Args: {
-          ts: string
-        }
+        Args: { ts: string }
         Returns: string
       }
       get_user_access_types: {
-        Args: {
-          p_user_id: string
-        }
+        Args: { p_user_id: string }
         Returns: {
           type: Database["public"]["Enums"]["user_role_type"]
           profile_id: string
           details: Json
         }[]
       }
+      get_user_subsidized_plans: {
+        Args: { p_user_id: string }
+        Returns: {
+          id: string
+          name: string
+          description: string
+          monthly_cost: number
+          features: Json
+          plan_type: string
+          status: string
+          business_id: string
+          business_name: string
+        }[]
+      }
       get_valor_repasse_academia: {
-        Args: {
-          p_academia_id: string
-          p_num_checkins: number
-        }
+        Args: { p_academia_id: string; p_num_checkins: number }
         Returns: {
           valor_repasse: number
           origem: string
           descricao: string
         }[]
       }
-      is_gym_owner: {
-        Args: {
-          user_id: string
-        }
+      is_admin: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
-      link_asaas_subscription:
-        | {
-            Args: {
+      is_business_employee: {
+        Args: { user_id: string; business_id: string }
+        Returns: boolean
+      }
+      is_gym_owner: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
+      link_asaas_subscription: {
+        Args:
+          | {
               p_user_id: string
               p_asaas_subscription_id: string
               p_plan_id?: string
             }
-            Returns: Json
-          }
-        | {
-            Args: {
-              subscription_id: string
-              asaas_subscription_id: string
-            }
-            Returns: Json
-          }
+          | { subscription_id: string; asaas_subscription_id: string }
+        Returns: Json
+      }
       process_asaas_webhook: {
-        Args: {
-          payload: Json
-        }
+        Args: { payload: Json }
         Returns: Json
       }
       process_payment_webhook: {
-        Args: {
-          payload: Json
-        }
+        Args: { payload: Json }
         Returns: Json
       }
       register_academia_with_user: {
@@ -2411,9 +2468,7 @@ export type Database = {
         }[]
       }
       reprocess_failed_webhook_event: {
-        Args: {
-          webhook_event_id: string
-        }
+        Args: { webhook_event_id: string }
         Returns: Json
       }
       reprocess_failed_webhooks: {
@@ -2449,16 +2504,11 @@ export type Database = {
         Returns: undefined
       }
       update_webhook_function: {
-        Args: {
-          table_name: string
-        }
+        Args: { table_name: string }
         Returns: undefined
       }
       validate_access_token: {
-        Args: {
-          p_token: string
-          p_academia_id: string
-        }
+        Args: { p_token: string; p_academia_id: string }
         Returns: {
           valid: boolean
           message: string
@@ -2468,17 +2518,11 @@ export type Database = {
         }[]
       }
       validate_check_in: {
-        Args: {
-          p_user_id: string
-          p_academia_id: string
-        }
+        Args: { p_user_id: string; p_academia_id: string }
         Returns: boolean
       }
       validate_check_in_code: {
-        Args: {
-          p_code: string
-          p_academia_id: string
-        }
+        Args: { p_code: string; p_academia_id: string }
         Returns: {
           is_valid: boolean
           message: string
@@ -2488,10 +2532,7 @@ export type Database = {
         }[]
       }
       validate_check_in_rules: {
-        Args: {
-          p_user_id: string
-          p_academia_id: string
-        }
+        Args: { p_user_id: string; p_academia_id: string }
         Returns: {
           can_check_in: boolean
           message: string
@@ -2504,32 +2545,21 @@ export type Database = {
           remaining_monthly: number
         }[]
       }
-      validate_gym_check_in:
-        | {
-            Args: {
-              p_user_id: string
-              p_academia_id: string
-              p_qr_code: string
-            }
-            Returns: {
-              success: boolean
-              message: string
-              check_in_id: string
-            }[]
-          }
-        | {
-            Args: {
+      validate_gym_check_in: {
+        Args:
+          | { p_user_id: string; p_academia_id: string; p_qr_code: string }
+          | {
               p_user_id: string
               p_academia_id: string
               p_qr_code: string
               p_validation_method?: string
             }
-            Returns: {
-              success: boolean
-              message: string
-              check_in_id: string
-            }[]
-          }
+        Returns: {
+          success: boolean
+          message: string
+          check_in_id: string
+        }[]
+      }
     }
     Enums: {
       asaas_payment_status:
@@ -2595,27 +2625,29 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -2623,20 +2655,22 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -2644,20 +2678,22 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -2665,21 +2701,23 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof Database
@@ -2688,6 +2726,57 @@ export type CompositeTypes<
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      asaas_payment_status: [
+        "PENDING",
+        "RECEIVED",
+        "CONFIRMED",
+        "OVERDUE",
+        "REFUNDED",
+        "RECEIVED_IN_CASH",
+        "REFUND_REQUESTED",
+        "CHARGEBACK_REQUESTED",
+        "CHARGEBACK_DISPUTE",
+        "AWAITING_CHARGEBACK_REVERSAL",
+        "DUNNING_REQUESTED",
+        "CANCELED",
+      ],
+      check_in_validation_method: ["qr_code", "manual_code", "qr_scan"],
+      employee_invite_status: ["pending", "accepted", "rejected"],
+      entity_type: ["user", "business", "academia", "system"],
+      gym_role: ["gym_owner", "gym_admin", "gym_staff"],
+      payment_environment: ["sandbox", "production"],
+      payment_method: [
+        "credit_card",
+        "debit_card",
+        "pix",
+        "boleto",
+        "transfer",
+      ],
+      payment_status: [
+        "pending",
+        "paid",
+        "failed",
+        "cancelled",
+        "refunded",
+        "processing",
+      ],
+      plan_subscription_status: ["active", "pending", "expired", "cancelled"],
+      transaction_type: ["payment", "refund", "transfer", "fee", "adjustment"],
+      user_role_type: [
+        "individual",
+        "business",
+        "gym",
+        "admin",
+        "gym_owner",
+        "app_user",
+      ],
+    },
+  },
+} as const

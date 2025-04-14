@@ -1,3 +1,4 @@
+
 -- Create asaas_customers table
 CREATE TABLE IF NOT EXISTS public.asaas_customers (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

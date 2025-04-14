@@ -55,16 +55,18 @@ serve(async (req) => {
     const eventType = payload.event;
     const paymentStatus = payload.payment?.status;
     const externalReference = payload.payment?.externalReference || payload.subscription?.externalReference;
+    const customerData = payload.customer || {};
     
     console.log(`Processing ${eventType} event:`, {
       paymentId,
       subscriptionId,
       status: paymentStatus,
-      externalReference
+      externalReference,
+      customer: customerData?.id
     });
     
     // Save the webhook event to the database
-    const { data: webhookEvent, error: webhookError } = await supabase
+    await supabase
       .from("asaas_webhook_events")
       .insert({
         event_type: eventType,
@@ -72,14 +74,7 @@ serve(async (req) => {
         subscription_id: subscriptionId,
         payload,
         processed: false
-      })
-      .select()
-      .single();
-
-    if (webhookError) {
-      console.error("Error saving webhook event:", webhookError);
-      // Continue processing even if saving fails
-    }
+      });
 
     // Direct update to ensure UI reflects changes immediately
     if (eventType.startsWith('PAYMENT_') && paymentStatus) {
@@ -107,106 +102,68 @@ serve(async (req) => {
 
           if (!directMatchError && directMatchSubscription?.id) {
             // Update the subscription that matches the external reference
-            const { error: updateError } = await supabase
+            await supabase
               .from("user_plan_subscriptions")
               .update({
                 payment_status: internalPaymentStatus,
                 status: internalSubscriptionStatus,
                 last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
+                next_payment_date: calculateNextPaymentDate(payload),
                 updated_at: new Date().toISOString()
               })
               .eq("id", directMatchSubscription.id);
 
-            if (updateError) {
-              console.error("Error updating subscription by direct match:", updateError);
-            } else {
-              console.log(`Successfully updated subscription ${directMatchSubscription.id} status to ${internalPaymentStatus}`);
+            console.log(`Successfully updated subscription ${directMatchSubscription.id} status to ${internalPaymentStatus}`);
               
-              // If payment is paid/confirmed, cancel other pending subscriptions for this user
-              if (internalPaymentStatus === 'paid') {
-                // Get the user_id for this subscription
-                const { data: subscription, error: subscriptionError } = await supabase
+            // If payment is paid/confirmed, cancel other pending subscriptions for this user
+            if (internalPaymentStatus === 'paid') {
+              // Get the user_id for this subscription
+              const { data: subscription } = await supabase
+                .from("user_plan_subscriptions")
+                .select("user_id")
+                .eq("id", directMatchSubscription.id)
+                .single();
+              
+              if (subscription?.user_id) {
+                // Cancel other pending subscriptions for this user
+                await supabase
                   .from("user_plan_subscriptions")
-                  .select("user_id")
-                  .eq("id", directMatchSubscription.id)
-                  .single();
+                  .update({
+                    status: 'cancelled',
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("user_id", subscription.user_id)
+                  .eq("status", "pending")
+                  .neq("id", directMatchSubscription.id);
                 
-                if (!subscriptionError && subscription?.user_id) {
-                  // Cancel other pending subscriptions for this user
-                  const { error: cancelError } = await supabase
-                    .from("user_plan_subscriptions")
-                    .update({
-                      status: 'cancelled',
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq("user_id", subscription.user_id)
-                    .eq("status", "pending")
-                    .neq("id", directMatchSubscription.id);
-                  
-                  if (cancelError) {
-                    console.error("Error cancelling other pending subscriptions:", cancelError);
-                  } else {
-                    console.log(`Successfully cancelled other pending subscriptions for user ${subscription.user_id}`);
-                  }
-                }
+                console.log(`Cancelled other pending subscriptions for user ${subscription.user_id}`);
               }
             }
           }
         }
 
-        // If not found by external reference, try to find by looking at asaas_subscription_id
-        if (subscriptionId) {
-          const { data: subscriptionData, error: subscriptionError } = await supabase
-            .from("user_plan_subscriptions")
-            .select("id")
-            .eq("asaas_subscription_id", subscriptionId)
-            .maybeSingle();
-
-          if (!subscriptionError && subscriptionData?.id) {
-            // Update the subscription that matches the asaas_subscription_id
-            const { error: updateError } = await supabase
-              .from("user_plan_subscriptions")
-              .update({
-                payment_status: internalPaymentStatus,
-                status: internalSubscriptionStatus,
-                last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
-                updated_at: new Date().toISOString()
-              })
-              .eq("id", subscriptionData.id);
-
-            if (updateError) {
-              console.error("Error updating subscription by asaas_subscription_id:", updateError);
-            } else {
-              console.log(`Successfully updated subscription ${subscriptionData.id} status to ${internalPaymentStatus}`);
-            }
-          }
-        }
-
-        // If still not found, try to find by looking at asaas_payments
+        // If not found by external reference, try to find by looking at asaas_payments
         if (paymentId) {
-          const { data: paymentData, error: paymentError } = await supabase
+          const { data: paymentData } = await supabase
             .from("asaas_payments")
             .select("subscription_id")
             .eq("asaas_id", paymentId)
             .maybeSingle();
 
-          if (!paymentError && paymentData?.subscription_id) {
+          if (paymentData?.subscription_id) {
             // Update the subscription that's linked to this payment
-            const { error: updateError } = await supabase
+            await supabase
               .from("user_plan_subscriptions")
               .update({
                 payment_status: internalPaymentStatus,
                 status: internalSubscriptionStatus,
                 last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
+                next_payment_date: calculateNextPaymentDate(payload),
                 updated_at: new Date().toISOString()
               })
               .eq("id", paymentData.subscription_id);
 
-            if (updateError) {
-              console.error("Error updating subscription through payment:", updateError);
-            } else {
-              console.log(`Successfully updated subscription ${paymentData.subscription_id} status to ${internalPaymentStatus}`);
-            }
+            console.log(`Updated subscription ${paymentData.subscription_id} status to ${internalPaymentStatus}`);
           }
         }
       } catch (err) {
@@ -214,80 +171,86 @@ serve(async (req) => {
       }
     }
 
-    // Handle subscription events
-    if (eventType.startsWith('SUBSCRIPTION_')) {
+    // Handle business plan subscriptions separately
+    if (eventType.startsWith('PAYMENT_') && paymentStatus && externalReference) {
       try {
-        const subscriptionStatus = payload.subscription?.status;
-        const internalStatus = subscriptionStatus === 'ACTIVE' ? 'active' : 'cancelled';
+        // Map Asaas payment status to our internal status
+        const internalPaymentStatus = mapAsaasPaymentStatus(paymentStatus);
+        const internalSubscriptionStatus = internalPaymentStatus === 'paid' ? 'active' : 
+                                         (internalPaymentStatus === 'overdue' ? 'overdue' : 
+                                          (internalPaymentStatus === 'cancelled' || internalPaymentStatus === 'refunded' ? 'cancelled' : 'pending'));
         
-        console.log(`Processing subscription event:`, {
-          subscriptionId,
-          externalReference,
-          status: subscriptionStatus,
-          internalStatus
-        });
+        // Try to find business subscription by external reference
+        const { data: directMatchSubscription } = await supabase
+          .from("business_plan_subscriptions")
+          .select("id")
+          .eq("id", externalReference)
+          .maybeSingle();
 
-        if (externalReference && subscriptionId) {
-          // Find the subscription by external reference
-          const { data: subscriptionData, error: subscriptionError } = await supabase
-            .from("user_plan_subscriptions")
-            .select("id")
-            .eq("id", externalReference)
-            .maybeSingle();
+        if (directMatchSubscription?.id) {
+          // Update the business subscription
+          await supabase
+            .from("business_plan_subscriptions")
+            .update({
+              payment_status: internalPaymentStatus,
+              status: internalSubscriptionStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq("id", directMatchSubscription.id);
 
-          if (!subscriptionError && subscriptionData?.id) {
-            // Update subscription with Asaas ID and status
-            const { error: updateError } = await supabase
-              .from("user_plan_subscriptions")
-              .update({
-                asaas_subscription_id: subscriptionId,
-                status: internalStatus,
-                updated_at: new Date().toISOString()
-              })
-              .eq("id", subscriptionData.id);
-
-            if (updateError) {
-              console.error("Error updating subscription with Asaas ID:", updateError);
-            } else {
-              console.log(`Successfully updated subscription ${subscriptionData.id} with Asaas ID ${subscriptionId}`);
-            }
-          }
+          console.log(`Updated business subscription ${directMatchSubscription.id} status to ${internalPaymentStatus}`);
         }
       } catch (err) {
-        console.error("Error processing subscription event:", err);
+        console.error("Error updating business subscription status:", err);
       }
     }
 
-    // Mark webhook event as processed
-    if (webhookEvent?.id) {
-      await supabase
-        .from("asaas_webhook_events")
-        .update({
-          processed: true,
-          processed_at: new Date().toISOString()
-        })
-        .eq("id", webhookEvent.id);
+    // Also handle customer creation/update events
+    if (eventType.startsWith('CUSTOMER_') && customerData?.id) {
+      try {
+        // Check if we need to save/update this customer
+        const { data: existingCustomer } = await supabase
+          .from("asaas_customers")
+          .select("id")
+          .eq("asaas_id", customerData.id)
+          .maybeSingle();
+          
+        if (existingCustomer) {
+          // Update existing customer
+          await supabase
+            .from("asaas_customers")
+            .update({
+              name: customerData.name,
+              email: customerData.email,
+              cpf_cnpj: customerData.cpfCnpj,
+              updated_at: new Date().toISOString()
+            })
+            .eq("asaas_id", customerData.id);
+        }
+      } catch (err) {
+        console.error("Error processing customer data:", err);
+      }
     }
 
     return new Response(
       JSON.stringify({ 
-        success: true,
-        message: "Webhook processed successfully",
-        event: eventType,
-        payment_id: paymentId,
-        subscription_id: subscriptionId,
-      }), {
+        success: true, 
+        message: "Webhook received and processed" 
+      }),
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       }
     );
-  } catch (err) {
-    console.error("Error processing webhook:", err);
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    
     return new Response(
       JSON.stringify({ 
-        success: false, 
-        message: err.message 
-      }), {
+        error: "Internal server error", 
+        details: error.message 
+      }),
+      {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
       }
@@ -295,31 +258,68 @@ serve(async (req) => {
   }
 });
 
-/**
- * Maps Asaas payment status to our internal payment status
- */
+// Helper function to map Asaas status to our internal status
 function mapAsaasPaymentStatus(asaasStatus: string): string {
-  const statusMap: Record<string, string> = {
-    'CONFIRMED': 'paid',
-    'RECEIVED': 'paid',
-    'RECEIVED_IN_CASH': 'paid',
-    'PAYMENT_APPROVED_BY_RISK_ANALYSIS': 'paid',
-    'PENDING': 'pending',
-    'AWAITING_RISK_ANALYSIS': 'pending',
-    'AWAITING_CHARGEBACK_REVERSAL': 'pending',
-    'OVERDUE': 'overdue',
-    'REFUNDED': 'refunded',
-    'REFUND_REQUESTED': 'refunded',
-    'REFUND_IN_PROGRESS': 'refunded',
-    'PARTIALLY_REFUNDED': 'refunded',
-    'CHARGEBACK_REQUESTED': 'refunded',
-    'CHARGEBACK_DISPUTE': 'refunded',
-    'DUNNING_REQUESTED': 'overdue',
-    'DUNNING_RECEIVED': 'overdue',
-    'CANCELLED': 'cancelled',
-    'PAYMENT_DELETED': 'cancelled',
-    'PAYMENT_REPROVED_BY_RISK_ANALYSIS': 'failed'
-  };
-  
-  return statusMap[asaasStatus] || 'pending';
+  switch (asaasStatus) {
+    case "CONFIRMED":
+    case "RECEIVED":
+    case "RECEIVED_IN_CASH":
+      return "paid";
+    case "PENDING":
+    case "AWAITING_RISK_ANALYSIS":
+      return "pending";
+    case "OVERDUE":
+      return "overdue";
+    case "REFUNDED":
+    case "REFUND_REQUESTED":
+      return "refunded";
+    case "CANCELLED":
+      return "cancelled";
+    default:
+      return "pending";
+  }
+}
+
+// Helper function to calculate next payment date based on subscription cycle
+function calculateNextPaymentDate(payload: any): string | null {
+  try {
+    // Get the current payment date or due date
+    const currentDate = payload.payment?.paymentDate || payload.payment?.dueDate;
+    
+    if (!currentDate) return null;
+    
+    // Get the subscription cycle or default to MONTHLY
+    const cycle = payload.subscription?.cycle || 'MONTHLY';
+    
+    // Calculate next payment date based on cycle
+    const date = new Date(currentDate);
+    
+    switch (cycle) {
+      case 'WEEKLY':
+        date.setDate(date.getDate() + 7);
+        break;
+      case 'BIWEEKLY':
+        date.setDate(date.getDate() + 14);
+        break;
+      case 'MONTHLY':
+        date.setMonth(date.getMonth() + 1);
+        break;
+      case 'QUARTERLY':
+        date.setMonth(date.getMonth() + 3);
+        break;
+      case 'SEMIANNUALLY':
+        date.setMonth(date.getMonth() + 6);
+        break;
+      case 'YEARLY':
+        date.setFullYear(date.getFullYear() + 1);
+        break;
+      default:
+        date.setMonth(date.getMonth() + 1); // Default to monthly
+    }
+    
+    return date.toISOString();
+  } catch (error) {
+    console.error("Error calculating next payment date:", error);
+    return null;
+  }
 }

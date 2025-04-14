@@ -91,8 +91,8 @@ export function BusinessPlans() {
         return;
       }
       
-      // Subscribe to the plan with PIX payment method
-      await handleSubscribe(planId, "pix");
+      // Subscribe to the plan with UNDEFINED payment method to let customer choose
+      await handleSubscribe(planId, "undefined");
       
       // Refresh subscription data
       setTimeout(() => {

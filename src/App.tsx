@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
@@ -15,6 +16,7 @@ import AdminLayout from "./components/admin/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
 import { AdminProvider } from "./contexts/AdminContext";
 import { Toaster } from "@/components/ui/toaster";
+import PaymentStatus from "./pages/PaymentStatus";
 import "./App.css";
 
 const BackButton = () => {
@@ -55,6 +57,9 @@ function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route path="dashboard" element={<AdminDashboard />} />
           </Route>
+          {/* Rotas de pagamento */}
+          <Route path="/payment/success" element={<PaymentStatus />} />
+          <Route path="/payment/failure" element={<PaymentStatus />} />
         </Routes>
         <Toaster />
       </Router>
