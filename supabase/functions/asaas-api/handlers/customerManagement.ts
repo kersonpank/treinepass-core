@@ -1,170 +1,89 @@
-/**
- * Handlers for Asaas customer management
- */
-
-interface AsaasCustomerData {
-  name: string;
-  cpfCnpj: string;
-  email: string;
-  phone?: string;
-  mobilePhone?: string;
-  address?: string;
-  addressNumber?: string;
-  complement?: string;
-  province?: string;
-  postalCode?: string;
-  externalReference?: string;
-  notificationDisabled?: boolean;
-  additionalEmails?: string;
-  municipalInscription?: string;
-  stateInscription?: string;
-  observations?: string;
-}
 
 /**
- * Find a customer by CPF/CNPJ
+ * Handler para criar/buscar cliente no Asaas
  */
-export async function findCustomerByCpfCnpj(cpfCnpj: string, apiKey: string, baseUrl: string) {
+
+export async function handleCreateCustomer(data: any, apiKey: string, baseUrl: string) {
+  console.log("Creating/finding customer with data:", data);
+  
   try {
-    // Format CPF/CNPJ - remove non-numeric characters
-    const formattedCpfCnpj = cpfCnpj.replace(/[^\d]/g, '');
+    // Validar dados obrigatórios
+    if (!data.name || !data.cpfCnpj || !data.email) {
+      throw new Error("Name, CPF/CNPJ and email are required");
+    }
     
-    console.log(`Searching for customer with CPF/CNPJ: ${formattedCpfCnpj}`);
+    // Formatar CPF/CNPJ - remover caracteres especiais
+    data.cpfCnpj = data.cpfCnpj.replace(/[^\d]/g, '');
     
-    // Search for customer by CPF/CNPJ
-    const response = await fetch(`${baseUrl}/customers?cpfCnpj=${formattedCpfCnpj}`, {
+    // Formatar CEP - garantir que tenha 8 dígitos
+    if (data.postalCode) {
+      data.postalCode = data.postalCode.replace(/[^\d]/g, '');
+      // Se o CEP não tiver 8 dígitos, usar um valor padrão válido
+      if (data.postalCode.length !== 8) {
+        data.postalCode = "01310930"; // CEP válido para São Paulo (Av. Paulista)
+      }
+    } else {
+      data.postalCode = "01310930"; // CEP padrão válido
+    }
+    
+    // Garantir que temos dados de endereço padrão se não fornecidos
+    if (!data.address) data.address = "Av Paulista";
+    if (!data.addressNumber) data.addressNumber = "1000";
+    if (!data.province) data.province = "Bela Vista";
+    
+    // Verificar se o cliente já existe pelo CPF/CNPJ
+    const searchResponse = await fetch(`${baseUrl}/customers?cpfCnpj=${data.cpfCnpj}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'access_token': apiKey
+        'access_token': apiKey,
+        'User-Agent': 'TreinePass-App'
       }
     });
 
-    const responseData = await response.json();
-    console.log(`Customer search response:`, responseData);
-
-    if (response.ok && responseData.data && responseData.data.length > 0) {
-      // Return the first customer found
+    const searchResult = await searchResponse.json();
+    
+    // Se encontrou o cliente, retornar
+    if (searchResponse.ok && searchResult.data && searchResult.data.length > 0) {
+      console.log("Customer already exists:", searchResult.data[0]);
       return {
         success: true,
-        customer: responseData.data[0]
+        id: searchResult.data[0].id,
+        name: searchResult.data[0].name,
+        email: searchResult.data[0].email,
+        cpfCnpj: searchResult.data[0].cpfCnpj
       };
     }
-
-    return {
-      success: false,
-      message: 'Customer not found'
-    };
-  } catch (error) {
-    console.error('Error finding customer:', error);
-    return {
-      success: false,
-      message: `Error finding customer: ${error.message || 'Unknown error'}`
-    };
-  }
-}
-
-/**
- * Create a new customer in Asaas
- */
-export async function createCustomer(customerData: AsaasCustomerData, apiKey: string, baseUrl: string) {
-  try {
-    console.log(`Creating new customer:`, customerData);
     
-    // Format CPF/CNPJ - remove non-numeric characters
-    const formattedCpfCnpj = customerData.cpfCnpj.replace(/[^\d]/g, '');
-    
-    // Format phone numbers - remove non-numeric characters
-    let phone = customerData.phone;
-    if (phone) {
-      phone = phone.replace(/[^\d]/g, '');
-    }
-    
-    // Format postal code - remove non-numeric characters
-    let postalCode = customerData.postalCode;
-    if (postalCode) {
-      postalCode = postalCode.replace(/[^\d]/g, '');
-      // Ensure it's a valid postal code
-      if (!postalCode || postalCode.length !== 8 || postalCode === "00000000") {
-        postalCode = "01310930"; // Default to a valid postal code (Av. Paulista, SP)
-      }
-    }
-    
-    // Prepare customer data with formatted values
-    const formattedCustomerData = {
-      ...customerData,
-      cpfCnpj: formattedCpfCnpj,
-      phone: phone,
-      postalCode: postalCode
-    };
-    
-    // Create customer in Asaas
-    const response = await fetch(`${baseUrl}/customers`, {
+    // Se não encontrou, criar um novo cliente
+    const createResponse = await fetch(`${baseUrl}/customers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'access_token': apiKey
+        'access_token': apiKey,
+        'User-Agent': 'TreinePass-App'
       },
-      body: JSON.stringify(formattedCustomerData)
+      body: JSON.stringify(data)
     });
 
-    const responseData = await response.json();
-    console.log(`Customer creation response:`, responseData);
-
-    if (!response.ok) {
-      throw new Error(responseData.errors?.[0]?.description || responseData.message || 'Unknown error');
+    const createResult = await createResponse.json();
+    
+    if (!createResponse.ok) {
+      console.error("Asaas API error:", createResult);
+      throw new Error(createResult.errors?.[0]?.description || 'Unknown error creating customer');
     }
 
+    console.log("Customer created successfully:", createResult);
+    
     return {
       success: true,
-      customer: responseData
+      id: createResult.id,
+      name: createResult.name,
+      email: createResult.email,
+      cpfCnpj: createResult.cpfCnpj
     };
   } catch (error) {
-    console.error('Error creating customer:', error);
-    return {
-      success: false,
-      message: `Error creating customer: ${error.message || 'Unknown error'}`
-    };
-  }
-}
-
-/**
- * Find or create a customer in Asaas
- */
-export async function findOrCreateCustomer(customerData: AsaasCustomerData, apiKey: string, baseUrl: string) {
-  try {
-    // First, try to find the customer by CPF/CNPJ
-    const findResult = await findCustomerByCpfCnpj(customerData.cpfCnpj, apiKey, baseUrl);
-    
-    if (findResult.success) {
-      console.log(`Customer found:`, findResult.customer);
-      return {
-        success: true,
-        customer: findResult.customer,
-        isNew: false
-      };
-    }
-    
-    // If customer not found, create a new one
-    const createResult = await createCustomer(customerData, apiKey, baseUrl);
-    
-    if (createResult.success) {
-      return {
-        success: true,
-        customer: createResult.customer,
-        isNew: true
-      };
-    }
-    
-    return {
-      success: false,
-      message: createResult.message
-    };
-  } catch (error) {
-    console.error('Error in find or create customer:', error);
-    return {
-      success: false,
-      message: `Error in find or create customer: ${error.message || 'Unknown error'}`
-    };
+    console.error("Error creating/finding customer:", error);
+    throw error;
   }
 }

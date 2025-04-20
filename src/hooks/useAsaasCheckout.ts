@@ -11,6 +11,7 @@ export interface CheckoutConfig {
   billingTypes?: string[];
   successUrl?: string;
   failureUrl?: string;
+  items?: any[];
 }
 
 export function useAsaasCheckout() {
@@ -25,8 +26,26 @@ export function useAsaasCheckout() {
       const successUrl = config.successUrl || `${origin}/payment/success?subscription=${config.externalReference}`;
       const failureUrl = config.failureUrl || `${origin}/payment/failure?subscription=${config.externalReference}`;
       
-      // Formatar dados do cliente
-      const formattedCustomerData = formatCustomerData(config.customerData || {});
+      // Formatar dados do cliente se fornecidos
+      let customerData = undefined;
+      if (config.customerData) {
+        customerData = formatCustomerData(config.customerData || {});
+        
+        // Garantir que o CEP tem 8 dígitos conforme exigido pelo Asaas
+        if (customerData.postalCode) {
+          customerData.postalCode = customerData.postalCode.replace(/[^\d]/g, '');
+          if (customerData.postalCode.length !== 8) {
+            customerData.postalCode = "01310930"; // CEP válido para São Paulo
+          }
+        }
+      }
+      
+      // Montar itens do checkout se não fornecidos
+      const items = config.items || [{
+        name: config.description,
+        value: config.value,
+        quantity: 1
+      }];
       
       // Montar dados do checkout
       const checkoutData = {
@@ -35,12 +54,8 @@ export function useAsaasCheckout() {
         billingTypes: config.billingTypes || ["CREDIT_CARD", "PIX"],
         chargeTypes: ["DETACHED"], // Pagamento único
         minutesToExpire: 60,
-        items: [{
-          name: config.description,
-          value: config.value,
-          quantity: 1
-        }],
-        customerData: formattedCustomerData,
+        items: items,
+        customerData: customerData,
         callback: {
           successUrl,
           failureUrl,

@@ -12,12 +12,22 @@ export async function handleCreateCheckout(data: any, apiKey: string, baseUrl: s
       throw new Error("Value and items are required");
     }
     
+    // Garantir que temos dados válidos de CEP para o cliente, se fornecidos
+    if (data.customerData && data.customerData.postalCode) {
+      data.customerData.postalCode = data.customerData.postalCode.replace(/[^\d]/g, '');
+      // Se o CEP não tiver 8 dígitos, usar um valor padrão válido
+      if (data.customerData.postalCode.length !== 8) {
+        data.customerData.postalCode = "01310930"; // CEP válido para São Paulo
+      }
+    }
+    
     // Fazer requisição ao Asaas
     const response = await fetch(`${baseUrl}/checkouts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'access_token': apiKey
+        'access_token': apiKey,
+        'User-Agent': 'TreinePass-App'
       },
       body: JSON.stringify(data)
     });

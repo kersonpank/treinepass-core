@@ -42,8 +42,13 @@ export function formatCustomerData(data: Partial<FormattedCustomerData>): Format
   // Formatar telefone - remover caracteres especiais
   const phone = data.phone?.replace(/[^\d]/g, '') || '';
   
-  // Formatar CEP - remover caracteres especiais
-  const postalCode = data.postalCode?.replace(/[^\d]/g, '') || DEFAULT_ADDRESS.postalCode;
+  // Formatar CEP - remover caracteres especiais e garantir 8 dígitos
+  let postalCode = data.postalCode?.replace(/[^\d]/g, '') || DEFAULT_ADDRESS.postalCode;
+  
+  // Garantir que o CEP tem 8 dígitos conforme exigido pelo Asaas
+  if (postalCode.length !== 8) {
+    postalCode = DEFAULT_ADDRESS.postalCode;
+  }
 
   return {
     name: data.name || '',
