@@ -10,13 +10,15 @@ import {
   createSubscriptionRecord, 
   saveSubscriptionPaymentData 
 } from "./useSubscriptionUpdate";
-import { UserProfile, PaymentData } from "@/types/user";
+import { CheckoutDialog } from "../checkout/CheckoutDialog";
 
 export function useSubscriptionCreation() {
   const { toast } = useToast();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutData, setCheckoutData] = useState<PaymentData | null>(null);
+  const [checkoutData, setCheckoutData] = useState<any | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("pix");
   
   const { copiedText, handleCopyToClipboard } = useClipboard();
   const { createPayment } = usePaymentCreation();
@@ -34,9 +36,6 @@ export function useSubscriptionCreation() {
         throw new Error("ID do plano não fornecido");
       }
 
-      // Não precisamos mais normalizar o método de pagamento
-      // O usuário escolherá o método diretamente no link de pagamento do Asaas
-      
       setIsSubscribing(true);
       
       // Verificar autenticação do usuário
@@ -65,119 +64,55 @@ export function useSubscriptionCreation() {
         throw new Error(`Erro ao buscar perfil do usuário: ${profileError.message}`);
       }
 
-      // Criar registro de assinatura no banco de dados
-      const newSubscription = await createSubscriptionRecord(user.id, planId, 'undefined'); // Método indefinido, o usuário escolherá no Asaas
-
-      try {
-        // Simplificamos o processo - não precisamos mais preparar os dados do usuário
-        // O usePaymentCreation já cuida disso usando o useSimplifiedPayment
-
-        // Criar pagamento usando o hook simplificado
-        const paymentInfo = await createPayment(
-          user,
-          userProfile,
-          planDetails,
-          newSubscription
-        );
-        
-        // Registrar dados do pagamento
-        await saveSubscriptionPaymentData(paymentInfo, newSubscription.id);
-
-        // Configurar dados para o checkout
-        setCheckoutData({
-          status: "pending",
-          value: paymentInfo.value,
-          dueDate: paymentInfo.dueDate,
-          billingType: null, // Permitir que o usuário escolha no checkout do Asaas
-          invoiceUrl: paymentInfo.checkoutUrl,
-          paymentId: paymentInfo.paymentId,
-          paymentLink: paymentInfo.checkoutUrl,
-          pix: null // Não temos informações de PIX ainda, usuário escolherá no Asaas
-        });
-        
-        toast({
-          title: "Link de pagamento gerado!",
-          description: "Você será redirecionado para a página de pagamento."
-        });
-
-        // Redirecionar para o link de pagamento
-        const redirectUrl = paymentInfo.checkoutUrl;
-        
-        if (redirectUrl) {
-          // Melhor abordagem para redirecionar - primeiro tentar abrir em nova janela
-          // e depois redirecionar na mesma janela como fallback
-          const newWindow = window.open(redirectUrl, '_blank');
-          
-          // Fallback se o popup for bloqueado
-          if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-            console.log("Popup bloqueado, redirecionando na mesma janela...");
-            // Dar tempo para o usuário ver o toast antes de redirecionar
-            setTimeout(() => {
-              window.location.href = redirectUrl;
-            }, 1500);
-          }
-        } else {
-          // Se não tivermos URL, mostrar o checkout interno
-          setShowCheckout(true);
-          console.error("Link de pagamento não encontrado na resposta");
-        }
-        
-        return newSubscription;
-      } catch (paymentError: any) {
-        console.error("[Asaas] Erro ao processar pagamento:", paymentError);
-        throw paymentError;
-      }
-    } catch (error: any) {
-      // Logging detalhado
-      console.error("Erro detalhado ao assinar plano:", {
-        error,
-        message: error?.message,
-        response: error?.response,
-        data: error?.data,
-        stack: error?.stack,
+      // Armazenar o plano selecionado para uso posterior
+      setSelectedPlan(planDetails);
+      
+      // Mostrar diálogo de checkout
+      setCheckoutData({
+        planId,
+        planName: planDetails.name,
+        planValue: planDetails.monthly_cost,
+        open: true,
+        paymentMethod: selectedPaymentMethod
       });
+      setShowCheckout(true);
       
-      // Mensagem de erro mais amigável para o usuário
-      let errorMessage = "Ocorreu um erro ao processar sua solicitação";
-      
-      // Tratar erros específicos de forma mais amigável
-      if (error?.message?.includes("postalCode")) {
-        errorMessage = "Não foi possível processar o pagamento: CEP inválido";
-      } else if (error?.message?.includes("Edge Function")) {
-        errorMessage = "Erro na conexão com o serviço de pagamento. Tente novamente.";
-      } else if (error?.message) {
-        errorMessage = error.message;
-      }
-      
+      return { planId, planDetails, userProfile };
+    } catch (error: any) {
+      console.error("Erro ao preparar assinatura:", error);
       toast({
         variant: "destructive",
         title: "Erro ao contratar plano",
-        description: errorMessage,
+        description: error.message || "Ocorreu um erro ao processar sua solicitação",
       });
-      
       return null;
     } finally {
       setIsSubscribing(false);
     }
   };
 
-
   const handleCloseCheckout = () => {
     setShowCheckout(false);
     setIsVerifyingPayment(false);
   };
 
+  const handleSelectPaymentMethod = (method: string) => {
+    setSelectedPaymentMethod(method);
+  };
+
   return {
     isSubscribing,
     handleSubscribe,
+    selectedPaymentMethod,
+    onPaymentMethodChange: handleSelectPaymentMethod,
     CheckoutDialog: () => (
-      <BusinessPlanCheckoutDialog
-        showCheckout={showCheckout}
-        handleCloseCheckout={handleCloseCheckout}
-        checkoutData={checkoutData}
-        isVerifyingPayment={isVerifyingPayment}
-        copiedText={copiedText}
-        handleCopyToClipboard={handleCopyToClipboard}
+      <CheckoutDialog
+        open={showCheckout}
+        onOpenChange={handleCloseCheckout}
+        planId={checkoutData?.planId || ""}
+        planName={checkoutData?.planName || ""}
+        planValue={checkoutData?.planValue || 0}
+        paymentMethod={selectedPaymentMethod}
       />
     ),
   };

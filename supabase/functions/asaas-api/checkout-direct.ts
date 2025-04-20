@@ -5,7 +5,7 @@
 
 export async function createDirectCheckout(data: any, apiKey: string, baseUrl: string) {
   try {
-    console.log("Creating direct checkout with data:", data);
+    console.log("Creating direct checkout with data:", JSON.stringify(data, null, 2));
     
     // Validate required data
     if (!data.value || !data.description) {
@@ -28,12 +28,31 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
       };
     }
     
+    // Normalize payment method
+    let billingTypes = [];
+    if (data.paymentMethod) {
+      if (data.paymentMethod === 'pix' || data.paymentMethod === 'PIX') {
+        billingTypes = ['PIX'];
+      } else if (data.paymentMethod === 'credit_card' || data.paymentMethod === 'CREDIT_CARD') {
+        billingTypes = ['CREDIT_CARD'];
+      } else if (data.paymentMethod === 'boleto' || data.paymentMethod === 'BOLETO') {
+        billingTypes = ['BOLETO'];
+      } else {
+        // Se for undefined ou outro valor, permitimos que o usuário escolha no checkout
+        billingTypes = ['CREDIT_CARD', 'PIX', 'BOLETO'];
+      }
+    } else {
+      billingTypes = ['CREDIT_CARD', 'PIX', 'BOLETO'];
+    }
+    
+    console.log("Using billing types:", billingTypes);
+    
     // Prepare checkout data for Asaas
     const checkoutData = {
       externalReference: data.externalReference,
       value: data.value,
       description: data.description,
-      billingTypes: [data.paymentMethod] || ["CREDIT_CARD", "PIX"],
+      billingTypes: billingTypes,
       chargeTypes: ["DETACHED"], // For single payment
       minutesToExpire: 60,
       customerData: customerData,

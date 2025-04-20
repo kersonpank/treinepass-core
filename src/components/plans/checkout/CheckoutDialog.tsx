@@ -44,16 +44,6 @@ export function CheckoutDialog({
         return;
       }
       
-      // Create a unique reference ID for this subscription
-      const subscriptionId = crypto.randomUUID();
-      
-      console.log(`Usando checkout do Asaas para ${paymentMethod}`);
-      
-      // Prepare callback URLs
-      const origin = window.location.origin;
-      const successUrl = `${origin}/payment/success`;
-      const failureUrl = `${origin}/payment/failure`;
-      
       // Get user profile data
       const { data: profile } = await supabase
         .from('user_profiles')
@@ -64,6 +54,16 @@ export function CheckoutDialog({
       if (!profile) {
         throw new Error("Perfil de usuário não encontrado");
       }
+      
+      // Create a unique reference ID for this subscription
+      const subscriptionId = crypto.randomUUID();
+      
+      console.log(`Usando checkout do Asaas para ${paymentMethod}`);
+      
+      // Prepare callback URLs
+      const origin = window.location.origin;
+      const successUrl = `${origin}/payment/success`;
+      const failureUrl = `${origin}/payment/failure`;
       
       // Prepare customer data from user profile
       const customerData = {
@@ -87,7 +87,7 @@ export function CheckoutDialog({
         paymentMethod
       };
       
-      console.log("Enviando dados para a Edge Function (Cartão):", checkoutData);
+      console.log("Enviando dados para a Edge Function:", checkoutData);
       
       // Call the edge function to create checkout
       const { data, error } = await supabase.functions.invoke('asaas-api', {
@@ -98,7 +98,7 @@ export function CheckoutDialog({
       });
       
       if (error) {
-        console.error("Erro na Edge Function (Cartão):", error);
+        console.error("Erro na Edge Function:", error);
         throw error;
       }
       

@@ -7,7 +7,7 @@ import { handleCreditCardPayment } from './handlers/creditCardPayment.ts';
 import { createDirectCheckout } from './checkout-direct.ts';
 
 export async function handleAction(action: string, data: any, apiKey: string, baseUrl: string, supabase: any) {
-  console.log(`Handling action: ${action}`);
+  console.log(`Handling action: ${action} with data:`, JSON.stringify(data, null, 2));
   
   switch (action) {
     case 'createCustomer':
@@ -23,6 +23,8 @@ export async function handleAction(action: string, data: any, apiKey: string, ba
       return handleCreateCheckout(data, apiKey, baseUrl);
       
     case 'initiateCheckout':
+      // Certifique-se de que estamos passando os dados corretos para createDirectCheckout
+      console.log("Creating direct checkout with:", data);
       return createDirectCheckout(data, apiKey, baseUrl);
       
     case 'processCreditCard':
