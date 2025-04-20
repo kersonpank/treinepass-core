@@ -113,7 +113,8 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
       value: data.value,
       planName: data.planName || data.description,
       planPrice: data.value,
-      externalReference: data.externalReference
+      externalReference: data.externalReference,
+      checkoutData: responseData // Return full response data 
     };
     
   } catch (error) {

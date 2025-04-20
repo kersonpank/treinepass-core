@@ -26,11 +26,13 @@ export function CheckoutDialog({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Handle initiation of checkout process
   const handleInitiate = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       
       // Get user data
       const { data: { user } } = await supabase.auth.getUser();
@@ -78,7 +80,7 @@ export function CheckoutDialog({
         planId,
         customerData,
         planName,
-        value: planValue,
+        value: planValue || 0, // Handle undefined planValue
         description: `Assinatura ${planName}`,
         externalReference: subscriptionId,
         callback: {
@@ -132,10 +134,11 @@ export function CheckoutDialog({
           description: "Você será redirecionado para a página de pagamento"
         });
       } else {
-        throw new Error("Não foi possível obter o link de checkout");
+        throw new Error(data.message || "Não foi possível obter o link de checkout");
       }
     } catch (error) {
       console.error("Checkout error", error);
+      setError(error instanceof Error ? error.message : "Ocorreu um erro ao processar o pagamento");
       toast({
         variant: "destructive",
         title: "Erro ao processar pagamento",
@@ -157,6 +160,12 @@ export function CheckoutDialog({
         </DialogHeader>
         
         <div className="flex flex-col gap-4 py-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-md text-sm">
+              {error}
+            </div>
+          )}
+          
           {checkoutUrl ? (
             <div className="flex flex-col gap-4">
               <p className="text-center text-sm text-muted-foreground">

@@ -29,8 +29,9 @@ import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { planFormSchema } from "./types/plan";
+import { planFormSchema, type PlanFormValues } from "./types/plan";
 import { MultipleSelect, TTag } from "@/components/ui/multiple-select";
+import * as z from 'zod';
 
 type PlanFormValues = z.infer<typeof planFormSchema>;
 

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useBusinessPlanSubscription } from "@/components/plans/hooks/useBusinessPlanSubscription";
 import { useQuery } from "@tanstack/react-query";
@@ -85,7 +86,8 @@ export function BusinessPlans() {
         return;
       }
       
-      await handleSubscribe(planId);
+      // Fix the expected 2 arguments error by passing a payment method
+      await handleSubscribe(planId, "pix");
       
       setTimeout(() => {
         refetchSubscription();
