@@ -5,10 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePaymentStatusChecker } from "./usePaymentStatusChecker";
 import { usePaymentCreation } from "./usePaymentCreation"; 
 import { useClipboard } from "./useClipboard";
-import { 
-  createSubscriptionRecord, 
-  saveSubscriptionPaymentData 
-} from "./useSubscriptionUpdate";
 import { CheckoutDialog } from "../checkout/CheckoutDialog";
 
 export function useSubscriptionCreation() {

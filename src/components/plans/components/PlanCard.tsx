@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,7 +46,6 @@ export function PlanCard({
   const { toast } = useToast();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("pix");
   const [showDialog, setShowDialog] = useState(false);
-  const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
 
   const handleConfirmPayment = async () => {
     try {
@@ -69,10 +69,6 @@ export function PlanCard({
         description: error instanceof Error ? error.message : "Erro desconhecido",
       });
     }
-  };
-
-  const handleCloseCheckout = () => {
-    setShowCheckoutDialog(false);
   };
 
   return (
@@ -107,7 +103,7 @@ export function PlanCard({
                       className="mt-0.5 shrink-0 text-primary"
                       aria-hidden="true"
                     />
-                    <span>{key}: {JSON.stringify(value)}</span>
+                    <span>{key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
                   </li>
                 ))}
               </ul>
@@ -166,6 +162,20 @@ export function PlanCard({
                   </p>
                 </div>
               </div>
+              <div className="relative flex w-full items-center gap-2 rounded-lg border border-input px-4 py-3 shadow-sm shadow-black/5 has-[[data-state=checked]]:border-ring has-[[data-state=checked]]:bg-accent">
+                <RadioGroupItem
+                  value="boleto"
+                  id={`${id}-boleto`}
+                  aria-describedby={`${id}-boleto-description`}
+                  className="order-1 after:absolute after:inset-0"
+                />
+                <div className="grid grow gap-1">
+                  <Label htmlFor={`${id}-boleto`}>Boleto</Label>
+                  <p id={`${id}-boleto-description`} className="text-xs text-muted-foreground">
+                    Pagamento via boleto bancário
+                  </p>
+                </div>
+              </div>
             </RadioGroup>
 
             <div className="space-y-3">
@@ -181,7 +191,7 @@ export function PlanCard({
                       className="mt-0.5 shrink-0 text-primary"
                       aria-hidden="true"
                     />
-                    <span>{key}: {JSON.stringify(value)}</span>
+                    <span>{key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
                   </li>
                 ))}
               </ul>
