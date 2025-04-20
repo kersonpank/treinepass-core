@@ -2,16 +2,18 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useAsaasCheckout } from "@/hooks/useAsaasCheckout";
+import { useSimplifiedPayment } from "@/hooks/useSimplifiedPayment";
+import { findOrCreateAsaasCustomer } from "./useAsaasCustomer";
+import { UserProfile, AsaasCustomerData, PaymentData } from "@/types/user";
 
 export function usePaymentCreation() {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
-  const { createCheckoutSession } = useAsaasCheckout();
+  const { createPayment, prepareCustomerDataFromProfile } = useSimplifiedPayment();
 
-  const createPayment = async (
+  const processPayment = async (
     user: any,
-    userProfile: any,
+    userProfile: UserProfile,
     planDetails: any,
     newSubscription: any
   ) => {
@@ -37,76 +39,110 @@ export function usePaymentCreation() {
         throw new Error("Dados de usuário incompletos. Nome e CPF são obrigatórios.");
       }
 
-      console.log("Creating checkout with profile data:", {
+      console.log("Creating payment with profile data:", {
         name: profile.full_name,
         cpf: profile.cpf,
         email: profile.email
       });
-
-      // Format phone number properly if it exists
-      const formattedPhone = profile.phone ? profile.phone.replace(/\D/g, '') : undefined;
       
-      // Format postal code properly
-      let postalCode = profile.postal_code || "00000000";
-      postalCode = postalCode.replace(/\D/g, '');
-      if (postalCode.length !== 8) {
-        postalCode = "00000000";
-      }
-
-      // Create checkout session
-      const checkoutResponse = await createCheckoutSession({
+      // Prepare customer data from user profile
+      const customerData = prepareCustomerDataFromProfile(profile);
+      
+      // Garantir que temos URLs absolutas para callbacks
+      const origin = window.location.origin || 'https://app.treinepass.com.br';
+      const successUrl = `${origin}/payment/success?subscription=${newSubscription.id}`;
+      const failureUrl = `${origin}/payment/failure?subscription=${newSubscription.id}`;
+      
+      console.log("[Asaas] Criando pagamento simplificado");
+      
+      // Criar pagamento usando o método simplificado
+      const paymentResponse = await createPayment({
+        customerData,
         value: planDetails.monthly_cost,
         description: `Assinatura do plano ${planDetails.name}`,
         externalReference: newSubscription.id,
-        customerData: {
-          name: profile.full_name,
-          cpfCnpj: profile.cpf,
-          email: profile.email,
-          phone: formattedPhone,
-          // Add required address fields with default values
-          address: profile.address || "Endereço não informado",
-          addressNumber: profile.address_number || "S/N", 
-          province: profile.neighborhood || "Centro",
-          postalCode: postalCode
-        },
-        successUrl: `${window.location.origin}/payment/success?subscription=${newSubscription.id}`,
-        failureUrl: `${window.location.origin}/payment/failure?subscription=${newSubscription.id}`
+        successUrl,
+        failureUrl
       });
 
-      if (!checkoutResponse.success) {
-        throw new Error(checkoutResponse.error?.message || "Erro ao criar sessão de pagamento");
+      if (!paymentResponse.success) {
+        throw new Error(paymentResponse.error?.message || "Erro ao criar link de pagamento");
       }
 
-      // Update subscription with payment link
+      // Atualizar assinatura com link de pagamento e outros dados
       await supabase
         .from("user_plan_subscriptions")
         .update({
-          asaas_payment_link: checkoutResponse.checkoutUrl,
+          asaas_payment_link: paymentResponse.paymentLink,
+          payment_status: "pending", // Status inicial
+          // Não definimos o método de pagamento, o usuário escolherá no Asaas
           updated_at: new Date().toISOString()
         })
         .eq("id", newSubscription.id);
+        
+      console.log("Subscription updated with payment link:", paymentResponse.paymentLink);
 
       return {
         success: true,
-        checkoutUrl: checkoutResponse.checkoutUrl,
-        ...checkoutResponse.checkoutData
+        checkoutUrl: paymentResponse.paymentLink,
+        paymentId: paymentResponse.paymentId,
+        value: paymentResponse.value,
+        dueDate: paymentResponse.dueDate,
+        customerId: typeof paymentResponse.customer === 'object' ? paymentResponse.customer?.id : (paymentResponse.customer || '')
       };
 
+
     } catch (error: any) {
-      console.error("Error processing payment:", error);
+      // Logging detalhado
+      console.error("[Asaas] Error processing payment:", {
+        error,
+        message: error?.message,
+        response: error?.response,
+        data: error?.data,
+        stack: error?.stack,
+      });
+      
+      // Tratar mensagens de erro específicas
+      let errorMessage = "Ocorreu um erro ao processar sua solicitação";
+      let errorSolution = "";
+      
+      if (error?.message?.includes("postalCode")) {
+        errorMessage = "CEP inválido para processamento do pagamento";
+        errorSolution = "Tente novamente selecionando a opção para preencher seus dados manualmente.";
+      } else if (error?.message?.includes("Edge Function")) {
+        errorMessage = "Erro na conexão com o serviço de pagamento. Tente novamente em alguns instantes.";
+      } else if (error?.message?.includes("callback")) {
+        errorMessage = "Erro nas URLs de redirecionamento";
+        errorSolution = "Por favor, tente novamente ou contate o suporte.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // Adicionar solução à mensagem de erro, se houver
+      const fullErrorMessage = errorSolution ? `${errorMessage}. ${errorSolution}` : errorMessage;
+      
       toast({
         variant: "destructive",
         title: "Erro ao processar pagamento",
-        description: error.message || "Ocorreu um erro ao processar sua solicitação",
+        description: fullErrorMessage,
       });
+      
+      // Modificar o erro para incluir a mensagem completa
+      if (error) {
+        error.message = fullErrorMessage;
+        error.originalMessage = error.message;
+        error.solution = errorSolution;
+      }
+      
       throw error;
     } finally {
       setIsProcessing(false);
     }
   };
 
+
   return {
-    createPayment,
+    createPayment: processPayment,
     isProcessing
   };
 }

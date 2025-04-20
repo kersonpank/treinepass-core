@@ -64,23 +64,23 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Tabs value={currentStep} onValueChange={setCurrentStep}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="basic">Dados Básicos</TabsTrigger>
-          <TabsTrigger value="schedule">Horários</TabsTrigger>
-          <TabsTrigger value="modalities">Modalidades</TabsTrigger>
-          <TabsTrigger value="bank">Dados Bancários</TabsTrigger>
-          <TabsTrigger value="documents">Documentos</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 overflow-x-auto">
+          <TabsTrigger value="basic" className="text-xs sm:text-sm md:text-base">Dados Básicos</TabsTrigger>
+          <TabsTrigger value="schedule" className="text-xs sm:text-sm md:text-base">Horários</TabsTrigger>
+          <TabsTrigger value="modalities" className="text-xs sm:text-sm md:text-base">Modalidades</TabsTrigger>
+          <TabsTrigger value="bank" className="text-xs sm:text-sm md:text-base">Dados Bancários</TabsTrigger>
+          <TabsTrigger value="documents" className="text-xs sm:text-sm md:text-base">Documentos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic">
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <UserDataForm register={register} errors={errors} />
-            <GymDataForm register={register} errors={errors} />
+            <GymDataForm register={register} errors={errors} setValue={setValue} watch={watch} />
           </Card>
         </TabsContent>
 
         <TabsContent value="schedule">
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <OperatingHoursForm
               register={register}
               watch={watch}
@@ -92,19 +92,19 @@ export function GymRegistrationForm({ onSubmit, isSubmitting, modalidades }: Gym
         </TabsContent>
 
         <TabsContent value="modalities">
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <ModalitiesForm register={register} errors={errors} modalidades={modalidades} />
           </Card>
         </TabsContent>
 
         <TabsContent value="bank">
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <BankDetailsForm register={register} errors={errors} />
           </Card>
         </TabsContent>
 
         <TabsContent value="documents">
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <FileUploadsForm register={register} errors={errors} />
           </Card>
         </TabsContent>

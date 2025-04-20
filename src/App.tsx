@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Home } from "lucide-react";
@@ -17,6 +16,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import { AdminProvider } from "./contexts/AdminContext";
 import { Toaster } from "@/components/ui/toaster";
 import PaymentStatus from "./pages/PaymentStatus";
+import { useEffect } from "react";
 import "./App.css";
 
 const BackButton = () => {
@@ -38,10 +38,19 @@ const BackButton = () => {
   );
 };
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 function App() {
   return (
     <AdminProvider>
       <Router>
+        <ScrollToTop />
         <BackButton />
         <Routes>
           <Route path="/" element={<Index />} />

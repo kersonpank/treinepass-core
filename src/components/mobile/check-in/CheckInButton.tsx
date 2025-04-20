@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CheckInButtonProps {
   academiaId: string;
@@ -93,7 +92,6 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
       });
     } finally {
       setIsLoading(false);
-      setShowConfirm(false);
     }
   };
 
@@ -112,13 +110,18 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Check-in</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você confirma o check-in nesta academia?
-            </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCheckIn} disabled={isLoading}>
+          <AlertDialogFooter className="flex justify-end">
+            <AlertDialogCancel onClick={() => setShowConfirm(false)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowConfirm(false);
+                handleCheckIn();
+              }}
+              disabled={isLoading}
+            >
               Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>

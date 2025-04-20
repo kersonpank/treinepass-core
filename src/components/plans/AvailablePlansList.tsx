@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
-import { useSubscriptionCreation } from "./hooks/useSubscriptionCreation";
+import { CheckoutDialog } from "@/components/plans/checkout/CheckoutDialog";
 import { Database } from '@/integrations/supabase/types';
 
 type Plan = Database['public']['Tables']['benefit_plans']['Row'];
@@ -18,8 +17,9 @@ interface AvailablePlansListProps {
 
 export function AvailablePlansList({ hasBusinessAccess }: AvailablePlansListProps) {
   const { toast } = useToast();
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("undefined");
-  const { isSubscribing, handleSubscribe, CheckoutDialog } = useSubscriptionCreation();
+  const [profileData, setProfileData] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [showCheckout, setShowCheckout] = useState(false);
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ["availablePlans"],
@@ -36,12 +36,40 @@ export function AvailablePlansList({ hasBusinessAccess }: AvailablePlansListProp
     },
   });
 
-  const handleSubscribeToPlan = async (planId: string) => {
-    try {
-      await handleSubscribe(planId, selectedPaymentMethod);
-    } catch (error) {
-      console.error("Error subscribing to plan:", error);
+  const handleSubscribeToPlan = async (plan: Plan) => {
+    // Buscar perfil do usuário/empresa
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Erro de autenticação",
+        description: "Você precisa estar logado para assinar um plano."
+      });
+      return;
     }
+    
+    // Tenta buscar perfil individual
+    let { data: userProfile } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+      
+    // Se não encontrar, tenta buscar perfil de empresa
+    if (!userProfile) {
+      const { data: businessProfile } = await supabase
+        .from("business_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      setProfileData(businessProfile);
+    } else {
+      setProfileData(userProfile);
+    }
+    
+    // Abrir dialog de checkout
+    setSelectedPlan(plan);
+    setShowCheckout(true);
   };
 
   if (isLoading) {
@@ -93,17 +121,22 @@ export function AvailablePlansList({ hasBusinessAccess }: AvailablePlansListProp
 
               <Button 
                 className="w-full" 
-                onClick={() => handleSubscribeToPlan(plan.id)}
-                disabled={isSubscribing}
+                onClick={() => handleSubscribeToPlan(plan)}
               >
-                {isSubscribing ? 'Processando...' : 'Contratar Plano'}
+                Contratar Plano
               </Button>
             </CardContent>
           </Card>
         ))}
       </div>
-      
-      <CheckoutDialog />
+
+      {/* Dialog de checkout */}
+      <CheckoutDialog
+        show={showCheckout}
+        onClose={() => setShowCheckout(false)}
+        plan={selectedPlan}
+        profileData={profileData}
+      />
     </>
   );
 }

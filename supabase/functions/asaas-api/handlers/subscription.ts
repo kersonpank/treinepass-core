@@ -1,3 +1,7 @@
+/**
+ * Handler para criar assinaturas no Asaas
+ * Endpoint: /v3/subscriptions
+ */
 
 export async function handleCreateSubscription(data: any, apiKey: string, baseUrl: string) {
   console.log(`Creating subscription with data:`, data);
@@ -17,59 +21,86 @@ export async function handleCreateSubscription(data: any, apiKey: string, baseUr
   }
 
   // Prepare subscription request
-  const subscriptionData = {
+  const subscriptionData: any = {
     customer: data.customer,
-    billingType: data.billingType || "UNDEFINED", // Allow customer to choose
+    billingTypes: data.billingTypes || ["BOLETO", "CREDIT_CARD", "PIX"],
     value: data.value,
     nextDueDate: nextDueDate,
     description: data.description || `Assinatura ${data.planName || 'TreinePass'}`,
     cycle: data.cycle || "MONTHLY",
-    externalReference: data.externalReference,
-    callbackUrl: data.callbackUrl || process.env.WEBHOOK_URL,
-    successUrl: data.successUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/success",
-    failureUrl: data.failureUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/failure",
+    externalReference: data.externalReference
   };
+  
+  // Adicionar URLs de callback apenas se fornecidas
+  if (data.callbackUrl) {
+    subscriptionData.callbackUrl = data.callbackUrl;
+  }
+  
+  if (data.successUrl) {
+    subscriptionData.successUrl = data.successUrl;
+  } else {
+    subscriptionData.successUrl = "https://app.treinepass.com.br/payment/success";
+  }
+  
+  if (data.failureUrl) {
+    subscriptionData.failureUrl = data.failureUrl;
+  } else {
+    subscriptionData.failureUrl = "https://app.treinepass.com.br/payment/failure";
+  }
 
   console.log("Sending subscription data to Asaas:", subscriptionData);
 
-  // Make API request to Asaas
-  const asaasResponse = await fetch(`${baseUrl}/subscriptions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'access_token': apiKey
-    },
-    body: JSON.stringify(subscriptionData)
-  });
-
-  // Parse response
-  const subscriptionResult = await asaasResponse.json();
-  console.log(`Asaas subscription response:`, subscriptionResult);
-
-  if (!asaasResponse.ok) {
-    throw new Error(`Asaas API error: ${subscriptionResult.errors?.[0]?.description || 'Unknown error'}`);
-  }
-
-  // Get the invoice URL from the first payment
-  if (subscriptionResult.id) {
-    const paymentsResponse = await fetch(`${baseUrl}/subscriptions/${subscriptionResult.id}/payments`, {
-      method: 'GET',
+  try {
+    // Make API request to Asaas
+    const asaasResponse = await fetch(`${baseUrl}/subscriptions`, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'access_token': apiKey
-      }
+      },
+      body: JSON.stringify(subscriptionData)
     });
 
-    const paymentsData = await paymentsResponse.json();
-    console.log(`Asaas subscription payments:`, paymentsData);
+    // Parse response
+    const subscriptionResult = await asaasResponse.json();
+    console.log(`Asaas subscription response:`, subscriptionResult);
 
-    if (paymentsResponse.ok && paymentsData.data && paymentsData.data.length > 0) {
-      subscriptionResult.invoiceUrl = paymentsData.data[0].invoiceUrl;
+    if (!asaasResponse.ok) {
+      throw new Error(`Asaas API error: ${subscriptionResult.errors?.[0]?.description || 'Unknown error'}`);
     }
-  }
 
-  return {
-    success: true,
-    ...subscriptionResult
-  };
+    // Get the invoice URL from the first payment
+    let invoiceUrl = null;
+    
+    if (subscriptionResult.id) {
+      try {
+        const paymentsResponse = await fetch(`${baseUrl}/subscriptions/${subscriptionResult.id}/payments`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'access_token': apiKey
+          }
+        });
+
+        const paymentsData = await paymentsResponse.json();
+        console.log(`Asaas subscription payments:`, paymentsData);
+
+        if (paymentsResponse.ok && paymentsData.data && paymentsData.data.length > 0) {
+          invoiceUrl = paymentsData.data[0].invoiceUrl;
+        }
+      } catch (paymentError) {
+        console.error("Error fetching subscription payments:", paymentError);
+        // Continuar mesmo se não conseguir obter os pagamentos
+      }
+    }
+
+    return {
+      success: true,
+      ...subscriptionResult,
+      invoiceUrl: invoiceUrl
+    };
+  } catch (error) {
+    console.error("Error creating subscription:", error);
+    throw error;
+  }
 }

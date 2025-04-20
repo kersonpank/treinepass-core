@@ -10,12 +10,12 @@ export async function handleCreatePayment(data: any, apiKey: string, baseUrl: st
   // Add basic defaults if not provided
   const paymentData = {
     ...data,
-    billingType: data.billingType || "UNDEFINED", // Default to allow customer to choose
+    billingType: data.billingType || null, // Permitir que o cliente escolha no checkout do Asaas
     description: data.description || "Pagamento",
     // URLs de redirecionamento após pagamento
-    callbackUrl: data.callbackUrl || process.env.WEBHOOK_URL,
-    successUrl: data.successUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/success",
-    failureUrl: data.failureUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/failure"
+    callbackUrl: data.callbackUrl,
+    successUrl: data.successUrl || "https://app.treinepass.com.br/payment/success",
+    failureUrl: data.failureUrl || "https://app.treinepass.com.br/payment/failure"
   };
 
   // Make API request to Asaas

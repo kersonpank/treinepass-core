@@ -83,15 +83,16 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
   }
 }
 
-interface PaymentDataToSave {
-  asaasId: string;
-  customerId?: string; 
-  subscriptionId: string;
+export interface PaymentDataToSave {
+  asaasId?: string;
+  customerId: string;
+  subscriptionId?: string;
   amount: number;
   billingType: string;
   status: string;
   dueDate: string;
-  invoiceUrl: string;  // Using invoiceUrl to match DB schema
+  invoiceUrl?: string;
+  checkoutUrl?: string; // Novo campo opcional para link de checkout
 }
 
 export async function savePaymentData(paymentData: PaymentDataToSave) {
@@ -101,19 +102,26 @@ export async function savePaymentData(paymentData: PaymentDataToSave) {
     // Convert Asaas status to our internal status format
     const paymentStatus = mapAsaasStatusToInternal(paymentData.status);
     
+    // Monta o objeto de inserção sem o campo asaas_id se não houver valor
+    const insertData: any = {
+      asaas_customer_id: paymentData.customerId,
+      subscription_id: paymentData.subscriptionId,
+      amount: paymentData.amount,
+      billing_type: paymentData.billingType,
+      status: paymentStatus,
+      due_date: paymentData.dueDate,
+      asaas_payment_link: paymentData.checkoutUrl || paymentData.invoiceUrl || "",
+      external_reference: paymentData.subscriptionId
+    };
+    if (paymentData.asaasId) {
+      insertData.asaas_id = paymentData.asaasId;
+    }
+    if (paymentData.checkoutUrl) {
+      insertData.asaas_payment_link = paymentData.checkoutUrl;
+    }
     const { error } = await supabase
       .from("asaas_payments")
-      .insert({
-        asaas_id: paymentData.asaasId,
-        customer_id: paymentData.customerId,
-        subscription_id: paymentData.subscriptionId,
-        amount: paymentData.amount,
-        billing_type: paymentData.billingType,
-        status: paymentStatus,
-        due_date: paymentData.dueDate,
-        invoice_url: paymentData.invoiceUrl,
-        external_reference: paymentData.subscriptionId
-      });
+      .insert(insertData);
 
     if (error) {
       console.error("Error saving payment data:", error);

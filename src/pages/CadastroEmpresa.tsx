@@ -107,16 +107,18 @@ export default function CadastroEmpresa() {
       title="Cadastro de Empresa" 
       subtitle="Preencha os dados principais da sua empresa"
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <BusinessDataForm
-          register={register}
-          errors={errors}
-          watch={watch}
-        />
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+        <div className="bg-white rounded-lg p-3 sm:p-4 md:p-6 shadow-sm">
+          <BusinessDataForm
+            register={register}
+            errors={errors}
+            watch={watch}
+          />
+        </div>
 
         <Button
           type="submit"
-          className="w-full bg-[#0125F0] hover:bg-blue-700"
+          className="w-full bg-[#0125F0] hover:bg-blue-700 text-sm sm:text-base py-2 sm:py-3"
           disabled={isSubmitting}
         >
           {isSubmitting ? "Cadastrando..." : "Continuar"}

@@ -1,11 +1,12 @@
-
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CPFInput } from "./form/CPFInput";
 import { DateInput } from "./form/DateInput";
 import { UserFormData } from "./types/auth";
+import { CepInput } from "@/components/shared/CepInput";
+import { Separator } from "@/components/ui/separator";
 
 interface RegisterFormProps {
   onSubmit: (data: UserFormData) => Promise<void>;
@@ -18,8 +19,13 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
     handleSubmit,
     setError,
     setValue,
+    watch,
+    control,
     formState: { errors },
   } = useForm<UserFormData>();
+  
+  // Estado para controlar a exibição dos campos de endereço
+  const cepLoading = watch('cep_loading', false);
 
   const handleFormSubmit = async (data: UserFormData) => {
     try {
@@ -137,6 +143,78 @@ export function RegisterForm({ onSubmit, isSubmitting }: RegisterFormProps) {
 
       <CPFInput register={register} errors={errors} />
       <DateInput register={register} errors={errors} />
+
+      <Separator className="my-4" />
+      <h3 className="text-lg font-semibold mb-4">Endereço</h3>
+      
+      <CepInput register={register} errors={errors} setValue={setValue} />
+      
+      {cepLoading && (
+        <div className="text-sm text-blue-500 mt-2 mb-4">
+          Buscando endereço...
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="street">Rua</Label>
+          <Controller
+            control={control}
+            name="street"
+            defaultValue=""
+            render={({ field }) => <Input id="street" {...field} />}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="number">Número</Label>
+          <Input
+            id="number"
+            {...register("number")}
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="complement">Complemento</Label>
+        <Input
+          id="complement"
+          {...register("complement")}
+          placeholder="Apartamento, bloco, etc."
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="neighborhood">Bairro</Label>
+          <Controller
+            control={control}
+            name="neighborhood"
+            defaultValue=""
+            render={({ field }) => <Input id="neighborhood" {...field} />}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="city">Cidade</Label>
+          <Controller
+            control={control}
+            name="city"
+            defaultValue=""
+            render={({ field }) => <Input id="city" {...field} />}
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="state">Estado</Label>
+        <Controller
+          control={control}
+          name="state"
+          defaultValue=""
+          render={({ field }) => <Input id="state" {...field} />}
+        />
+      </div>
 
       <Button
         type="submit"

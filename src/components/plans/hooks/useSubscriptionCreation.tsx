@@ -10,20 +10,7 @@ import {
   createSubscriptionRecord, 
   saveSubscriptionPaymentData 
 } from "./useSubscriptionUpdate";
-
-interface PaymentData {
-  status: string;
-  value: number;
-  dueDate: string;
-  billingType: string;
-  invoiceUrl: string;  // Using invoiceUrl consistently
-  paymentId: string;
-  paymentLink?: string;
-  pix?: {
-    encodedImage?: string;
-    payload?: string;
-  };
-}
+import { UserProfile, PaymentData } from "@/types/user";
 
 export function useSubscriptionCreation() {
   const { toast } = useToast();
@@ -41,28 +28,22 @@ export function useSubscriptionCreation() {
     }
   });
 
-  const handleSubscribe = async (planId: string, paymentMethod: string = "pix") => {
+  const handleSubscribe = async (planId: string) => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
       }
 
-      // Ensure we have a valid payment method
-      // This should be one of: "pix", "credit_card", "boleto", "transfer", "debit_card"
-      // But for payment links, we'll actually use "UNDEFINED" in the Asaas API
-      // while storing a valid value in our database
-      let effectivePaymentMethod = paymentMethod.toLowerCase();
-      if (effectivePaymentMethod === "undefined") {
-        effectivePaymentMethod = "pix"; // Default to pix as fallback for DB storage
-      }
-      
-      console.log("Using payment method (reference only):", effectivePaymentMethod);
+      // Não precisamos mais normalizar o método de pagamento
+      // O usuário escolherá o método diretamente no link de pagamento do Asaas
       
       setIsSubscribing(true);
+      
+      // Verificar autenticação do usuário
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Get plan details
+      // Buscar detalhes do plano
       const { data: planDetails, error: planError } = await supabase
         .from("benefit_plans")
         .select("*")
@@ -73,7 +54,7 @@ export function useSubscriptionCreation() {
         throw new Error("Erro ao buscar detalhes do plano");
       }
 
-      // Get user profile for full info
+      // Buscar perfil do usuário
       const { data: userProfile, error: profileError } = await supabase
         .from("user_profiles")
         .select("*")
@@ -84,11 +65,14 @@ export function useSubscriptionCreation() {
         throw new Error(`Erro ao buscar perfil do usuário: ${profileError.message}`);
       }
 
-      // Create subscription record in our database
-      const newSubscription = await createSubscriptionRecord(user.id, planId, effectivePaymentMethod);
+      // Criar registro de assinatura no banco de dados
+      const newSubscription = await createSubscriptionRecord(user.id, planId, 'undefined'); // Método indefinido, o usuário escolherá no Asaas
 
       try {
-        // Create payment using our payment hook
+        // Simplificamos o processo - não precisamos mais preparar os dados do usuário
+        // O usePaymentCreation já cuida disso usando o useSimplifiedPayment
+
+        // Criar pagamento usando o hook simplificado
         const paymentInfo = await createPayment(
           user,
           userProfile,
@@ -96,19 +80,19 @@ export function useSubscriptionCreation() {
           newSubscription
         );
         
-        // Save payment data
+        // Registrar dados do pagamento
         await saveSubscriptionPaymentData(paymentInfo, newSubscription.id);
 
-        // Set checkout data for dialog display
+        // Configurar dados para o checkout
         setCheckoutData({
-          status: paymentInfo.status,
+          status: "pending",
           value: paymentInfo.value,
           dueDate: paymentInfo.dueDate,
-          billingType: paymentInfo.billingType,
-          invoiceUrl: paymentInfo.invoiceUrl,
+          billingType: null, // Permitir que o usuário escolha no checkout do Asaas
+          invoiceUrl: paymentInfo.checkoutUrl,
           paymentId: paymentInfo.paymentId,
-          paymentLink: paymentInfo.paymentLink,
-          pix: paymentInfo.pix
+          paymentLink: paymentInfo.checkoutUrl,
+          pix: null // Não temos informações de PIX ainda, usuário escolherá no Asaas
         });
         
         toast({
@@ -116,32 +100,67 @@ export function useSubscriptionCreation() {
           description: "Você será redirecionado para a página de pagamento."
         });
 
-        // Redirect to payment link - use either available URL
-        const redirectUrl = paymentInfo.paymentLink || paymentInfo.invoiceUrl;
+        // Redirecionar para o link de pagamento
+        const redirectUrl = paymentInfo.checkoutUrl;
+        
         if (redirectUrl) {
-          window.location.href = redirectUrl;
+          // Melhor abordagem para redirecionar - primeiro tentar abrir em nova janela
+          // e depois redirecionar na mesma janela como fallback
+          const newWindow = window.open(redirectUrl, '_blank');
+          
+          // Fallback se o popup for bloqueado
+          if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            console.log("Popup bloqueado, redirecionando na mesma janela...");
+            // Dar tempo para o usuário ver o toast antes de redirecionar
+            setTimeout(() => {
+              window.location.href = redirectUrl;
+            }, 1500);
+          }
         } else {
+          // Se não tivermos URL, mostrar o checkout interno
           setShowCheckout(true);
           console.error("Link de pagamento não encontrado na resposta");
         }
         
         return newSubscription;
       } catch (paymentError: any) {
-        console.error("Erro ao processar pagamento:", paymentError);
+        console.error("[Asaas] Erro ao processar pagamento:", paymentError);
         throw paymentError;
       }
     } catch (error: any) {
-      console.error("Erro ao assinar plano:", error);
+      // Logging detalhado
+      console.error("Erro detalhado ao assinar plano:", {
+        error,
+        message: error?.message,
+        response: error?.response,
+        data: error?.data,
+        stack: error?.stack,
+      });
+      
+      // Mensagem de erro mais amigável para o usuário
+      let errorMessage = "Ocorreu um erro ao processar sua solicitação";
+      
+      // Tratar erros específicos de forma mais amigável
+      if (error?.message?.includes("postalCode")) {
+        errorMessage = "Não foi possível processar o pagamento: CEP inválido";
+      } else if (error?.message?.includes("Edge Function")) {
+        errorMessage = "Erro na conexão com o serviço de pagamento. Tente novamente.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         variant: "destructive",
         title: "Erro ao contratar plano",
-        description: error.message || "Ocorreu um erro ao processar sua solicitação",
+        description: errorMessage,
       });
+      
       return null;
     } finally {
       setIsSubscribing(false);
     }
   };
+
 
   const handleCloseCheckout = () => {
     setShowCheckout(false);

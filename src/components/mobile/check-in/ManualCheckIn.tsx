@@ -1,13 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckInLimitsDisplay } from "./components/CheckInLimitsDisplay";
 import { NoPlanDialog } from "./components/NoPlanDialog";
 import { CheckInDialog } from "./components/CheckInDialog";
-import { CheckInConfirmation } from "./components/CheckInConfirmation";
 
 interface ManualCheckInProps {
   academiaId: string;
@@ -26,8 +23,6 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
   const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
   const [accessCode, setAccessCode] = useState("");
   const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes in seconds
-  const [checkInId, setCheckInId] = useState<string | null>(null);
-  const [showConfirmationDialog, setShowConfirmationDialog] = useState(false);
   const { toast } = useToast();
 
   // Access code generation and refresh
@@ -55,6 +50,11 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
       return () => clearInterval(timer);
     }
   }, [showCheckInDialog, timeLeft]);
+
+  // Auto-open scan/token dialog without extra button
+  useEffect(() => {
+    setShowCheckInDialog(true);
+  }, []);
 
   const generateAccessCode = async () => {
     try {
@@ -190,11 +190,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           // Não falhar o processo por causa do financeiro
         }
 
-        setCheckInId(checkInData.id);
         setShowCheckInDialog(false);
-        setShowConfirmationDialog(true);
-
-        // Mostrar token para o usuário
         toast({
           title: "Check-in registrado!",
           description: `Seu token de validação é: ${token}. Apresente este token na academia.`,
@@ -215,48 +211,6 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
     }
   };
 
-  const handleCheckInClick = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Você precisa estar logado para fazer check-in",
-        });
-        return;
-      }
-
-      const { data: limitsData, error } = await supabase.rpc('validate_check_in_rules', {
-        p_user_id: user.id,
-        p_academia_id: academiaId
-      });
-
-      if (error) {
-        console.error("Erro ao validar regras:", error);
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Não foi possível verificar seu plano",
-        });
-        return;
-      }
-
-      if (limitsData?.[0] && !limitsData[0].can_check_in) {
-        setShowNoPlanDialog(true);
-      } else {
-        setShowCheckInDialog(true);
-      }
-    } catch (error: any) {
-      console.error("Erro ao verificar plano:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível verificar seu plano",
-      });
-    }
-  };
-
   return (
     <>
       <Card className="w-full">
@@ -264,13 +218,7 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           <CardTitle>Check-in</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button 
-            className="w-full" 
-            onClick={handleCheckInClick}
-            disabled={isProcessing}
-          >
-            Fazer Check-in
-          </Button>
+          {/* CheckInDialog opens automatically on mount; no initial button needed */}
           <CheckInLimitsDisplay limits={checkInLimits} />
         </CardContent>
       </Card>
@@ -282,29 +230,6 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
         timeLeft={timeLeft}
         onScan={handleScanResult}
       />
-
-      {showConfirmationDialog && checkInId && (
-        <CheckInConfirmation
-          checkInId={checkInId}
-          onConfirmed={() => {
-            setShowConfirmationDialog(false);
-            toast({
-              title: "Check-in realizado!",
-              description: "Check-in realizado com sucesso. Boas atividades!",
-              duration: 5000,
-            });
-          }}
-          onError={(error) => {
-            setShowConfirmationDialog(false);
-            toast({
-              variant: "destructive",
-              title: "Erro no check-in",
-              description: error,
-              duration: 5000,
-            });
-          }}
-        />
-      )}
 
       <NoPlanDialog
         open={showNoPlanDialog}

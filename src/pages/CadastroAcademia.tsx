@@ -71,10 +71,10 @@ export default function CadastroAcademia() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-6 sm:py-12">
       <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
+        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-4 sm:p-6 md:p-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-8 text-center">
             Cadastro de Academia
           </h1>
 

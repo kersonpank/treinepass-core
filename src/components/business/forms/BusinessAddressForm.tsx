@@ -1,15 +1,17 @@
 import React from "react";
-import { UseFormRegister, FieldErrors, UseFormSetValue } from "react-hook-form";
+import { UseFormRegister, FieldErrors, UseFormSetValue, UseFormWatch } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CepInput } from "@/components/shared/CepInput";
 
 interface BusinessAddressFormProps {
   register: UseFormRegister<any>;
   errors: FieldErrors;
   setValue: UseFormSetValue<any>;
+  watch?: UseFormWatch<any>;
 }
 
-export function BusinessAddressForm({ register, errors, setValue }: BusinessAddressFormProps) {
+export function BusinessAddressForm({ register, errors, setValue, watch }: BusinessAddressFormProps) {
   const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length === 8) {
@@ -31,24 +33,19 @@ export function BusinessAddressForm({ register, errors, setValue }: BusinessAddr
 
   return (
     <div className="space-y-4">
-      <div>
-        <Label htmlFor="cep">CEP</Label>
-        <Input
-          id="cep"
-          {...register("cep", {
-            required: "CEP é obrigatório",
-            pattern: {
-              value: /^\d{5}-?\d{3}$/,
-              message: "CEP inválido",
-            },
-          })}
-          onBlur={handleCepBlur}
-          placeholder="00000-000"
-        />
-        {errors.cep && (
-          <p className="text-sm text-red-500 mt-1">{errors.cep.message as string}</p>
-        )}
-      </div>
+      <CepInput
+        register={register}
+        errors={errors}
+        setValue={setValue}
+        label="CEP"
+        required={true}
+      />
+      
+      {watch && watch('cep_loading') && (
+        <div className="text-sm text-blue-500 mt-2 mb-4">
+          Buscando endereço...
+        </div>
+      )}
 
       <div>
         <Label htmlFor="street">Rua</Label>
