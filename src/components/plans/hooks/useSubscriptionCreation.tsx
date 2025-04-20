@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { BusinessPlanCheckoutDialog } from "../checkout/BusinessPlanCheckoutDialog";
 import { usePaymentStatusChecker } from "./usePaymentStatusChecker";
 import { usePaymentCreation } from "./usePaymentCreation"; 
 import { useClipboard } from "./useClipboard";
@@ -30,13 +29,14 @@ export function useSubscriptionCreation() {
     }
   });
 
-  const handleSubscribe = async (planId: string) => {
+  const handleSubscribe = async (planId: string, paymentMethod: string = "pix") => {
     try {
       if (!planId) {
         throw new Error("ID do plano não fornecido");
       }
 
       setIsSubscribing(true);
+      setSelectedPaymentMethod(paymentMethod);
       
       // Verificar autenticação do usuário
       const { data: { user } } = await supabase.auth.getUser();
@@ -73,7 +73,7 @@ export function useSubscriptionCreation() {
         planName: planDetails.name,
         planValue: planDetails.monthly_cost,
         open: true,
-        paymentMethod: selectedPaymentMethod
+        paymentMethod: paymentMethod
       });
       setShowCheckout(true);
       

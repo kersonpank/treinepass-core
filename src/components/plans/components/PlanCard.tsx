@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,10 +61,6 @@ export function PlanCard({
       console.log("Confirming payment for plan:", plan.id, "with method:", selectedPaymentMethod);
       await onSubscribe(plan.id, selectedPaymentMethod);
       setShowDialog(false);
-      
-      if (selectedPaymentMethod === 'pix') {
-        setShowCheckoutDialog(true);
-      }
     } catch (error) {
       console.error("Error confirming payment:", error);
       toast({
@@ -218,18 +213,7 @@ export function PlanCard({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showCheckoutDialog} onOpenChange={handleCloseCheckout}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Pagamento via PIX</DialogTitle>
-            <DialogDescription>
-              Escaneie o QR Code ou copie o código PIX para pagar
-            </DialogDescription>
-          </DialogHeader>
-
-          <CheckoutDialog />
-        </DialogContent>
-      </Dialog>
+      <CheckoutDialog />
     </>
   );
 }

@@ -31,6 +31,7 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
     // Normalize payment method
     let billingTypes = [];
     if (data.paymentMethod) {
+      // Convert payment method to ASAAS format
       if (data.paymentMethod === 'pix' || data.paymentMethod === 'PIX') {
         billingTypes = ['PIX'];
       } else if (data.paymentMethod === 'credit_card' || data.paymentMethod === 'CREDIT_CARD') {
@@ -38,7 +39,7 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
       } else if (data.paymentMethod === 'boleto' || data.paymentMethod === 'BOLETO') {
         billingTypes = ['BOLETO'];
       } else {
-        // Se for undefined ou outro valor, permitimos que o usuário escolha no checkout
+        // Default to all payment methods if not specified or invalid
         billingTypes = ['CREDIT_CARD', 'PIX', 'BOLETO'];
       }
     } else {

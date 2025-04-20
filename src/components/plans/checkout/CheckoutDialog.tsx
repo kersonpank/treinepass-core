@@ -58,7 +58,7 @@ export function CheckoutDialog({
       // Create a unique reference ID for this subscription
       const subscriptionId = crypto.randomUUID();
       
-      console.log(`Usando checkout do Asaas para ${paymentMethod}`);
+      console.log(`Iniciando checkout do Asaas para método de pagamento: ${paymentMethod}`);
       
       // Prepare callback URLs
       const origin = window.location.origin;
@@ -67,9 +67,10 @@ export function CheckoutDialog({
       
       // Prepare customer data from user profile
       const customerData = {
-        ...profile,
         name: profile.full_name,
-        cpfCnpj: profile.cpf
+        cpfCnpj: profile.cpf,
+        email: profile.email,
+        phone: profile.phone
       };
       
       // Prepare checkout data
@@ -87,7 +88,7 @@ export function CheckoutDialog({
         paymentMethod
       };
       
-      console.log("Enviando dados para a Edge Function:", checkoutData);
+      console.log("Enviando dados para a Edge Function:", JSON.stringify(checkoutData, null, 2));
       
       // Call the edge function to create checkout
       const { data, error } = await supabase.functions.invoke('asaas-api', {
@@ -173,7 +174,7 @@ export function CheckoutDialog({
                   Processando...
                 </>
               ) : (
-                `Pagar com ${paymentMethod === 'CREDIT_CARD' ? 'Cartão de Crédito' : 'PIX'}`
+                `Pagar com ${paymentMethod === 'credit_card' ? 'Cartão de Crédito' : paymentMethod === 'pix' ? 'PIX' : 'Boleto'}`
               )}
             </Button>
           )}

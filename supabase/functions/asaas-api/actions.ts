@@ -23,8 +23,6 @@ export async function handleAction(action: string, data: any, apiKey: string, ba
       return handleCreateCheckout(data, apiKey, baseUrl);
       
     case 'initiateCheckout':
-      // Certifique-se de que estamos passando os dados corretos para createDirectCheckout
-      console.log("Creating direct checkout with:", data);
       return createDirectCheckout(data, apiKey, baseUrl);
       
     case 'processCreditCard':
