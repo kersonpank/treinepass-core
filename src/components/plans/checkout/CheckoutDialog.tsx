@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CheckoutDialogProps {
@@ -25,13 +25,13 @@ export function CheckoutDialog({
   paymentMethod
 }: CheckoutDialogProps) {
   const { toast } = useToast();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   // Handle initiation of checkout process
   const handleInitiate = async () => {
-    if (!user || !profile) {
+    if (!user) {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -52,6 +52,17 @@ export function CheckoutDialog({
       const origin = window.location.origin;
       const successUrl = `${origin}/payment/success`;
       const failureUrl = `${origin}/payment/failure`;
+      
+      // Get user profile data
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (!profile) {
+        throw new Error("Perfil de usuário não encontrado");
+      }
       
       // Prepare customer data from user profile
       const customerData = {
