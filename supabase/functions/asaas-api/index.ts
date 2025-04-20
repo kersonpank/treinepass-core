@@ -6,9 +6,15 @@ import { handleAction } from "./actions.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";
 
 serve(async (req) => {
-  // Lidar com preflight OPTIONS
+  console.log(`Received ${req.method} request to ${req.url}`);
+  
+  // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    console.log("Handling CORS preflight request");
+    return new Response(null, { 
+      headers: corsHeaders,
+      status: 204
+    });
   }
 
   try {
@@ -16,15 +22,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Obter dados da requisição
+    // Get request data
     const { action, data } = await req.json();
     console.log(`Processing ${action} with data:`, JSON.stringify(data, null, 2));
 
-    // Obter configuração do Asaas
+    // Get Asaas configuration
     const { apiKey, baseUrl } = await getAsaasApiKey(supabase);
     console.log(`Using Asaas API: ${baseUrl}`);
 
-    // Processar a ação
+    // Process the action
     const response = await handleAction(action, data, apiKey, baseUrl, supabase);
     console.log(`Response from ${action}:`, JSON.stringify(response, null, 2));
 
@@ -34,7 +40,7 @@ serve(async (req) => {
         headers: { 
           ...corsHeaders,
           "Content-Type": "application/json",
-          "User-Agent": "TreinePass-App" // Adicionar User-Agent conforme documentação
+          "User-Agent": "TreinePass-App" // Add User-Agent as per documentation
         },
         status: 200
       }
