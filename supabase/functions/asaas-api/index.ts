@@ -6,7 +6,7 @@ import { handleAction } from "./actions.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // Lidar com preflight OPTIONS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -16,15 +16,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get request body
+    // Obter dados da requisição
     const { action, data } = await req.json();
     console.log(`Processing ${action} with data:`, JSON.stringify(data, null, 2));
 
-    // Get Asaas API configuration
+    // Obter configuração do Asaas
     const { apiKey, baseUrl } = await getAsaasApiKey(supabase);
     console.log(`Using Asaas API: ${baseUrl}`);
 
-    // Process the action
+    // Processar a ação
     const response = await handleAction(action, data, apiKey, baseUrl, supabase);
     console.log(`Response from ${action}:`, JSON.stringify(response, null, 2));
 
@@ -33,8 +33,10 @@ serve(async (req) => {
       { 
         headers: { 
           ...corsHeaders,
-          "Content-Type": "application/json" 
-        } 
+          "Content-Type": "application/json",
+          "User-Agent": "TreinePass-App" // Adicionar User-Agent conforme documentação
+        },
+        status: 200
       }
     );
   } catch (error) {
@@ -49,7 +51,8 @@ serve(async (req) => {
         status: 400,
         headers: { 
           ...corsHeaders,
-          "Content-Type": "application/json" 
+          "Content-Type": "application/json",
+          "User-Agent": "TreinePass-App"
         } 
       }
     );
