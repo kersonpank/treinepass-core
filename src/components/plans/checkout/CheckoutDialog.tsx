@@ -150,7 +150,7 @@ export function CheckoutDialog({
         <DialogHeader>
           <DialogTitle>Checkout {planName}</DialogTitle>
           <DialogDescription>
-            Valor: R$ {planValue.toFixed(2).replace(".", ",")}
+            Valor: R$ {typeof planValue === 'number' ? planValue.toFixed(2).replace(".", ",") : '0,00'}
           </DialogDescription>
         </DialogHeader>
         

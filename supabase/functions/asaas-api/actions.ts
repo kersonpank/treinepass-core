@@ -1,5 +1,5 @@
 
-import { handleCreateCustomer } from './handlers/customerManagement.ts';
+import { handleCreateCustomer } from './handlers/customer.ts';
 import { handleCreatePayment } from './handlers/payment.ts';
 import { handleCreateSubscription } from './handlers/subscription.ts';
 import { handleCreateCheckout } from './handlers/checkoutSession.ts';
