@@ -33,7 +33,7 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
       externalReference: data.externalReference,
       value: data.value,
       description: data.description,
-      billingTypes: data.billingTypes || ["CREDIT_CARD", "PIX"],
+      billingTypes: [data.paymentMethod] || ["CREDIT_CARD", "PIX"],
       chargeTypes: ["DETACHED"], // For single payment
       minutesToExpire: 60,
       customerData: customerData,

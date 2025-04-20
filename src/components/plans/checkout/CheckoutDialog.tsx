@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CheckoutDialogProps {
@@ -25,23 +24,25 @@ export function CheckoutDialog({
   paymentMethod
 }: CheckoutDialogProps) {
   const { toast } = useToast();
-  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   // Handle initiation of checkout process
   const handleInitiate = async () => {
-    if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Você precisa estar logado para continuar."
-      });
-      return;
-    }
-
     try {
       setIsLoading(true);
+      
+      // Get user data
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Você precisa estar logado para continuar."
+        });
+        return;
+      }
       
       // Create a unique reference ID for this subscription
       const subscriptionId = crypto.randomUUID();
