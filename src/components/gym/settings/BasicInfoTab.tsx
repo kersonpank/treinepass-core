@@ -1,5 +1,6 @@
 
-import { UseFormRegister, FieldErrors } from "react-hook-form";
+import { UseFormRegister, FieldErrors, UseFormSetValue } from "react-hook-form";
+import { CepInput } from "@/components/shared/CepInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -62,18 +63,46 @@ export function BasicInfoTab({ register, errors }: BasicInfoTabProps) {
         )}
       </div>
 
-      <div>
-        <Label htmlFor="endereco" className="flex items-center gap-2">
-          <MapPin className="h-4 w-4" />
-          Endereço
-        </Label>
-        <Textarea
-          id="endereco"
-          {...register("endereco", { required: "Endereço é obrigatório" })}
-        />
-        {errors.endereco && (
-          <p className="text-sm text-red-500">{errors.endereco.message as string}</p>
-        )}
+      {/* CEP + Endereço detalhado, mobile first */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="col-span-1">
+          <CepInput
+            register={register}
+            errors={errors}
+            setValue={setValue}
+            label="CEP"
+            required={true}
+          />
+        </div>
+        <div className="col-span-1">
+          <Label htmlFor="street">Rua</Label>
+          <Input id="street" {...register("street", { required: "Rua é obrigatória" })} />
+          {errors.street && <p className="text-sm text-red-500">{errors.street.message as string}</p>}
+        </div>
+        <div className="col-span-1">
+          <Label htmlFor="number">Número</Label>
+          <Input id="number" {...register("number", { required: "Número é obrigatório" })} />
+          {errors.number && <p className="text-sm text-red-500">{errors.number.message as string}</p>}
+        </div>
+        <div className="col-span-1">
+          <Label htmlFor="complement">Complemento</Label>
+          <Input id="complement" {...register("complement")} />
+        </div>
+        <div className="col-span-1">
+          <Label htmlFor="neighborhood">Bairro</Label>
+          <Input id="neighborhood" {...register("neighborhood", { required: "Bairro é obrigatório" })} />
+          {errors.neighborhood && <p className="text-sm text-red-500">{errors.neighborhood.message as string}</p>}
+        </div>
+        <div className="col-span-1">
+          <Label htmlFor="city">Cidade</Label>
+          <Input id="city" {...register("city", { required: "Cidade é obrigatória" })} />
+          {errors.city && <p className="text-sm text-red-500">{errors.city.message as string}</p>}
+        </div>
+        <div className="col-span-1">
+          <Label htmlFor="state">Estado</Label>
+          <Input id="state" {...register("state", { required: "Estado é obrigatório" })} />
+          {errors.state && <p className="text-sm text-red-500">{errors.state.message as string}</p>}
+        </div>
       </div>
     </div>
   );

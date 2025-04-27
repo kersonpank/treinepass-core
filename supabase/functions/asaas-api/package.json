@@ -1,0 +1,9 @@
+{
+  "name": "asaas-api",
+  "version": "1.0.0",
+  "description": "Integração com o Asaas para TreinePass",
+  "main": "index.ts",
+  "dependencies": {
+    "asaas-node-sdk": "^1.0.0"
+  }
+}

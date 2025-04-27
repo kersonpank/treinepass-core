@@ -16,7 +16,6 @@ export function BusinessPlans() {
   const { isSubscribing, handleSubscribe, CheckoutDialog } = useBusinessPlanSubscription();
   const { handleCancelPlan, isLoading: isCancelling, showCancelDialog, setShowCancelDialog } = usePlanCancellation();
 
-  // Buscar planos empresariais disponíveis (incluindo planos subsidiados)
   const { data: plans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ["businessPlans"],
     queryFn: async () => {
@@ -39,14 +38,12 @@ export function BusinessPlans() {
     },
   });
 
-  // Buscar assinatura atual da empresa
   const { data: businessSubscription, isLoading: isLoadingSubscription, refetch: refetchSubscription } = useQuery({
     queryKey: ["businessActiveSubscription"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Buscar perfil da empresa
       const { data: businessProfile, error: profileError } = await supabase
         .from("business_profiles")
         .select("id")
@@ -58,7 +55,6 @@ export function BusinessPlans() {
         return null;
       }
 
-      // Buscar assinatura ativa da empresa
       const { data, error } = await supabase
         .from("business_plan_subscriptions")
         .select(`
@@ -81,7 +77,6 @@ export function BusinessPlans() {
 
   const handleSubscribeToPlan = async (planId: string) => {
     try {
-      // Check if business already has an active subscription
       if (businessSubscription?.status === "active") {
         toast({
           variant: "destructive",
@@ -91,10 +86,9 @@ export function BusinessPlans() {
         return;
       }
       
-      // Subscribe to the plan with UNDEFINED payment method to let customer choose
-      await handleSubscribe(planId, "undefined");
+      // Fix the expected 2 arguments error by passing a payment method
+      await handleSubscribe(planId, "pix");
       
-      // Refresh subscription data
       setTimeout(() => {
         refetchSubscription();
       }, 2000);
@@ -124,12 +118,10 @@ export function BusinessPlans() {
     }
   };
 
-  // Show loading state
   if (isLoadingPlans || isLoadingSubscription) {
     return <LoadingSpinner text="Carregando planos disponíveis..." />;
   }
 
-  // Group plans by type
   const corporatePlans = plans?.filter(plan => plan.plan_type === "corporate") || [];
   const subsidizedPlans = plans?.filter(plan => plan.plan_type === "corporate_subsidized") || [];
 
@@ -142,7 +134,6 @@ export function BusinessPlans() {
         </p>
       </div>
 
-      {/* Show current subscription if exists */}
       {businessSubscription && (
         <CurrentBusinessSubscription 
           subscription={businessSubscription}
@@ -150,7 +141,6 @@ export function BusinessPlans() {
         />
       )}
 
-      {/* Available corporate plans */}
       {corporatePlans.length > 0 && (
         <div>
           <h3 className="text-xl font-medium mb-4">Planos Corporativos</h3>
@@ -167,7 +157,6 @@ export function BusinessPlans() {
         </div>
       )}
 
-      {/* Available subsidized plans */}
       {subsidizedPlans.length > 0 && (
         <div className="mt-8">
           <h3 className="text-xl font-medium mb-4">Planos Cofinanciados</h3>
@@ -193,7 +182,6 @@ export function BusinessPlans() {
         </div>
       )}
 
-      {/* Cancel Subscription Dialog */}
       <CancelSubscriptionDialog 
         open={showCancelDialog}
         onOpenChange={setShowCancelDialog}
@@ -201,7 +189,6 @@ export function BusinessPlans() {
         isLoading={isCancelling}
       />
       
-      {/* Checkout Dialog for payment */}
       <CheckoutDialog />
     </div>
   );

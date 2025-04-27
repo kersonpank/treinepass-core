@@ -1,71 +1,101 @@
 
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { createAsaasPayment, savePaymentData } from "./useAsaasPayment";
-import { updateSubscriptionPaymentDetails } from "./useBusinessSubscription";
+import { useAsaasCheckout } from "@/hooks/useAsaasCheckout";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useBusinessPaymentCreation() {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const { createCheckoutSession } = useAsaasCheckout();
 
   const createBusinessPayment = async (
     planDetails: any,
     subscription: any,
-    asaasCustomerId: string,
-    paymentMethod: string
+    businessProfile: any
   ) => {
     try {
       setIsProcessing(true);
-      console.log("Criando pagamento para assinatura:", subscription.id);
+      console.log("Criando pagamento para assinatura business:", subscription.id);
       
       // Define URLs de redirecionamento para sucesso e falha
       const returnSuccessUrl = `${window.location.origin}/payment/success?subscription=${subscription.id}&business=true`;
       const returnFailureUrl = `${window.location.origin}/payment/failure?subscription=${subscription.id}&business=true`;
       
-      const paymentResponse = await createAsaasPayment({
-        customer: asaasCustomerId,
-        planName: planDetails.name,
-        planCost: planDetails.monthly_cost,
-        paymentMethod: paymentMethod,
-        subscriptionId: subscription.id,
+      // Get business profile for complete info if needed
+      if (!businessProfile && subscription.business_id) {
+        const { data: profile, error: profileError } = await supabase
+          .from("business_profiles")
+          .select("*")
+          .eq("id", subscription.business_id)
+          .single();
+
+        if (!profileError) {
+          businessProfile = profile;
+        }
+      }
+
+      if (!businessProfile || !businessProfile.company_name || !businessProfile.cnpj) {
+        throw new Error("Dados de empresa incompletos. Nome e CNPJ são obrigatórios.");
+      }
+
+      // Format phone number properly if it exists
+      const formattedPhone = businessProfile.phone ? businessProfile.phone.replace(/\D/g, '') : 
+                             businessProfile.contact_phone ? businessProfile.contact_phone.replace(/\D/g, '') : undefined;
+      
+      // Format postal code properly
+      let postalCode = typeof businessProfile.postal_code === 'string' ? businessProfile.postal_code : "00000000";
+      postalCode = postalCode.replace(/\D/g, '');
+      if (postalCode.length !== 8) {
+        postalCode = "00000000";
+      }
+
+      // Create checkout session with clean data
+      const checkoutResponse = await createCheckoutSession({
+        value: planDetails.monthly_cost,
+        description: `Assinatura empresarial do plano ${planDetails.name}`,
+        externalReference: subscription.id,
+        customerData: {
+          name: businessProfile.company_name,
+          cpfCnpj: businessProfile.cnpj,
+          email: businessProfile.contact_email || businessProfile.email,
+          phone: formattedPhone,
+          // Add required address fields with default values
+          address: typeof businessProfile.address === 'string' ? businessProfile.address : "Endereço não informado",
+          addressNumber: businessProfile.address_number || "S/N",
+          province: businessProfile.neighborhood || "Centro",
+          postalCode: postalCode
+        },
         successUrl: returnSuccessUrl,
         failureUrl: returnFailureUrl
       });
-      
-      console.log("Resposta do serviço de pagamento:", paymentResponse);
-      
-      if (!paymentResponse || (!paymentResponse.payment && !paymentResponse.paymentLink && !paymentResponse.id)) {
-        throw new Error("Resposta de pagamento inválida ou incompleta");
+
+      if (!checkoutResponse.success) {
+        throw new Error(checkoutResponse.error?.message || "Resposta de pagamento inválida ou incompleta");
       }
 
-      // Parse payment information
-      const paymentInfo = parsePaymentResponse(paymentResponse, planDetails.monthly_cost);
-
-      // Save payment data
-      await savePaymentData({
-        asaasId: paymentInfo.paymentId,
-        customerId: asaasCustomerId,
-        subscriptionId: subscription.id,
-        amount: paymentInfo.value,
-        billingType: paymentInfo.billingType,
-        status: paymentInfo.status,
-        dueDate: paymentInfo.dueDate,
-        invoiceUrl: paymentInfo.invoiceUrl || paymentInfo.paymentLink || ""
-      });
-
       // Update subscription with payment details
-      await updateSubscriptionPaymentDetails({
-        subscriptionId: subscription.id,
-        paymentLink: paymentInfo.paymentLink || paymentInfo.invoiceUrl || "",
-        customerId: asaasCustomerId,
-        paymentMethod: paymentMethod,
-        totalValue: planDetails.monthly_cost
-      });
+      await supabase
+        .from("business_plan_subscriptions")
+        .update({
+          asaas_payment_link: checkoutResponse.checkoutUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", subscription.id);
 
-      return paymentInfo;
+      // Return success data
+      return {
+        success: true,
+        checkoutUrl: checkoutResponse.checkoutUrl
+      };
     } catch (error: any) {
       console.error("Erro ao processar pagamento:", error);
-      throw new Error(`Falha ao criar pagamento: ${error.message}`);
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar pagamento",
+        description: error.message || "Ocorreu um erro ao processar sua solicitação",
+      });
+      throw error;
     } finally {
       setIsProcessing(false);
     }
@@ -74,46 +104,5 @@ export function useBusinessPaymentCreation() {
   return {
     createBusinessPayment,
     isProcessing
-  };
-}
-
-// Helper function to parse payment response
-function parsePaymentResponse(paymentResponse: any, defaultAmount: number) {
-  let paymentStatus = "PENDING";
-  let paymentValue = defaultAmount;
-  let paymentDueDate = new Date().toISOString().split('T')[0];
-  let paymentId = "";
-  let billingType = "undefined";
-  let invoiceUrl = "";
-  let paymentLinkUrl = "";
-  let pixData = undefined;
-
-  // Handle different response formats
-  if (paymentResponse.payment) {
-    paymentStatus = paymentResponse.payment.status;
-    paymentValue = paymentResponse.payment.value;
-    paymentDueDate = paymentResponse.payment.dueDate;
-    paymentId = paymentResponse.payment.id;
-    billingType = paymentResponse.payment.billingType;
-    invoiceUrl = paymentResponse.payment.invoiceUrl;
-    paymentLinkUrl = paymentResponse.payment.paymentLink || paymentResponse.payment.invoiceUrl;
-    pixData = paymentResponse.pix;
-  } else if (paymentResponse.paymentLink || paymentResponse.id) {
-    paymentId = paymentResponse.id || "";
-    paymentValue = paymentResponse.value || defaultAmount;
-    paymentDueDate = paymentResponse.dueDate || paymentDueDate;
-    paymentLinkUrl = paymentResponse.paymentLink || "";
-    invoiceUrl = paymentResponse.paymentLink || "";
-  }
-
-  return {
-    status: paymentStatus,
-    value: paymentValue,
-    dueDate: paymentDueDate,
-    billingType,
-    invoiceUrl: invoiceUrl || paymentLinkUrl || "",
-    paymentId,
-    paymentLink: paymentLinkUrl || invoiceUrl || "",
-    pix: pixData
   };
 }

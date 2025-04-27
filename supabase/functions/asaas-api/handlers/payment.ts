@@ -1,101 +1,113 @@
 
+/**
+ * Handler para criar pagamento no Asaas
+ */
+
 export async function handleCreatePayment(data: any, apiKey: string, baseUrl: string) {
-  console.log(`Creating payment with data:`, data);
+  console.log("Creating payment with data:", data);
   
-  // Validate required fields
-  if (!data.customer || !data.value) {
-    throw new Error('Payment data incomplete. Customer and value are required.');
-  }
+  try {
+    // Validar dados obrigatórios
+    if (!data.customer || !data.value || !data.billingType) {
+      throw new Error("Customer, value and billingType are required");
+    }
+    
+    // Fazer requisição ao Asaas
+    const response = await fetch(`${baseUrl}/payments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'access_token': apiKey,
+        'User-Agent': 'TreinePass-App'
+      },
+      body: JSON.stringify(data)
+    });
 
-  // Add basic defaults if not provided
-  const paymentData = {
-    ...data,
-    billingType: data.billingType || "UNDEFINED", // Default to allow customer to choose
-    description: data.description || "Pagamento",
-    // URLs de redirecionamento após pagamento
-    callbackUrl: data.callbackUrl || process.env.WEBHOOK_URL,
-    successUrl: data.successUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/success",
-    failureUrl: data.failureUrl || process.env.WEBAPP_URL || "https://app.mkbr.com.br/payment/failure"
-  };
+    // Obter resposta
+    const paymentResult = await response.json();
+    
+    if (!response.ok) {
+      console.error("Asaas API error:", paymentResult);
+      throw new Error(paymentResult.errors?.[0]?.description || 'Unknown error');
+    }
 
-  // Make API request to Asaas
-  const asaasResponse = await fetch(`${baseUrl}/payments`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'access_token': apiKey
-    },
-    body: JSON.stringify(paymentData)
-  });
-
-  // Parse response
-  const paymentResult = await asaasResponse.json();
-  console.log(`Asaas payment response:`, paymentResult);
-
-  if (!asaasResponse.ok) {
-    throw new Error(`Asaas API error: ${paymentResult.errors?.[0]?.description || 'Unknown error'}`);
-  }
-
-  // Check if we need to fetch PIX code for PIX payments
-  let pixInfo = {};
-  if (data.billingType === 'PIX' && paymentResult.id) {
-    try {
-      const pixResponse = await fetch(`${baseUrl}/payments/${paymentResult.id}/pixQrCode`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'access_token': apiKey
-        }
-      });
-
-      if (pixResponse.ok) {
-        const pixData = await pixResponse.json();
-        pixInfo = {
-          pix: {
-            encodedImage: pixData.encodedImage,
-            payload: pixData.payload
+    let paymentData = {
+      success: true,
+      id: paymentResult.id,
+      status: paymentResult.status,
+      value: paymentResult.value,
+      netValue: paymentResult.netValue,
+      description: paymentResult.description,
+      billingType: paymentResult.billingType,
+      customer: paymentResult.customer,
+      dueDate: paymentResult.dueDate,
+      invoiceUrl: paymentResult.invoiceUrl || null,
+      bankSlipUrl: paymentResult.bankSlipUrl || null,
+      paymentLink: null
+    };
+    
+    // Adicionar informações específicas do tipo de pagamento
+    if (paymentResult.billingType === 'PIX') {
+      paymentData.paymentLink = paymentResult.invoiceUrl;
+      
+      // Tentar obter QR code do PIX se disponível
+      try {
+        const pixResponse = await fetch(`${baseUrl}/payments/${paymentResult.id}/pixQrCode`, {
+          headers: {
+            'access_token': apiKey,
+            'User-Agent': 'TreinePass-App'
           }
-        };
+        });
+        
+        if (pixResponse.ok) {
+          const pixData = await pixResponse.json();
+          paymentData = {
+            ...paymentData,
+            pixQrCode: pixData.encodedImage,
+            pixCopyPaste: pixData.payload
+          };
+        }
+      } catch (pixError) {
+        console.error("Error fetching PIX QR code:", pixError);
+        // Não interromper o fluxo se não conseguir obter o QR code
       }
-    } catch (pixError) {
-      console.error("Error fetching PIX QR code:", pixError);
+    } else if (paymentResult.billingType === 'CREDIT_CARD') {
+      // Criar link de pagamento para cartão de crédito
+      try {
+        const paymentLinkResponse = await fetch(`${baseUrl}/paymentLinks`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'access_token': apiKey,
+            'User-Agent': 'TreinePass-App'
+          },
+          body: JSON.stringify({
+            billingType: 'CREDIT_CARD',
+            chargeType: 'DETACHED',
+            name: data.description || 'Pagamento via cartão',
+            description: data.description,
+            endDate: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0],
+            value: data.value,
+            callback: {
+              successUrl: data.successUrl,
+              autoRedirect: true
+            }
+          })
+        });
+        
+        if (paymentLinkResponse.ok) {
+          const linkData = await paymentLinkResponse.json();
+          paymentData.paymentLink = linkData.url;
+        }
+      } catch (linkError) {
+        console.error("Error creating payment link:", linkError);
+      }
     }
+
+    console.log("Payment created successfully:", paymentData);
+    return paymentData;
+  } catch (error) {
+    console.error("Error creating payment:", error);
+    throw error;
   }
-
-  return {
-    success: true,
-    payment: paymentResult,
-    ...pixInfo
-  };
-}
-
-export async function handleGetPayment(data: any, apiKey: string, baseUrl: string) {
-  console.log(`Getting payment with data:`, data);
-  
-  // Validate required fields
-  if (!data.id) {
-    throw new Error('Payment ID is required.');
-  }
-
-  // Make API request to Asaas
-  const asaasResponse = await fetch(`${baseUrl}/payments/${data.id}`, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'access_token': apiKey
-    }
-  });
-
-  // Parse response
-  const paymentResult = await asaasResponse.json();
-  console.log(`Asaas payment get response:`, paymentResult);
-
-  if (!asaasResponse.ok) {
-    throw new Error(`Asaas API error: ${paymentResult.errors?.[0]?.description || 'Unknown error'}`);
-  }
-
-  return {
-    success: true,
-    payment: paymentResult
-  };
 }

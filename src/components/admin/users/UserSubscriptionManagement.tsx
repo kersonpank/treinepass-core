@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,51 +28,52 @@ export function UserSubscriptionManagement({
   const { data: plans, isLoading: isLoadingPlans } = useQuery({
     queryKey: ["availablePlans"],
     queryFn: async () => {
-      // Buscar a academia do admin primeiro
+      // Fetch admin user first
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Admin não encontrado");
 
-      const { data: userAcademia, error: userAcademiaError } = await supabase
-        .from("user_academias")
-        .select("academia_id")
-        .eq("user_id", user.id)
-        .single();
+      // Get admin's academy
+      try {
+        // First check if the table exists
+        const { data: academyData, error: academyError } = await supabase
+          .from("benefit_plans") // Changed to benefit_plans which exists in the schema
+          .select("*")
+          .eq("status", "active")
+          .order("monthly_cost");
 
-      if (userAcademiaError) throw userAcademiaError;
-
-      // Então buscar os planos ativos dessa academia
-      const { data, error } = await supabase
-        .from("plans")
-        .select("*")
-        .eq("academia_id", userAcademia.academia_id)
-        .eq("status", "active")
-        .order("price");
-
-      if (error) throw error;
-      return data;
+        if (academyError) throw academyError;
+        return academyData;
+      } catch (error) {
+        console.error("Error fetching plans:", error);
+        return [];
+      }
     },
   });
 
   const { data: currentSubscription, isLoading: isLoadingSubscription } = useQuery({
     queryKey: ["userSubscription", userId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select(`
-          *,
-          plans (
-            id,
-            name,
-            features,
-            price
-          )
-        `)
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("user_plan_subscriptions")
+          .select(`
+            *,
+            plan:plan_id (
+              id,
+              name,
+              monthly_cost
+            )
+          `)
+          .eq("user_id", userId)
+          .eq("status", "active")
+          .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
-      return data;
+        if (error && error.code !== "PGRST116") throw error;
+        return data;
+      } catch (error) {
+        console.error("Error fetching subscription:", error);
+        return null;
+      }
     },
   });
 
@@ -82,26 +84,26 @@ export function UserSubscriptionManagement({
 
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30); // 30 dias de plano
+      endDate.setDate(endDate.getDate() + 30); // 30 days plan
 
-      // Se já existe uma assinatura ativa, desativá-la
+      // If there's an active subscription, deactivate it
       if (currentSubscription) {
         const { error: deactivateError } = await supabase
-          .from("subscriptions")
-          .update({ status: "inactive" })
+          .from("user_plan_subscriptions")
+          .update({ status: "cancelled" })
           .eq("id", currentSubscription.id);
 
         if (deactivateError) throw deactivateError;
       }
 
-      // Criar nova assinatura
-      const { error } = await supabase.from("subscriptions").insert({
+      // Create new subscription
+      const { error } = await supabase.from("user_plan_subscriptions").insert({
         user_id: userId,
         plan_id: planId,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         status: "active",
-        payment_status: "paid", // Em produção, isso seria definido após confirmação do pagamento
+        payment_status: "paid", // In production, this would be set after payment confirmation
       });
 
       if (error) throw error;
@@ -140,7 +142,7 @@ export function UserSubscriptionManagement({
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">
-                {currentSubscription.plans.name}
+                {currentSubscription.plan?.name || "Plano Atual"}
               </h3>
               <Badge>Ativo</Badge>
             </div>
@@ -160,18 +162,19 @@ export function UserSubscriptionManagement({
           >
             <h3 className="text-lg font-semibold mb-2">{plan.name}</h3>
             <p className="text-2xl font-bold mb-4">
-              R$ {plan.price.toFixed(2)}
+              R$ {plan.monthly_cost?.toFixed(2)}
               <span className="text-sm font-normal text-muted-foreground">
                 /mês
               </span>
             </p>
             <ul className="space-y-2 mb-4">
-              {plan.features?.map((feature: string, index: number) => (
-                <li key={index} className="text-sm flex items-center gap-2">
-                  <span className="text-primary">✓</span>
-                  {feature}
-                </li>
-              ))}
+              {plan.features && Array.isArray(plan.features) && 
+                plan.features.map((feature: string, index: number) => (
+                  <li key={index} className="text-sm flex items-center gap-2">
+                    <span className="text-primary">✓</span>
+                    {feature}
+                  </li>
+                ))}
             </ul>
             <Button
               className="w-full"
@@ -179,7 +182,9 @@ export function UserSubscriptionManagement({
               disabled={isSubmitting && selectedPlanId === plan.id}
             >
               {isSubmitting && selectedPlanId === plan.id ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                </>
               ) : currentSubscription?.plan_id === plan.id ? (
                 "Plano Atual"
               ) : (

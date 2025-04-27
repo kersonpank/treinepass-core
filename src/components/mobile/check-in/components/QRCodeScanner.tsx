@@ -1,5 +1,5 @@
-
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
 
 interface QRCodeScannerProps {
@@ -8,6 +8,7 @@ interface QRCodeScannerProps {
 
 export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
   const { toast } = useToast();
+  const [scannerAvailable, setScannerAvailable] = useState(true);
 
   const handleScan = (result: string) => {
     if (result) {
@@ -18,6 +19,7 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
 
   const handleError = (error: any) => {
     console.error("Scanner error:", error);
+    setScannerAvailable(false);
     toast({
       variant: "destructive",
       title: "Scanner error",
@@ -25,13 +27,25 @@ export function QRCodeScanner({ onScan }: QRCodeScannerProps) {
     });
   };
 
-  return (
-    <div className="py-2">
+  // Render scanner with fallback
+  const renderScanner = () => {
+    return scannerAvailable ? (
       <Scanner
         onScan={handleScan}
         onError={handleError}
+        videoConstraints={{ facingMode: { exact: "environment" } }}
         className="w-full aspect-square"
       />
+    ) : (
+      <div className="text-center text-muted-foreground">
+        Câmera não disponível
+      </div>
+    );
+  };
+
+  return (
+    <div className="py-2">
+      {renderScanner()}
       <p className="text-sm text-center text-muted-foreground mt-2">
         Point the camera at the gym's QR Code
       </p>

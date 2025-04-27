@@ -34,9 +34,8 @@ export function BusinessEmployeePlans() {
         return;
       }
       
-      // Subscribe to the plan with "undefined" as the payment method
-      // This will allow the user to choose their payment method in the Asaas checkout
-      await handleSubscribe(planId, "undefined");
+      // Subscribe to the plan (passando apenas um parâmetro, o ID do plano)
+      await handleSubscribe(planId);
       
       // Refresh user subscription data
       setTimeout(() => {

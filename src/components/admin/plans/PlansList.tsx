@@ -46,15 +46,22 @@ export function PlansList({ onEditPlan, onViewPlan }: PlansListProps) {
 
       if (error) throw error;
 
-      return (data || []).map((plan): Plan => ({
-        ...plan,
-        monthly_cost: plan.monthly_cost.toString(),
-        status: plan.status as Plan["status"],
+      return (data || []).map((plan) => ({
+        id: plan.id,
+        status: plan.status,
+        name: plan.name,
+        description: plan.description,
+        monthly_cost: plan.monthly_cost,
+        annual_discount: plan.annual_discount,
+        corporate_discount: plan.corporate_discount,
+        validity_period: plan.validity_period,
         plan_type: plan.plan_type as Plan["plan_type"],
         period_type: plan.period_type as Plan["period_type"],
         renewal_type: (plan.renewal_type || "automatic") as Plan["renewal_type"],
-        rules: plan.rules || {},
-        payment_rules: plan.payment_rules || { continue_without_use: true },
+        rules: plan.rules ? (typeof plan.rules === 'object' ? plan.rules : {}) : {}, 
+        payment_rules: plan.payment_rules 
+          ? (typeof plan.payment_rules === 'object' ? plan.payment_rules : { continue_without_use: true }) 
+          : { continue_without_use: true },
       }));
     },
   });

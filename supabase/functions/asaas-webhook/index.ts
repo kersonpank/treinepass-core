@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
@@ -79,7 +78,6 @@ serve(async (req) => {
     // Direct update to ensure UI reflects changes immediately
     if (eventType.startsWith('PAYMENT_') && paymentStatus) {
       try {
-        // Map Asaas payment status to our internal status
         const internalPaymentStatus = mapAsaasPaymentStatus(paymentStatus);
         const internalSubscriptionStatus = internalPaymentStatus === 'paid' ? 'active' : 
                                          (internalPaymentStatus === 'overdue' ? 'overdue' : 
@@ -92,16 +90,16 @@ serve(async (req) => {
           subscription_status: internalSubscriptionStatus
         });
 
-        // First try to find subscription by external reference (direct match with our ID)
         if (externalReference) {
-          const { data: directMatchSubscription, error: directMatchError } = await supabase
+          // Primeiro tentar encontrar na tabela de assinaturas de usuário
+          const { data: userSubscription } = await supabase
             .from("user_plan_subscriptions")
-            .select("id")
+            .select("id, user_id")
             .eq("id", externalReference)
             .maybeSingle();
 
-          if (!directMatchError && directMatchSubscription?.id) {
-            // Update the subscription that matches the external reference
+          if (userSubscription) {
+            // É uma assinatura de usuário - atualizar e cancelar outras
             await supabase
               .from("user_plan_subscriptions")
               .update({
@@ -109,62 +107,55 @@ serve(async (req) => {
                 status: internalSubscriptionStatus,
                 last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
                 next_payment_date: calculateNextPaymentDate(payload),
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                asaas_subscription_id: subscriptionId // Store Asaas subscription ID
               })
-              .eq("id", directMatchSubscription.id);
-
-            console.log(`Successfully updated subscription ${directMatchSubscription.id} status to ${internalPaymentStatus}`);
-              
-            // If payment is paid/confirmed, cancel other pending subscriptions for this user
+              .eq("id", userSubscription.id);
+            
+            // Se pagamento foi confirmado, cancelar outras assinaturas do usuário
             if (internalPaymentStatus === 'paid') {
-              // Get the user_id for this subscription
-              const { data: subscription } = await supabase
+              await supabase
                 .from("user_plan_subscriptions")
-                .select("user_id")
-                .eq("id", directMatchSubscription.id)
-                .single();
-              
-              if (subscription?.user_id) {
-                // Cancel other pending subscriptions for this user
-                await supabase
-                  .from("user_plan_subscriptions")
-                  .update({
-                    status: 'cancelled',
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq("user_id", subscription.user_id)
-                  .eq("status", "pending")
-                  .neq("id", directMatchSubscription.id);
-                
-                console.log(`Cancelled other pending subscriptions for user ${subscription.user_id}`);
-              }
+                .update({
+                  status: 'cancelled',
+                  updated_at: new Date().toISOString()
+                })
+                .eq("user_id", userSubscription.user_id)
+                .neq("id", userSubscription.id);
+            }
+          } else {
+            // Verificar se é uma assinatura empresarial
+            const { data: businessSubscription } = await supabase
+              .from("business_plan_subscriptions")
+              .select("id")
+              .eq("id", externalReference)
+              .single();
+
+            if (businessSubscription) {
+              // É uma assinatura empresarial - apenas atualizar status
+              await supabase
+                .from("business_plan_subscriptions")
+                .update({
+                  payment_status: internalPaymentStatus,
+                  status: internalSubscriptionStatus,
+                  updated_at: new Date().toISOString(),
+                  asaas_subscription_id: subscriptionId // Store Asaas subscription ID
+                })
+                .eq("id", businessSubscription.id);
             }
           }
         }
 
-        // If not found by external reference, try to find by looking at asaas_payments
+        // Also update the payment record in our database
         if (paymentId) {
-          const { data: paymentData } = await supabase
+          await supabase
             .from("asaas_payments")
-            .select("subscription_id")
-            .eq("asaas_id", paymentId)
-            .maybeSingle();
-
-          if (paymentData?.subscription_id) {
-            // Update the subscription that's linked to this payment
-            await supabase
-              .from("user_plan_subscriptions")
-              .update({
-                payment_status: internalPaymentStatus,
-                status: internalSubscriptionStatus,
-                last_payment_date: internalPaymentStatus === 'paid' ? new Date().toISOString() : null,
-                next_payment_date: calculateNextPaymentDate(payload),
-                updated_at: new Date().toISOString()
-              })
-              .eq("id", paymentData.subscription_id);
-
-            console.log(`Updated subscription ${paymentData.subscription_id} status to ${internalPaymentStatus}`);
-          }
+            .update({
+              status: paymentStatus,
+              payment_date: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq("asaas_id", paymentId);
         }
       } catch (err) {
         console.error("Error updating subscription status:", err);
@@ -183,7 +174,7 @@ serve(async (req) => {
         // Try to find business subscription by external reference
         const { data: directMatchSubscription } = await supabase
           .from("business_plan_subscriptions")
-          .select("id")
+          .select("id, business_id")
           .eq("id", externalReference)
           .maybeSingle();
 
@@ -194,41 +185,30 @@ serve(async (req) => {
             .update({
               payment_status: internalPaymentStatus,
               status: internalSubscriptionStatus,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+              asaas_subscription_id: subscriptionId // Store Asaas subscription ID
             })
             .eq("id", directMatchSubscription.id);
 
           console.log(`Updated business subscription ${directMatchSubscription.id} status to ${internalPaymentStatus}`);
+          
+          // If payment is confirmed, cancel other pending subscriptions for this business
+          if (internalPaymentStatus === 'paid' && directMatchSubscription.business_id) {
+            await supabase
+              .from("business_plan_subscriptions")
+              .update({
+                status: 'cancelled',
+                updated_at: new Date().toISOString()
+              })
+              .eq("business_id", directMatchSubscription.business_id)
+              .eq("status", "pending")
+              .neq("id", directMatchSubscription.id);
+              
+            console.log(`Cancelled other pending subscriptions for business ${directMatchSubscription.business_id}`);
+          }
         }
       } catch (err) {
         console.error("Error updating business subscription status:", err);
-      }
-    }
-
-    // Also handle customer creation/update events
-    if (eventType.startsWith('CUSTOMER_') && customerData?.id) {
-      try {
-        // Check if we need to save/update this customer
-        const { data: existingCustomer } = await supabase
-          .from("asaas_customers")
-          .select("id")
-          .eq("asaas_id", customerData.id)
-          .maybeSingle();
-          
-        if (existingCustomer) {
-          // Update existing customer
-          await supabase
-            .from("asaas_customers")
-            .update({
-              name: customerData.name,
-              email: customerData.email,
-              cpf_cnpj: customerData.cpfCnpj,
-              updated_at: new Date().toISOString()
-            })
-            .eq("asaas_id", customerData.id);
-        }
-      } catch (err) {
-        console.error("Error processing customer data:", err);
       }
     }
 

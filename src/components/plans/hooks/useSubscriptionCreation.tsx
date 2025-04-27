@@ -2,34 +2,18 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { BusinessPlanCheckoutDialog } from "../checkout/BusinessPlanCheckoutDialog";
 import { usePaymentStatusChecker } from "./usePaymentStatusChecker";
 import { usePaymentCreation } from "./usePaymentCreation"; 
 import { useClipboard } from "./useClipboard";
-import { 
-  createSubscriptionRecord, 
-  saveSubscriptionPaymentData 
-} from "./useSubscriptionUpdate";
-
-interface PaymentData {
-  status: string;
-  value: number;
-  dueDate: string;
-  billingType: string;
-  invoiceUrl: string;  // Using invoiceUrl consistently
-  paymentId: string;
-  paymentLink?: string;
-  pix?: {
-    encodedImage?: string;
-    payload?: string;
-  };
-}
+import { CheckoutDialog } from "../checkout/CheckoutDialog";
 
 export function useSubscriptionCreation() {
   const { toast } = useToast();
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutData, setCheckoutData] = useState<PaymentData | null>(null);
+  const [checkoutData, setCheckoutData] = useState<any | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("pix");
   
   const { copiedText, handleCopyToClipboard } = useClipboard();
   const { createPayment } = usePaymentCreation();
@@ -47,22 +31,14 @@ export function useSubscriptionCreation() {
         throw new Error("ID do plano não fornecido");
       }
 
-      // Ensure we have a valid payment method
-      // This should be one of: "pix", "credit_card", "boleto", "transfer", "debit_card"
-      // But for payment links, we'll actually use "UNDEFINED" in the Asaas API
-      // while storing a valid value in our database
-      let effectivePaymentMethod = paymentMethod.toLowerCase();
-      if (effectivePaymentMethod === "undefined") {
-        effectivePaymentMethod = "pix"; // Default to pix as fallback for DB storage
-      }
-      
-      console.log("Using payment method (reference only):", effectivePaymentMethod);
-      
       setIsSubscribing(true);
+      setSelectedPaymentMethod(paymentMethod);
+      
+      // Verificar autenticação do usuário
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Get plan details
+      // Buscar detalhes do plano
       const { data: planDetails, error: planError } = await supabase
         .from("benefit_plans")
         .select("*")
@@ -73,7 +49,7 @@ export function useSubscriptionCreation() {
         throw new Error("Erro ao buscar detalhes do plano");
       }
 
-      // Get user profile for full info
+      // Buscar perfil do usuário
       const { data: userProfile, error: profileError } = await supabase
         .from("user_profiles")
         .select("*")
@@ -84,55 +60,22 @@ export function useSubscriptionCreation() {
         throw new Error(`Erro ao buscar perfil do usuário: ${profileError.message}`);
       }
 
-      // Create subscription record in our database
-      const newSubscription = await createSubscriptionRecord(user.id, planId, effectivePaymentMethod);
-
-      try {
-        // Create payment using our payment hook
-        const paymentInfo = await createPayment(
-          user,
-          userProfile,
-          planDetails,
-          newSubscription,
-          effectivePaymentMethod
-        );
-        
-        // Save payment data
-        await saveSubscriptionPaymentData(paymentInfo, newSubscription.id);
-
-        // Set checkout data for dialog display
-        setCheckoutData({
-          status: paymentInfo.status,
-          value: paymentInfo.value,
-          dueDate: paymentInfo.dueDate,
-          billingType: paymentInfo.billingType,
-          invoiceUrl: paymentInfo.invoiceUrl,
-          paymentId: paymentInfo.paymentId,
-          paymentLink: paymentInfo.paymentLink,
-          pix: paymentInfo.pix
-        });
-        
-        toast({
-          title: "Link de pagamento gerado!",
-          description: "Você será redirecionado para a página de pagamento."
-        });
-
-        // Redirect to payment link - use either available URL
-        const redirectUrl = paymentInfo.paymentLink || paymentInfo.invoiceUrl;
-        if (redirectUrl) {
-          window.location.href = redirectUrl;
-        } else {
-          setShowCheckout(true);
-          console.error("Link de pagamento não encontrado na resposta");
-        }
-        
-        return newSubscription;
-      } catch (paymentError: any) {
-        console.error("Erro ao processar pagamento:", paymentError);
-        throw paymentError;
-      }
+      // Armazenar o plano selecionado para uso posterior
+      setSelectedPlan(planDetails);
+      
+      // Mostrar diálogo de checkout
+      setCheckoutData({
+        planId,
+        planName: planDetails.name,
+        planValue: planDetails.monthly_cost,
+        open: true,
+        paymentMethod: paymentMethod
+      });
+      setShowCheckout(true);
+      
+      return { planId, planDetails, userProfile };
     } catch (error: any) {
-      console.error("Erro ao assinar plano:", error);
+      console.error("Erro ao preparar assinatura:", error);
       toast({
         variant: "destructive",
         title: "Erro ao contratar plano",
@@ -149,17 +92,23 @@ export function useSubscriptionCreation() {
     setIsVerifyingPayment(false);
   };
 
+  const handleSelectPaymentMethod = (method: string) => {
+    setSelectedPaymentMethod(method);
+  };
+
   return {
     isSubscribing,
     handleSubscribe,
+    selectedPaymentMethod,
+    onPaymentMethodChange: handleSelectPaymentMethod,
     CheckoutDialog: () => (
-      <BusinessPlanCheckoutDialog
-        showCheckout={showCheckout}
-        handleCloseCheckout={handleCloseCheckout}
-        checkoutData={checkoutData}
-        isVerifyingPayment={isVerifyingPayment}
-        copiedText={copiedText}
-        handleCopyToClipboard={handleCopyToClipboard}
+      <CheckoutDialog
+        open={showCheckout}
+        onOpenChange={handleCloseCheckout}
+        planId={checkoutData?.planId || ""}
+        planName={checkoutData?.planName || ""}
+        planValue={checkoutData?.planValue || 0}
+        paymentMethod={selectedPaymentMethod}
       />
     ),
   };

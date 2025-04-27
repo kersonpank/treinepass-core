@@ -34,8 +34,6 @@ export interface PaymentResponse {
 }
 
 export async function createAsaasPayment(config: PaymentConfig): Promise<PaymentResponse> {
-  const { customer, planName, planCost, paymentMethod, subscriptionId, successUrl, failureUrl } = config;
-  
   try {
     // For payment links, we'll use UNDEFINED to allow customer to choose payment method
     // This is the recommended approach from Asaas docs for payment links
@@ -44,8 +42,8 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
     console.log(`Creating payment link with billing type: ${billingType}`);
     
     // Define URLs para redirecionamento após pagamento
-    const returnSuccessUrl = successUrl || `${window.location.origin}/payment/success?subscription=${subscriptionId}`;
-    const returnFailureUrl = failureUrl || `${window.location.origin}/payment/failure?subscription=${subscriptionId}`;
+    const returnSuccessUrl = config.successUrl || `${window.location.origin}/payment/success?subscription=${config.subscriptionId}`;
+    const returnFailureUrl = config.failureUrl || `${window.location.origin}/payment/failure?subscription=${config.subscriptionId}`;
     
     // Call Edge function to create payment in Asaas
     const { data, error } = await supabase.functions.invoke(
@@ -54,14 +52,14 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
         body: {
           action: "createPaymentLink",
           data: {
-            customer,
+            customer: config.customer,
             billingType, // Use UNDEFINED to allow customer to choose payment method
-            value: planCost,
-            name: `Plano ${planName}`,
-            description: `Assinatura do plano ${planName}`,
+            value: config.planCost,
+            name: `Plano ${config.planName}`,
+            description: `Assinatura do plano ${config.planName}`,
             dueDateLimitDays: 5,
             chargeType: "DETACHED",
-            externalReference: subscriptionId,
+            externalReference: config.subscriptionId,
             maxInstallmentCount: 12, // Allow up to 12 installments for credit card
             notificationEnabled: true,
             successUrl: returnSuccessUrl,
@@ -72,59 +70,67 @@ export async function createAsaasPayment(config: PaymentConfig): Promise<Payment
     );
 
     if (error) {
-      console.error("Erro no pagamento:", error);
+      console.error("Error in payment:", error);
       throw new Error(`Erro no processamento do pagamento: ${error.message}`);
     }
     
-    console.log("Resposta do createPaymentLink:", data);
+    console.log("Payment link response:", data);
     
     return data as PaymentResponse;
   } catch (error: any) {
-    console.error("Erro ao criar pagamento:", error);
+    console.error("Error creating payment:", error);
     throw error;
   }
 }
 
-interface PaymentDataToSave {
-  asaasId: string;
-  customerId?: string; 
-  subscriptionId: string;
+export interface PaymentDataToSave {
+  asaasId?: string;
+  customerId: string;
+  subscriptionId?: string;
   amount: number;
   billingType: string;
   status: string;
   dueDate: string;
-  invoiceUrl: string;  // Using invoiceUrl to match DB schema
+  invoiceUrl?: string;
+  checkoutUrl?: string; // Novo campo opcional para link de checkout
 }
 
 export async function savePaymentData(paymentData: PaymentDataToSave) {
   try {
-    console.log("Salvando dados de pagamento:", paymentData);
+    console.log("Saving payment data:", paymentData);
     
     // Convert Asaas status to our internal status format
     const paymentStatus = mapAsaasStatusToInternal(paymentData.status);
     
+    // Monta o objeto de inserção sem o campo asaas_id se não houver valor
+    const insertData: any = {
+      asaas_customer_id: paymentData.customerId,
+      subscription_id: paymentData.subscriptionId,
+      amount: paymentData.amount,
+      billing_type: paymentData.billingType,
+      status: paymentStatus,
+      due_date: paymentData.dueDate,
+      asaas_payment_link: paymentData.checkoutUrl || paymentData.invoiceUrl || "",
+      external_reference: paymentData.subscriptionId
+    };
+    if (paymentData.asaasId) {
+      insertData.asaas_id = paymentData.asaasId;
+    }
+    if (paymentData.checkoutUrl) {
+      insertData.asaas_payment_link = paymentData.checkoutUrl;
+    }
     const { error } = await supabase
       .from("asaas_payments")
-      .insert({
-        asaas_id: paymentData.asaasId,
-        customer_id: paymentData.customerId,
-        subscription_id: paymentData.subscriptionId,
-        amount: paymentData.amount,
-        billing_type: paymentData.billingType,
-        status: paymentStatus,
-        due_date: paymentData.dueDate,
-        invoice_url: paymentData.invoiceUrl,
-        external_reference: paymentData.subscriptionId
-      });
+      .insert(insertData);
 
     if (error) {
-      console.error("Erro ao salvar dados de pagamento:", error);
+      console.error("Error saving payment data:", error);
       throw error;
     }
     
     return true;
   } catch (error) {
-    console.error("Erro ao salvar dados de pagamento:", error);
+    console.error("Error saving payment data:", error);
     throw error;
   }
 }

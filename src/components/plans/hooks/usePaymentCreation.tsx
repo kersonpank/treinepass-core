@@ -2,122 +2,147 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useSimplifiedPayment } from "@/hooks/useSimplifiedPayment";
 import { findOrCreateAsaasCustomer } from "./useAsaasCustomer";
-import { createAsaasPayment } from "./useAsaasPayment";
-import { updateSubscriptionWithPaymentDetails } from "./useSubscriptionUpdate";
+import { UserProfile, AsaasCustomerData, PaymentData } from "@/types/user";
 
 export function usePaymentCreation() {
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const { createPayment, prepareCustomerDataFromProfile } = useSimplifiedPayment();
 
-  const createPayment = async (
+  const processPayment = async (
     user: any,
-    userProfile: any,
+    userProfile: UserProfile,
     planDetails: any,
-    newSubscription: any,
-    paymentMethod: string
+    newSubscription: any
   ) => {
     try {
       setIsProcessing(true);
       
-      // Step 1: Create or get Asaas customer for this user
-      console.log("Creating or retrieving Asaas customer for user", user.id);
-      const { asaasCustomerId, customerId } = await findOrCreateAsaasCustomer(
-        user.id,
-        userProfile
-      );
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("Usuário não autenticado");
 
-      console.log("Asaas customer ID:", asaasCustomerId);
+      // Get user profile for complete info
+      const { data: profile, error: profileError } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", currentUser.id)
+        .single();
 
-      // Step 2: Create payment link using the customer ID
-      console.log("Creating payment for subscription:", newSubscription.id);
+      if (profileError) {
+        throw new Error(`Erro ao buscar perfil do usuário: ${profileError.message}`);
+      }
 
-      // Define URLs de redirecionamento para sucesso e falha
-      const returnSuccessUrl = `${window.location.origin}/payment/success?subscription=${newSubscription.id}`;
-      const returnFailureUrl = `${window.location.origin}/payment/failure?subscription=${newSubscription.id}`;
+      // Ensure we have the minimum required customer data
+      if (!profile.full_name || !profile.cpf) {
+        throw new Error("Dados de usuário incompletos. Nome e CPF são obrigatórios.");
+      }
 
-      // Create payment link allowing customer to choose payment method
-      const paymentResponse = await createAsaasPayment({
-        customer: asaasCustomerId,
-        planName: planDetails.name,
-        planCost: planDetails.monthly_cost,
-        paymentMethod: paymentMethod.toLowerCase(), // Just for reference
-        subscriptionId: newSubscription.id,
-        successUrl: returnSuccessUrl,
-        failureUrl: returnFailureUrl
+      console.log("Creating payment with profile data:", {
+        name: profile.full_name,
+        cpf: profile.cpf,
+        email: profile.email
+      });
+      
+      // Prepare customer data from user profile
+      const customerData = prepareCustomerDataFromProfile(profile);
+      
+      // Garantir que temos URLs absolutas para callbacks
+      const origin = window.location.origin || 'https://app.treinepass.com.br';
+      const successUrl = `${origin}/payment/success?subscription=${newSubscription.id}`;
+      const failureUrl = `${origin}/payment/failure?subscription=${newSubscription.id}`;
+      
+      console.log("[Asaas] Criando pagamento simplificado");
+      
+      // Criar pagamento usando o método simplificado
+      const paymentResponse = await createPayment({
+        customerData,
+        value: planDetails.monthly_cost,
+        description: `Assinatura do plano ${planDetails.name}`,
+        externalReference: newSubscription.id,
+        successUrl,
+        failureUrl
       });
 
-      console.log("Payment service response:", paymentResponse);
-      
-      // Check for valid response - Support both payment object and direct paymentLink responses
-      if (!paymentResponse || (!paymentResponse.payment && !paymentResponse.paymentLink && !paymentResponse.id)) {
-        throw new Error("Empty or invalid payment response");
-      }
-      
-      // Set defaults for response parsing
-      let paymentStatus = "PENDING";
-      let paymentValue = planDetails.monthly_cost;
-      let paymentDueDate = new Date().toISOString().split('T')[0];
-      let paymentId = "";
-      let billingType = paymentMethod.toLowerCase();
-      let invoiceUrl = "";
-      let paymentLinkUrl = "";
-      let pixData = undefined;
-
-      // Handle different response formats
-      if (paymentResponse.payment) {
-        // Standard payment response with payment object
-        paymentStatus = paymentResponse.payment.status;
-        paymentValue = paymentResponse.payment.value;
-        paymentDueDate = paymentResponse.payment.dueDate;
-        paymentId = paymentResponse.payment.id;
-        billingType = paymentResponse.payment.billingType;
-        invoiceUrl = paymentResponse.payment.invoiceUrl;
-        paymentLinkUrl = paymentResponse.payment.paymentLink || paymentResponse.payment.invoiceUrl;
-        pixData = paymentResponse.pix;
-      } else if (paymentResponse.paymentLink || paymentResponse.id) {
-        // Direct payment link response
-        paymentId = paymentResponse.id || "";
-        paymentValue = paymentResponse.value || planDetails.monthly_cost;
-        paymentDueDate = paymentResponse.dueDate || paymentDueDate;
-        paymentLinkUrl = paymentResponse.paymentLink || "";
-        invoiceUrl = paymentLinkUrl; // Use paymentLink as invoiceUrl
+      if (!paymentResponse.success) {
+        throw new Error(paymentResponse.error?.message || "Erro ao criar link de pagamento");
       }
 
-      // Step 3: Update subscription with payment link and customer ID
-      const paymentUrl = paymentLinkUrl || invoiceUrl;
-      if (paymentUrl) {
-        await updateSubscriptionWithPaymentDetails(
-          newSubscription.id, 
-          paymentUrl, 
-          asaasCustomerId
-        );
-      }
+      // Atualizar assinatura com link de pagamento e outros dados
+      await supabase
+        .from("user_plan_subscriptions")
+        .update({
+          asaas_payment_link: paymentResponse.paymentLink,
+          payment_status: "pending", // Status inicial
+          // Não definimos o método de pagamento, o usuário escolherá no Asaas
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", newSubscription.id);
+        
+      console.log("Subscription updated with payment link:", paymentResponse.paymentLink);
 
-      // Return payment data for further processing
       return {
-        status: paymentStatus,
-        value: paymentValue,
-        dueDate: paymentDueDate,
-        billingType: billingType,
-        invoiceUrl: invoiceUrl || paymentLinkUrl || "", 
-        paymentId: paymentId,
-        paymentLink: paymentLinkUrl || invoiceUrl || "", 
-        pix: pixData,
-        customerId,
-        asaasCustomerId
+        success: true,
+        checkoutUrl: paymentResponse.paymentLink,
+        paymentId: paymentResponse.paymentId,
+        value: paymentResponse.value,
+        dueDate: paymentResponse.dueDate,
+        customerId: typeof paymentResponse.customer === 'object' ? paymentResponse.customer?.id : (paymentResponse.customer || '')
       };
+
+
     } catch (error: any) {
-      console.error("Error processing payment:", error);
+      // Logging detalhado
+      console.error("[Asaas] Error processing payment:", {
+        error,
+        message: error?.message,
+        response: error?.response,
+        data: error?.data,
+        stack: error?.stack,
+      });
+      
+      // Tratar mensagens de erro específicas
+      let errorMessage = "Ocorreu um erro ao processar sua solicitação";
+      let errorSolution = "";
+      
+      if (error?.message?.includes("postalCode")) {
+        errorMessage = "CEP inválido para processamento do pagamento";
+        errorSolution = "Tente novamente selecionando a opção para preencher seus dados manualmente.";
+      } else if (error?.message?.includes("Edge Function")) {
+        errorMessage = "Erro na conexão com o serviço de pagamento. Tente novamente em alguns instantes.";
+      } else if (error?.message?.includes("callback")) {
+        errorMessage = "Erro nas URLs de redirecionamento";
+        errorSolution = "Por favor, tente novamente ou contate o suporte.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      // Adicionar solução à mensagem de erro, se houver
+      const fullErrorMessage = errorSolution ? `${errorMessage}. ${errorSolution}` : errorMessage;
+      
+      toast({
+        variant: "destructive",
+        title: "Erro ao processar pagamento",
+        description: fullErrorMessage,
+      });
+      
+      // Modificar o erro para incluir a mensagem completa
+      if (error) {
+        error.message = fullErrorMessage;
+        error.originalMessage = error.message;
+        error.solution = errorSolution;
+      }
+      
       throw error;
     } finally {
       setIsProcessing(false);
     }
   };
 
+
   return {
-    createPayment,
-    isProcessing,
-    setIsProcessing
+    createPayment: processPayment,
+    isProcessing
   };
 }

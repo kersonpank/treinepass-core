@@ -59,6 +59,31 @@ export async function getBusinessPlanSubscription(subscriptionId: string) {
 
 export async function updateBusinessSubscriptionStatus(subscriptionId: string, status: string, paymentStatus: string) {
   try {
+    // First, get the business ID from the subscription
+    const { data: subscription, error: fetchError } = await supabase
+      .from("business_plan_subscriptions")
+      .select("business_id")
+      .eq("id", subscriptionId)
+      .single();
+      
+    if (fetchError || !subscription) {
+      throw fetchError || new Error("Subscription not found");
+    }
+    
+    // If activating a subscription, cancel all other pending subscriptions
+    if (status === 'active' && paymentStatus === 'paid') {
+      await supabase
+        .from("business_plan_subscriptions")
+        .update({
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq("business_id", subscription.business_id)
+        .neq("id", subscriptionId)
+        .eq("status", "pending");
+    }
+    
+    // Update the specified subscription
     const { error } = await supabase
       .from("business_plan_subscriptions")
       .update({

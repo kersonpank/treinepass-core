@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
@@ -63,7 +62,7 @@ export function CoFinancedPlanCard({
                   <li key={key} className="flex items-center">
                     <span className="text-green-500 mr-2">✓</span>
                     <span className="text-muted-foreground">{key}:</span>
-                    <span className="ml-1">{typeof value === 'object' ? JSON.stringify(value) : value}</span>
+                    <span className="ml-1">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
                   </li>
                 ))}
               </ul>

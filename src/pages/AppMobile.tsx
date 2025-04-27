@@ -1,4 +1,4 @@
-import { useNavigate, Routes, Route } from "react-router-dom";
+import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function AppMobile() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const handleLogout = async () => {
@@ -26,6 +27,8 @@ export default function AppMobile() {
     }
     navigate("/");
   };
+
+  const defaultTab = location.pathname.includes('/plans') ? 'plans' : 'search';
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -43,7 +46,7 @@ export default function AppMobile() {
         <Routes>
           <Route path="gym/:id" element={<GymProfile />} />
           <Route path="*" element={
-            <Tabs defaultValue="search" className="w-full">
+            <Tabs defaultValue={defaultTab} className="w-full">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="search">Buscar</TabsTrigger>
                 <TabsTrigger value="schedule">Agenda</TabsTrigger>

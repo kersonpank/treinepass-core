@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { normalizePhoneNumber, normalizeCpfCnpj } from "@/utils/formatters";
 
 interface RegisterData {
   full_name: string;
@@ -67,6 +68,33 @@ export async function registerUser(data: RegisterData) {
       const [day, month, year] = data.birth_date.split('/');
       const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
+      // Criar cliente no Asaas
+      let asaasCustomerId = null;
+      try {
+        const { data: asaasResult, error: asaasError } = await supabase.functions.invoke('asaas-api', {
+          body: {
+            action: 'sdkCreateCustomer',
+            data: {
+              name: data.full_name,
+              email: data.email,
+              cpfCnpj: data.cpf.replace(/\D/g, ""),
+              mobilePhone: data.phone.replace(/\D/g, ""),
+              postalCode: "01310930" // CEP válido padrão
+            }
+          }
+        });
+
+        if (asaasError) {
+          console.error("Erro ao criar cliente no Asaas:", asaasError);
+        } else if (asaasResult?.success && asaasResult?.customer?.id) {
+          console.log("Cliente criado no Asaas com sucesso:", asaasResult.customer.id);
+          asaasCustomerId = asaasResult.customer.id;
+        }
+      } catch (asaasError) {
+        console.error("Exceção ao criar cliente no Asaas:", asaasError);
+        // Não interromper o fluxo de registro se falhar a criação no Asaas
+      }
+
       // Create/update user profile
       const { error: profileError } = await supabase
         .from("user_profiles")
@@ -77,6 +105,7 @@ export async function registerUser(data: RegisterData) {
           cpf: data.cpf.replace(/\D/g, ""),
           birth_date: formattedDate,
           phone: data.phone.replace(/\D/g, ""),
+          asaas_customer_id: asaasCustomerId // Salvar o ID do cliente Asaas
         });
 
       if (profileError) {

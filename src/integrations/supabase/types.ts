@@ -380,7 +380,7 @@ export type Database = {
       asaas_payments: {
         Row: {
           amount: number
-          asaas_id: string
+          asaas_id: string | null
           asaas_payment_link: string | null
           billing_type: string
           business_subscription_id: string | null
@@ -414,7 +414,7 @@ export type Database = {
         }
         Insert: {
           amount: number
-          asaas_id: string
+          asaas_id?: string | null
           asaas_payment_link?: string | null
           billing_type: string
           business_subscription_id?: string | null
@@ -448,7 +448,7 @@ export type Database = {
         }
         Update: {
           amount?: number
-          asaas_id?: string
+          asaas_id?: string | null
           asaas_payment_link?: string | null
           billing_type?: string
           business_subscription_id?: string | null
