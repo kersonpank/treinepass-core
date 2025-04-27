@@ -20,6 +20,7 @@ export function AvailablePlansList({ hasBusinessAccess }: AvailablePlansListProp
   const [profileData, setProfileData] = useState<any>(null);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'pix' | 'credit_card' | 'boleto'>('boleto');
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ["availablePlans"],
@@ -37,39 +38,45 @@ export function AvailablePlansList({ hasBusinessAccess }: AvailablePlansListProp
   });
 
   const handleSubscribeToPlan = async (plan: Plan) => {
-    // Buscar perfil do usuário/empresa
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      console.log('handleSubscribeToPlan clicked:', plan);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          variant: "destructive",
+          title: "Erro de autenticação",
+          description: "Você precisa estar logado para assinar um plano."
+        });
+        return;
+      }
+      // Tenta buscar perfil individual
+      let { data: userProfile } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      // Se não encontrar, tenta buscar perfil de empresa
+      if (!userProfile) {
+        const { data: businessProfile } = await supabase
+          .from("business_profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .single();
+        setProfileData(businessProfile);
+      } else {
+        setProfileData(userProfile);
+      }
+      // Abrir diálogo de checkout
+      setSelectedPlan(plan);
+      setShowCheckout(true);
+    } catch (error) {
+      console.error('handleSubscribeToPlan error:', error);
       toast({
         variant: "destructive",
-        title: "Erro de autenticação",
-        description: "Você precisa estar logado para assinar um plano."
+        title: "Erro",
+        description: "Não foi possível processar a assinatura"
       });
-      return;
     }
-    
-    // Tenta buscar perfil individual
-    let { data: userProfile } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-      
-    // Se não encontrar, tenta buscar perfil de empresa
-    if (!userProfile) {
-      const { data: businessProfile } = await supabase
-        .from("business_profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-      setProfileData(businessProfile);
-    } else {
-      setProfileData(userProfile);
-    }
-    
-    // Abrir dialog de checkout
-    setSelectedPlan(plan);
-    setShowCheckout(true);
   };
 
   if (isLoading) {
@@ -87,6 +94,7 @@ export function AvailablePlansList({ hasBusinessAccess }: AvailablePlansListProp
 
   return (
     <>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredPlans?.map((plan) => (
           <Card key={plan.id} className="flex flex-col">
@@ -131,12 +139,19 @@ export function AvailablePlansList({ hasBusinessAccess }: AvailablePlansListProp
       </div>
 
       {/* Dialog de checkout */}
-      <CheckoutDialog
-        show={showCheckout}
-        onClose={() => setShowCheckout(false)}
-        plan={selectedPlan}
-        profileData={profileData}
-      />
+      {showCheckout && selectedPlan && (
+        <CheckoutDialog
+          open={showCheckout}
+          onOpenChange={(open) => setShowCheckout(open)}
+          planId={selectedPlan.id}
+          planName={selectedPlan.name}
+          planValue={
+            selectedPlan.plan_type === 'corporate_subsidized'
+              ? selectedPlan.final_user_cost || 0
+              : selectedPlan.monthly_cost
+          }
+        />
+      )}
     </>
   );
 }
