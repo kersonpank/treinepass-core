@@ -13,6 +13,11 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
       throw new Error("Value and description are required");
     }
     
+    // Check API key validity
+    if (!apiKey || apiKey === 'sua_chave_api_do_asaas') {
+      throw new Error("Invalid API key. Please configure a valid Asaas API key in environment variables or system settings");
+    }
+
     // Prepare customer data for checkout if provided
     let customerData = null;
     if (data.customerData) {
@@ -22,7 +27,7 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
         cpfCnpj: data.customerData.cpf || data.customerData.cpfCnpj,
         email: data.customerData.email,
         phone: data.customerData.phone,
-        postalCode: data.customerData.postalCode || "01310930", // Use valid postal code to avoid validation errors
+        postalCode: data.customerData.postalCode || "01310930", // Default valid postal code
         address: data.customerData.address || "Av Paulista",
         addressNumber: data.customerData.addressNumber || "1000",
         province: data.customerData.province || "Bela Vista"
@@ -93,17 +98,37 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
     const responseText = await response.text();
     console.log(`Raw API response (${response.status}): ${responseText}`);
     
+    // Check for authentication errors specifically
+    if (response.status === 401) {
+      console.error("Authentication error: Invalid API key or unauthorized access");
+      throw new Error("Authentication error: Invalid API key. Please check your Asaas API key configuration.");
+    }
+    
+    // Handle other error status codes
+    if (!response.ok) {
+      console.error(`Asaas API error: Status ${response.status}`);
+      
+      // Try to parse error details if possible
+      let errorMessage = "Unknown API error";
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.errors?.[0]?.description || 
+                       errorData.message || 
+                       `API error (status: ${response.status})`;
+      } catch (e) {
+        errorMessage = `API error (status: ${response.status}): ${responseText.substring(0, 100)}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    // Parse JSON response
     let responseData;
     try {
       responseData = JSON.parse(responseText);
     } catch (e) {
       console.error('Error parsing JSON response:', e);
-      throw new Error(`Invalid response from API: ${responseText}`);
-    }
-    
-    if (!response.ok) {
-      console.error("Asaas API error:", responseData);
-      throw new Error(responseData.errors?.[0]?.description || responseData.message || 'Unknown error');
+      throw new Error(`Invalid response format from API: ${responseText.substring(0, 100)}`);
     }
     
     if (!responseData.checkoutUrl) {
@@ -125,6 +150,12 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
     
   } catch (error) {
     console.error("Error creating direct checkout:", error);
-    throw new Error(`Error creating direct checkout: ${error.message}`);
+    return {
+      success: false,
+      error: {
+        message: error.message || "Error creating checkout",
+        originalError: error
+      }
+    };
   }
 }

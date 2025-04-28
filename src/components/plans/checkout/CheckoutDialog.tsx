@@ -1,15 +1,23 @@
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Loader2, CreditCard, Barcode, QrCode, ArrowLeft, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { PixInfo } from "./PixInfo";
 import { BoletoInfo } from "./BoletoInfo";
 import { CreditCardForm } from "./CreditCardForm";
 import { useAsaasCheckout } from "@/hooks/useAsaasCheckout";
-import { useClipboard } from "../hooks/useClipboard";
+import { useSubscriptionUpdate } from "../hooks/useSubscriptionCreation";
+import { usePaymentStatusChecker } from "../hooks/usePaymentStatusChecker";
+import { createSubscriptionRecord, updateSubscriptionWithPaymentDetails, saveSubscriptionPaymentData } from "../hooks/useSubscriptionUpdate";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -17,7 +25,7 @@ interface CheckoutDialogProps {
   planId: string;
   planName: string;
   planValue: number;
-  paymentMethod?: string;
+  paymentMethod: string;
 }
 
 export function CheckoutDialog({
@@ -26,282 +34,356 @@ export function CheckoutDialog({
   planId,
   planName,
   planValue,
-  paymentMethod = "pix"
+  paymentMethod,
 }: CheckoutDialogProps) {
+  const [step, setStep] = useState<"method" | "checkout" | "success">("method");
+  const [loading, setLoading] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<any | null>(null);
+  const [paymentData, setPaymentData] = useState<any | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(paymentMethod);
-  const [checkoutData, setCheckoutData] = useState<any>(null);
-  const { copiedText, handleCopyToClipboard } = useClipboard();
-  const { createCheckoutSession } = useAsaasCheckout();
-
+  const { createCheckoutSession, isLoading } = useAsaasCheckout();
+  
+  const { isVerifying, setIsVerifying } = usePaymentStatusChecker({
+    paymentId: paymentId || undefined,
+    onPaymentConfirmed: () => {
+      setStep("success");
+      toast({
+        title: "Pagamento confirmado!",
+        description: "Sua assinatura foi ativada com sucesso"
+      });
+      setTimeout(() => onOpenChange(false), 3000);
+    }
+  });
+  
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
-      setSelectedPaymentMethod(paymentMethod);
-      setCheckoutData(null);
+      setStep("method");
+      setLoading(false);
+      setCheckoutUrl(null);
+      setError(null);
+      setPaymentData(null);
+      setIsVerifying(false);
+      setRetryCount(0);
     }
-  }, [open, paymentMethod]);
+  }, [open]);
+  
+  // Handle closing dialog
+  const handleCloseDialog = () => {
+    // Only confirm on close when payment is in progress
+    if (step === "checkout" && !error) {
+      const confirmed = window.confirm("Deseja realmente cancelar esta operação? O pagamento não será processado.");
+      if (confirmed) {
+        onOpenChange(false);
+      }
+    } else {
+      onOpenChange(false);
+    }
+  };
 
+  // Handle going back to method selection
+  const handleBack = () => {
+    setStep("method");
+    setError(null);
+  };
+
+  // Start the checkout process
   const handleCheckout = async () => {
-    if (!planId || !planValue) {
-      toast({
-        variant: "destructive",
-        title: "Erro no checkout",
-        description: "Dados do plano inválidos. Tente novamente."
-      });
-      return;
-    }
-
     try {
-      setIsLoading(true);
-      console.log(`Iniciando checkout com método: ${selectedPaymentMethod}, planId: ${planId}, valor: ${planValue}`);
-
-      // Get user data for the checkout
+      setLoading(true);
+      setError(null);
+      
+      // Get authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        toast({
-          variant: "destructive",
-          title: "Usuário não autenticado",
-          description: "Faça login para continuar."
-        });
-        return;
+        throw new Error("Usuário não autenticado");
       }
+      
+      console.log(`Starting checkout for plan ${planId} with method ${paymentMethod}`);
+      
+      // Create subscription record
+      const newSubscription = await createSubscriptionRecord(user.id, planId, paymentMethod);
+      if (!newSubscription) {
+        throw new Error("Erro ao criar registro de assinatura");
+      }
+      
+      setSubscription(newSubscription);
+      console.log("Subscription created:", newSubscription);
 
-      // Get user profile
+      // Get user profile data
       const { data: profile, error: profileError } = await supabase
         .from("user_profiles")
         .select("*")
         .eq("id", user.id)
         .single();
-
+        
       if (profileError) {
-        console.error("Error fetching user profile:", profileError);
-        throw new Error("Erro ao buscar perfil do usuário");
+        throw new Error("Erro ao buscar dados do perfil");
       }
 
-      // Create a subscription ID to track this transaction
-      const { data: subscription, error: subscriptionError } = await supabase
-        .from("user_plan_subscriptions")
-        .insert({
-          user_id: user.id,
-          plan_id: planId,
-          status: "pending",
-          payment_status: "pending",
-          start_date: new Date().toISOString(),
-          next_payment_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          payment_method: selectedPaymentMethod
-        })
-        .select()
-        .single();
-
-      if (subscriptionError) {
-        console.error("Error creating subscription:", subscriptionError);
-        throw new Error("Erro ao criar assinatura");
-      }
-
-      // Prepare customer data
-      const customerData = {
-        name: profile.full_name,
-        cpfCnpj: profile.cpf,
-        email: profile.email,
-        phone: profile.phone || profile.phone_number,
-        address: profile.address || "Sem endereço",
-        addressNumber: profile.address_number || "S/N",
-        province: profile.neighborhood || "Centro",
-        postalCode: profile.postal_code || "01310930" // Default CEP for São Paulo
-      };
-
-      // Create checkout session using the specific payment method
-      const response = await createCheckoutSession({
+      // Create checkout session
+      const checkoutResult = await createCheckoutSession({
         value: planValue,
         description: `Assinatura do plano ${planName}`,
-        externalReference: subscription.id,
-        billingTypes: [selectedPaymentMethod.toUpperCase()],
-        paymentMethod: selectedPaymentMethod,
-        customerData,
-        successUrl: `${window.location.origin}/payment/success?subscription=${subscription.id}`,
-        failureUrl: `${window.location.origin}/payment/failure?subscription=${subscription.id}`
+        externalReference: newSubscription.id,
+        customerData: {
+          name: profile.full_name,
+          cpfCnpj: profile.cpf,
+          email: profile.email || user.email,
+          phone: profile.phone || "",
+          address: profile.address || "Sem endereço",
+          addressNumber: profile.address_number || "S/N",
+          province: profile.neighborhood || "Centro",
+          postalCode: profile.postal_code || "01310930"
+        },
+        paymentMethod: paymentMethod,
+        successUrl: `${window.location.origin}/payment/success?subscription=${newSubscription.id}`,
+        failureUrl: `${window.location.origin}/payment/failure?subscription=${newSubscription.id}`
+      });
+      
+      console.log("Checkout result:", checkoutResult);
+      
+      if (!checkoutResult.success) {
+        throw new Error(checkoutResult.error || "Erro ao criar checkout");
+      }
+
+      // Update subscription with checkout URL
+      await updateSubscriptionWithPaymentDetails(
+        newSubscription.id, 
+        checkoutResult.checkoutUrl, 
+        checkoutResult.customerId || ""
+      );
+
+      // Save payment data if available
+      if (checkoutResult.id) {
+        setPaymentId(checkoutResult.id);
+        await saveSubscriptionPaymentData({
+          asaasId: checkoutResult.id,
+          customerId: checkoutResult.customerId || "",
+          subscriptionId: newSubscription.id,
+          amount: planValue,
+          billingType: paymentMethod.toUpperCase(),
+          status: "PENDING",
+          dueDate: new Date().toISOString(),
+          invoiceUrl: checkoutResult.checkoutUrl || ""
+        });
+      }
+
+      // Set payment data
+      setPaymentData({
+        method: paymentMethod,
+        value: planValue,
+        checkoutUrl: checkoutResult.checkoutUrl,
+        paymentId: checkoutResult.id,
+        qrCode: checkoutResult.encodedImage,
+        code: checkoutResult.payload,
+        digitableLine: checkoutResult.digitableLine,
+        boletoUrl: checkoutResult.bankSlipUrl
       });
 
-      if (response && response.success) {
-        console.log("Checkout success:", response);
-        
-        // Save checkout URL to subscription
-        await supabase
-          .from("user_plan_subscriptions")
-          .update({
-            asaas_payment_link: response.checkoutUrl
-          })
-          .eq("id", subscription.id);
-          
-        setCheckoutData({
-          checkoutUrl: response.checkoutUrl,
-          value: planValue,
-          paymentMethod: selectedPaymentMethod,
-          ...response
-        });
-        
-        // If it's a redirect method (credit card), open in new window
-        if (selectedPaymentMethod === "credit_card") {
-          window.open(response.checkoutUrl, "_blank");
-        }
-      } else {
-        throw new Error(response?.error || "Erro ao criar checkout");
+      setCheckoutUrl(checkoutResult.checkoutUrl);
+      setStep("checkout");
+
+      // Start checking payment status if we have a payment ID
+      if (checkoutResult.id) {
+        setIsVerifying(true);
       }
-    } catch (error: any) {
-      console.error("Error creating checkout:", error);
+      
+    } catch (error) {
+      console.error("Checkout error:", error);
+      setError(error.message || "Erro ao processar pagamento");
       toast({
         variant: "destructive",
-        title: "Erro no checkout",
-        description: error.message || "Ocorreu um erro ao processar o pagamento"
+        title: "Erro ao processar pagamento",
+        description: error.message || "Não foi possível criar a sessão de pagamento"
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
-  // Render appropriate payment info based on method and checkout data
-  const renderPaymentInfo = () => {
-    if (isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-          <p>Processando pagamento...</p>
-        </div>
-      );
+  
+  // Start the checkout process when component is mounted
+  useEffect(() => {
+    if (open && paymentMethod && step === "method" && !loading && !error && retryCount === 0) {
+      handleCheckout();
     }
+  }, [open, paymentMethod, step]);
+  
+  // Handle retry
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setError(null);
+    handleCheckout();
+  };
 
-    // If we have checkout data, show the payment info
-    if (checkoutData) {
-      // For credit card, show link to finish payment
-      if (selectedPaymentMethod === "credit_card") {
-        return (
-          <div className="flex flex-col items-center gap-4 py-4">
-            <p className="text-center">
-              Para concluir sua assinatura, finalize o pagamento na janela que foi aberta.
-            </p>
-            <button
-              className="px-4 py-2 bg-primary text-white rounded-md"
-              onClick={() => window.open(checkoutData.checkoutUrl, "_blank")}
-            >
-              Abrir novamente
-            </button>
-          </div>
-        );
-      }
-      
-      // For PIX
-      if (selectedPaymentMethod === "pix") {
-        return (
-          <PixInfo
-            qrCode={checkoutData.encodedImage || checkoutData.qrCodeImage}
-            code={checkoutData.payload || checkoutData.pixCode}
-            value={planValue}
-            onCopy={() => handleCopyToClipboard(checkoutData.payload || checkoutData.pixCode)}
-          />
-        );
-      }
-      
-      // For boleto
-      if (selectedPaymentMethod === "boleto") {
-        return (
-          <BoletoInfo
-            digitableLine={checkoutData.identificationField || checkoutData.barCode}
-            boletoUrl={checkoutData.bankSlipUrl || checkoutData.invoiceUrl}
-            value={planValue}
-            onCopy={() => handleCopyToClipboard(checkoutData.identificationField || checkoutData.barCode)}
-          />
-        );
-      }
-    }
-
-    // Default: show payment method selection
-    return (
-      <div className="space-y-6 py-4">
-        <Tabs 
-          defaultValue={selectedPaymentMethod} 
-          onValueChange={setSelectedPaymentMethod}
-          className="w-full"
-        >
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="pix">PIX</TabsTrigger>
-            <TabsTrigger value="boleto">Boleto</TabsTrigger>
-            <TabsTrigger value="credit_card">Cartão de Crédito</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="pix" className="pt-4">
-            <div className="text-center mb-4">
-              <p>Pagamento instantâneo via PIX</p>
-              <p className="text-sm text-muted-foreground">Após o pagamento, sua conta será ativada em instantes.</p>
-            </div>
-            
-            <button 
-              className="w-full py-2 bg-primary text-white rounded-md"
-              onClick={handleCheckout}
-              disabled={isLoading}
-            >
-              Gerar QR Code PIX
-            </button>
-          </TabsContent>
-
-          <TabsContent value="boleto" className="pt-4">
-            <div className="text-center mb-4">
-              <p>Pagamento via Boleto Bancário</p>
-              <p className="text-sm text-muted-foreground">O processamento pode levar até 3 dias úteis após o pagamento.</p>
-            </div>
-            
-            <button 
-              className="w-full py-2 bg-primary text-white rounded-md"
-              onClick={handleCheckout}
-              disabled={isLoading}
-            >
-              Gerar Boleto
-            </button>
-          </TabsContent>
-
-          <TabsContent value="credit_card" className="pt-4">
-            <div className="text-center mb-4">
-              <p>Pagamento com Cartão de Crédito</p>
-              <p className="text-sm text-muted-foreground">Você será redirecionado para um ambiente seguro para finalizar seu pagamento.</p>
-            </div>
-            
-            <button 
-              className="w-full py-2 bg-primary text-white rounded-md"
-              onClick={handleCheckout}
-              disabled={isLoading}
-            >
-              Pagar com Cartão
-            </button>
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
+  // Handle copy event
+  const handleCopy = () => {
+    toast({
+      title: "Código copiado!",
+      description: "O código foi copiado para a área de transferência"
+    });
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={handleCloseDialog}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {checkoutData ? "Finalizar Pagamento" : "Escolha a forma de pagamento"}
+          <DialogTitle className="flex items-center gap-2">
+            {step === "method" ? (
+              "Processando pagamento..."
+            ) : step === "checkout" ? (
+              <>
+                {paymentMethod === "pix" && (
+                  <>
+                    <QrCode size={20} />
+                    Pagamento via PIX
+                  </>
+                )}
+                {paymentMethod === "boleto" && (
+                  <>
+                    <Barcode size={20} />
+                    Boleto Bancário
+                  </>
+                )}
+                {paymentMethod === "credit_card" && (
+                  <>
+                    <CreditCard size={20} />
+                    Cartão de Crédito
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <Check size={20} className="text-green-500" />
+                Pagamento Confirmado
+              </>
+            )}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="p-4 bg-muted rounded-md">
-            <div className="flex justify-between">
-              <span>Plano:</span>
-              <span className="font-medium">{planName}</span>
+        <div className="py-4">
+          {/* Loading state */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+              <p>Processando pagamento...</p>
             </div>
-            <div className="flex justify-between mt-2">
-              <span>Valor:</span>
-              <span className="font-medium">R$ {planValue?.toFixed(2).replace('.', ',')}</span>
+          )}
+          
+          {/* Error state */}
+          {error && (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="bg-destructive/10 text-destructive p-3 rounded-md">
+                <p className="text-sm font-medium">Erro no processamento: {error}</p>
+              </div>
+              <Button onClick={handleRetry} disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Tentar novamente
+              </Button>
+              <Button variant="outline" onClick={handleBack}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Button>
             </div>
-          </div>
-
-          {renderPaymentInfo()}
+          )}
+          
+          {/* Checkout state */}
+          {!loading && !error && step === "checkout" && (
+            <>
+              {/* PIX Payment */}
+              {paymentMethod === "pix" && paymentData && (
+                <PixInfo
+                  qrCode={paymentData.qrCode}
+                  code={paymentData.code}
+                  value={planValue}
+                  onCopy={handleCopy}
+                />
+              )}
+              
+              {/* Boleto Payment */}
+              {paymentMethod === "boleto" && paymentData && (
+                <BoletoInfo
+                  digitableLine={paymentData.digitableLine}
+                  boletoUrl={paymentData.boletoUrl || paymentData.checkoutUrl}
+                  value={planValue}
+                  onCopy={handleCopy}
+                />
+              )}
+              
+              {/* Credit Card Payment */}
+              {paymentMethod === "credit_card" && (
+                <div className="flex flex-col items-center gap-4">
+                  <p className="text-center">
+                    Para concluir seu pagamento com cartão de crédito, clique no botão abaixo:
+                  </p>
+                  
+                  {checkoutUrl ? (
+                    <Button
+                      className="w-full"
+                      onClick={() => window.open(checkoutUrl, "_blank")}
+                    >
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Finalizar pagamento
+                    </Button>
+                  ) : (
+                    <Button disabled className="w-full">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Carregando...
+                    </Button>
+                  )}
+                </div>
+              )}
+              
+              {/* External checkout info */}
+              {checkoutUrl && paymentMethod !== "credit_card" && (
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  <p>Se preferir, você também pode pagar clicando no link abaixo:</p>
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto text-primary"
+                    onClick={() => window.open(checkoutUrl, "_blank")}
+                  >
+                    Abrir página de pagamento
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+          
+          {/* Success state */}
+          {step === "success" && (
+            <div className="flex flex-col items-center gap-4 py-8 text-center">
+              <div className="rounded-full bg-green-100 p-3">
+                <Check className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-lg font-medium">Pagamento confirmado!</h3>
+              <p className="text-sm text-muted-foreground">
+                Sua assinatura foi ativada com sucesso.
+              </p>
+            </div>
+          )}
         </div>
+
+        <DialogFooter>
+          {/* Only show cancel in checkout step */}
+          {step === "checkout" && (
+            <Button variant="outline" onClick={handleCloseDialog}>
+              Fechar
+            </Button>
+          )}
+          
+          {/* Only show close in success step */}
+          {step === "success" && (
+            <Button onClick={handleCloseDialog}>
+              Concluir
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { createDirectCheckout } from './checkout-direct';
 
@@ -18,8 +19,8 @@ export const handler = async (req: Request): Promise<Response> => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!apiKey) {
-      throw new Error('ASAAS_API_KEY env var not set');
+    if (!apiKey || apiKey === 'sua_chave_api_do_asaas') {
+      throw new Error('ASAAS_API_KEY env var not set or invalid');
     }
 
     if (!supabaseUrl || !supabaseKey) {
@@ -35,11 +36,18 @@ export const handler = async (req: Request): Promise<Response> => {
     const requestData = await req.json();
     console.log("Dados recebidos:", JSON.stringify(requestData, null, 2));
 
-    // Adicionar supabase aos dados para uso na função de checkout
-    requestData.supabase = supabase;
-
     // Criar checkout direto
     const result = await createDirectCheckout(requestData, apiKey, baseUrl);
+
+    if (!result.success) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: result.error?.message || "Failed to create checkout" 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -49,7 +57,10 @@ export const handler = async (req: Request): Promise<Response> => {
   } catch (error) {
     console.error(`Erro: ${error.message}`);
     
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: error.message 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
     });

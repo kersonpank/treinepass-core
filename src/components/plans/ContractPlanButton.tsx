@@ -9,9 +9,22 @@ interface ContractPlanButtonProps {
   planName: string;
   planValue: number;
   onSuccess?: () => void;
+  variant?: "default" | "outline" | "secondary" | "ghost" | "link" | "destructive";
+  size?: "default" | "sm" | "lg";
+  className?: string;
+  children?: React.ReactNode;
 }
 
-export function ContractPlanButton({ planId, planName, planValue, onSuccess }: ContractPlanButtonProps) {
+export function ContractPlanButton({ 
+  planId, 
+  planName, 
+  planValue, 
+  onSuccess,
+  variant = "default",
+  size = "default",
+  className = "w-full",
+  children
+}: ContractPlanButtonProps) {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("pix");
@@ -33,8 +46,13 @@ export function ContractPlanButton({ planId, planName, planValue, onSuccess }: C
 
   return (
     <>
-      <Button className="w-full" onClick={() => setShowPaymentDialog(true)}>
-        Contratar Plano
+      <Button 
+        className={className} 
+        variant={variant} 
+        size={size}
+        onClick={() => setShowPaymentDialog(true)}
+      >
+        {children || "Contratar Plano"}
       </Button>
       
       <PaymentMethodDialog 
@@ -46,7 +64,7 @@ export function ContractPlanButton({ planId, planName, planValue, onSuccess }: C
       
       <CheckoutDialog
         open={showCheckout}
-        onOpenChange={handleCloseCheckout}
+        onOpenChange={setShowCheckout}
         planId={planId}
         planName={planName}
         planValue={planValue}

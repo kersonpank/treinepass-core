@@ -7,7 +7,7 @@ export async function getAsaasApiKey(supabase: any) {
     const envApiKey = Deno.env.get('ASAAS_API_KEY');
     const envBaseUrl = Deno.env.get('ASAAS_BASE_URL');
     
-    if (envApiKey) {
+    if (envApiKey && envApiKey !== 'sua_chave_api_do_asaas') {
       console.log("Using Asaas API key from environment variables");
       return {
         apiKey: envApiKey,
@@ -31,7 +31,17 @@ export async function getAsaasApiKey(supabase: any) {
       throw new Error("Asaas API settings not found");
     }
     
-    const settings = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    let settings;
+    if (typeof data.value === 'string') {
+      try {
+        settings = JSON.parse(data.value);
+      } catch (e) {
+        console.error("Error parsing settings JSON:", e);
+        throw new Error("Invalid Asaas settings format");
+      }
+    } else {
+      settings = data.value;
+    }
     
     // Determine environment and return appropriate key
     const environment = settings.environment || 'sandbox';
@@ -57,12 +67,16 @@ export async function getAsaasApiKey(supabase: any) {
   } catch (error) {
     console.error("Error in getAsaasApiKey:", error);
     
-    // Fallback to sandbox with a clearly identifiable error message
-    console.warn("Using fallback sandbox configuration - THIS IS NOT RECOMMENDED FOR PRODUCTION");
+    // Fallback to environment variable or provide a clear error
+    const envApiKey = Deno.env.get('ASAAS_API_KEY');
+    if (envApiKey && envApiKey !== 'sua_chave_api_do_asaas') {
+      console.warn("Falling back to environment variable API key");
+      return {
+        apiKey: envApiKey,
+        baseUrl: 'https://api-sandbox.asaas.com/v3'
+      };
+    }
     
-    return {
-      apiKey: Deno.env.get('ASAAS_API_KEY') || '',
-      baseUrl: 'https://api-sandbox.asaas.com/v3'
-    };
+    throw new Error("No valid Asaas API key found. Please configure it in system settings or environment variables.");
   }
 }

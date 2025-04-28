@@ -9,52 +9,76 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
+interface AsaasSettings {
+  environment: string;
+  sandbox_api_key?: string;
+  production_api_key?: string;
+}
+
 export function SystemSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [sandboxKey, setSandboxKey] = useState("");
   const [productionKey, setProductionKey] = useState("");
 
   const { data: settings, isLoading, refetch } = useQuery({
-    queryKey: ["system-settings", "asaas_config"],
+    queryKey: ["system-settings", "asaas_settings"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("system_settings")
         .select("*")
-        .eq("key", "asaas_config")
+        .eq("key", "asaas_settings")
         .single();
 
       if (error) throw error;
 
+      // Parse value if it's a string
+      let settingsValue: AsaasSettings;
+      if (typeof data?.value === 'string') {
+        try {
+          settingsValue = JSON.parse(data.value);
+        } catch (e) {
+          console.error("Error parsing settings:", e);
+          settingsValue = { environment: 'sandbox' };
+        }
+      } else {
+        settingsValue = data?.value as AsaasSettings || { environment: 'sandbox' };
+      }
+
       // Atualizar os estados com as chaves existentes
-      if (data?.value) {
-        setSandboxKey(data.value.sandbox_api_key || "");
-        setProductionKey(data.value.production_api_key || "");
+      if (settingsValue) {
+        setSandboxKey(settingsValue.sandbox_api_key || "");
+        setProductionKey(settingsValue.production_api_key || "");
       }
       
-      return data;
+      return {
+        ...data,
+        parsedValue: settingsValue
+      };
     },
   });
 
   const toggleEnvironment = async () => {
+    if (!settings?.parsedValue) return;
+    
     try {
       setIsSaving(true);
-      const newEnvironment = settings?.value?.environment === "sandbox" ? "production" : "sandbox";
+      const newEnvironment = settings.parsedValue.environment === "sandbox" ? "production" : "sandbox";
       
       const { error } = await supabase
         .from("system_settings")
         .update({
           value: {
-            ...settings?.value,
+            ...settings.parsedValue,
             environment: newEnvironment,
           },
         })
-        .eq("key", "asaas_config");
+        .eq("key", "asaas_settings");
 
       if (error) throw error;
 
       await refetch();
       toast.success(`Ambiente alterado para ${newEnvironment}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao alterar ambiente:", error);
       toast.error("Erro ao alterar ambiente");
     } finally {
@@ -63,6 +87,8 @@ export function SystemSettings() {
   };
 
   const saveApiKeys = async () => {
+    if (!settings?.parsedValue) return;
+    
     try {
       setIsSaving(true);
       
@@ -70,18 +96,18 @@ export function SystemSettings() {
         .from("system_settings")
         .update({
           value: {
-            ...settings?.value,
+            ...settings.parsedValue,
             sandbox_api_key: sandboxKey,
             production_api_key: productionKey,
           },
         })
-        .eq("key", "asaas_config");
+        .eq("key", "asaas_settings");
 
       if (error) throw error;
 
       await refetch();
       toast.success("Chaves API atualizadas com sucesso");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar chaves API:", error);
       toast.error("Erro ao salvar chaves API");
     } finally {
@@ -110,19 +136,19 @@ export function SystemSettings() {
             <div className="space-y-0.5">
               <h4 className="text-base font-medium">Ambiente Asaas</h4>
               <p className="text-sm text-muted-foreground">
-                {settings?.value?.environment === "sandbox" 
+                {settings?.parsedValue?.environment === "sandbox" 
                   ? "Usando ambiente de testes (sandbox)"
                   : "Usando ambiente de produção"}
               </p>
             </div>
             <div className="flex items-center space-x-2">
               <Switch
-                checked={settings?.value?.environment === "production"}
+                checked={settings?.parsedValue?.environment === "production"}
                 onCheckedChange={toggleEnvironment}
                 disabled={isSaving}
               />
               <span className="text-sm font-medium">
-                {settings?.value?.environment === "sandbox" ? "Sandbox" : "Produção"}
+                {settings?.parsedValue?.environment === "sandbox" ? "Sandbox" : "Produção"}
               </span>
             </div>
           </div>
@@ -173,7 +199,7 @@ export function SystemSettings() {
           <div className="rounded-lg border p-4">
             <p className="text-sm text-muted-foreground">
               <strong>URL da API:</strong>{" "}
-              {settings?.value?.environment === "sandbox" 
+              {settings?.parsedValue?.environment === "sandbox" 
                 ? "https://sandbox.asaas.com/api/v3"
                 : "https://api.asaas.com/api/v3"}
             </p>
