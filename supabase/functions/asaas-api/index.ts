@@ -23,16 +23,97 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get request data
-    const { action, data } = await req.json();
-    console.log(`Processing ${action} with data:`, JSON.stringify(data, null, 2));
+    let actionData;
+    try {
+      const requestData = await req.json();
+      actionData = requestData;
+      console.log(`Processing ${actionData.action} with data:`, JSON.stringify(actionData.data, null, 2));
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid request body format"
+        }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "User-Agent": "TreinePass-App"
+          } 
+        }
+      );
+    }
+
+    const { action, data } = actionData;
+    
+    if (!action) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Missing 'action' parameter"
+        }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "User-Agent": "TreinePass-App"
+          } 
+        }
+      );
+    }
 
     // Get Asaas configuration
-    const { apiKey, baseUrl } = await getAsaasApiKey(supabase);
-    console.log(`Using Asaas API: ${baseUrl}`);
+    let apiKey, baseUrl;
+    try {
+      const config = await getAsaasApiKey(supabase);
+      apiKey = config.apiKey;
+      baseUrl = config.baseUrl;
+      console.log(`Using Asaas API: ${baseUrl}`);
+    } catch (error) {
+      console.error("Error getting Asaas API key:", error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Failed to obtain Asaas API configuration: " + error.message,
+          details: { message: error.message }
+        }),
+        { 
+          status: 500,
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "User-Agent": "TreinePass-App"
+          } 
+        }
+      );
+    }
 
     // Process the action
-    const response = await handleAction(action, data, apiKey, baseUrl, supabase);
-    console.log(`Response from ${action}:`, JSON.stringify(response, null, 2));
+    let response;
+    try {
+      response = await handleAction(action, data, apiKey, baseUrl, supabase);
+      console.log(`Response from ${action}:`, JSON.stringify(response, null, 2));
+    } catch (error) {
+      console.error(`Error in ${action}:`, error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: error.message || "Unknown error in action handler",
+          details: { action, message: error.message }
+        }),
+        { 
+          status: 400,
+          headers: { 
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "User-Agent": "TreinePass-App"
+          } 
+        }
+      );
+    }
 
     return new Response(
       JSON.stringify(response),
@@ -40,7 +121,7 @@ serve(async (req) => {
         headers: { 
           ...corsHeaders,
           "Content-Type": "application/json",
-          "User-Agent": "TreinePass-App" // Add User-Agent as per documentation
+          "User-Agent": "TreinePass-App"
         },
         status: 200
       }
@@ -51,10 +132,11 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error.message || "Unknown error",
+        details: { message: error.message, stack: error.stack }
       }),
       { 
-        status: 400,
+        status: 500,
         headers: { 
           ...corsHeaders,
           "Content-Type": "application/json",

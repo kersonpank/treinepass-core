@@ -22,48 +22,66 @@ import {
 // Novo manipulador para testar a chave API
 async function testApiKey(apiKey: string, baseUrl: string) {
   try {
+    // Verificar se a chave API tem formato válido
+    if (!apiKey || apiKey.length < 20) {
+      return { 
+        success: false, 
+        message: "Formato de chave API inválido. Verifique se você está usando a chave correta." 
+      };
+    }
+    
+    console.log(`Testando chave API no ambiente ${baseUrl}`);
+    
     // Fazer uma requisição simples para verificar se a chave é válida
-    // Usamos o endpoint de status que não exige parâmetros adicionais
-    const response = await fetch(`${baseUrl}/paymentLinks`, {
+    const response = await fetch(`${baseUrl}/customers?limit=1`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'access_token': apiKey,
         'User-Agent': 'TreinePass-App'
-      },
-      // Limitar a 1 resultado para minimizar dados retornados
-      // A ideia é apenas verificar se a autenticação funciona
-      params: {
-        limit: 1
       }
     });
+    
+    // Log da resposta para debug
+    const responseStatus = response.status;
+    const responseBody = await response.text();
+    console.log(`Resposta do teste de API: Status ${responseStatus}, Body: ${responseBody}`);
     
     // Se a resposta for 401, a chave é inválida
     if (response.status === 401) {
       return { 
         success: false, 
-        message: "Chave API inválida ou não autorizada" 
+        message: "Chave API inválida ou não autorizada. Verifique se você está usando a chave correta e que ela tem permissões adequadas." 
       };
     }
     
     // Se não for 2xx, algum outro erro ocorreu
     if (!response.ok) {
-      return { 
-        success: false, 
-        message: `Erro ao testar API: ${response.status} ${response.statusText}` 
-      };
+      try {
+        const errorData = JSON.parse(responseBody);
+        return { 
+          success: false, 
+          message: `Erro ao testar API: ${response.status} - ${errorData?.errors?.[0]?.description || errorData?.message || 'Erro desconhecido'}` 
+        };
+      } catch (e) {
+        return {
+          success: false,
+          message: `Erro ao testar API: ${response.status} ${response.statusText}`
+        };
+      }
     }
     
     // Se chegamos aqui, a chave é válida
     return { 
       success: true, 
-      message: "Chave API válida" 
+      message: "Chave API válida! Conexão com a API do Asaas estabelecida com sucesso." 
     };
   } catch (error) {
     console.error("Error testing API key:", error);
     return { 
       success: false, 
-      message: error.message || "Erro desconhecido ao testar a chave API" 
+      message: error.message || "Erro desconhecido ao testar a chave API",
+      details: { error: error.toString(), stack: error.stack }
     };
   }
 }

@@ -1,27 +1,71 @@
+
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import { PlansList } from "./PlansList";
 import { CreatePlanForm } from "./CreatePlanForm";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { EditPlanForm } from "./EditPlanForm";
-import { PlanPreview } from "./PlanPreview";
-import { Plan } from "./types/plan";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
 
 export function PlansManagement() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const handleEditPlan = (plan: Plan) => {
-    setSelectedPlan(plan);
-    setIsEditDialogOpen(true);
-  };
+  // Fetch plans
+  const { data: plans, isLoading } = useQuery({
+    queryKey: ["plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("benefit_plans")
+        .select("*")
+        .order("name");
 
-  const handleViewPlan = (plan: Plan) => {
-    setSelectedPlan(plan);
-    setIsPreviewDialogOpen(true);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Delete plan mutation
+  const deletePlanMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const { error } = await supabase
+        .from("benefit_plans")
+        .delete()
+        .eq("id", planId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Plano excluído",
+        description: "O plano foi excluído com sucesso",
+      });
+      queryClient.invalidateQueries({ queryKey: ["plans"] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Erro ao excluir plano",
+        description: error.message,
+      });
+    },
+  });
+
+  const handleCreatePlanSuccess = () => {
+    setIsCreateDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ["plans"] });
+    toast({
+      title: "Plano criado",
+      description: "O plano foi criado com sucesso",
+    });
   };
 
   return (
@@ -29,47 +73,31 @@ export function PlansManagement() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Planos</h2>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Plano
+          <Plus className="mr-2 h-4 w-4" />
+          Novo plano
         </Button>
       </div>
 
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : (
+        <PlansList
+          plans={plans || []}
+          onPlanDelete={(planId) => deletePlanMutation.mutate(planId)}
+          onRefresh={() => queryClient.invalidateQueries({ queryKey: ["plans"] })}
+        />
+      )}
+
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Criar Novo Plano</DialogTitle>
+            <DialogTitle>Criar novo plano</DialogTitle>
           </DialogHeader>
-          <CreatePlanForm onSuccess={() => setIsCreateDialogOpen(false)} />
+          <CreatePlanForm onSuccess={handleCreatePlanSuccess} />
         </DialogContent>
       </Dialog>
-
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Editar Plano</DialogTitle>
-          </DialogHeader>
-          {selectedPlan && (
-            <EditPlanForm 
-              plan={selectedPlan} 
-              onSuccess={() => setIsEditDialogOpen(false)} 
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Plano</DialogTitle>
-          </DialogHeader>
-          {selectedPlan && <PlanPreview plan={selectedPlan} />}
-        </DialogContent>
-      </Dialog>
-
-      <PlansList 
-        onEditPlan={handleEditPlan}
-        onViewPlan={handleViewPlan}
-      />
     </div>
   );
 }

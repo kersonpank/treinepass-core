@@ -14,16 +14,20 @@ export function useAsaasApiTest() {
   const testApiKey = async ({ apiKey, environment }: TestApiKeyProps) => {
     try {
       setIsLoading(true);
+      console.log(`Testing Asaas API key in ${environment} environment`);
       
       // Extract proper token format
       const cleanApiKey = extractAsaasApiToken(apiKey);
       
       if (!cleanApiKey) {
+        console.error("Invalid API key format:", apiKey);
         return {
           success: false,
           message: "Formato de API key inválido. Verifique se você copiou a chave corretamente."
         };
       }
+      
+      console.log("Using cleaned API key (length):", cleanApiKey.length);
       
       // Call the edge function to test the API key
       const { data, error } = await supabase.functions.invoke(
@@ -48,6 +52,7 @@ export function useAsaasApiTest() {
       }
 
       if (!data?.success) {
+        console.error("API key test failed:", data);
         return {
           success: false,
           message: data?.message || "Erro desconhecido ao testar a chave API"

@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useParams } from "react-router-dom";
 
 export function ValidateCheckIn() {
-  const { id: academiaId } = useParams();
+  const { id: academiaId } = useParams<{ id: string }>();
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [accessToken, setAccessToken] = useState("");
@@ -140,11 +140,6 @@ export function ValidateCheckIn() {
             id,
             full_name,
             email
-          ),
-          plano:plano_id (
-            id,
-            name,
-            plan_type
           )
         `)
         .eq("validation_token", accessToken)
@@ -177,18 +172,23 @@ export function ValidateCheckIn() {
         throw updateError;
       }
 
-      // Atualizar registro financeiro
-      const { error: financialError } = await supabase
-        .from("gym_check_in_financial_records")
-        .update({
-          status_pagamento: "processed",
-          data_processamento: new Date().toISOString()
-        })
-        .eq("check_in_id", checkInData.id);
+      // Check if the table exists before trying to update it
+      try {
+        // Atualizar registro financeiro
+        const { error: financialError } = await supabase
+          .from("gym_check_in_financial_records")
+          .update({
+            status_pagamento: "processed",
+            data_processamento: new Date().toISOString()
+          })
+          .eq("check_in_id", checkInData.id);
 
-      if (financialError) {
-        console.error("Erro ao atualizar registro financeiro:", financialError);
-        // Não falhar o processo por causa do financeiro
+        if (financialError) {
+          console.error("Erro ao atualizar registro financeiro:", financialError);
+          // Não falhar o processo por causa do financeiro
+        }
+      } catch (error) {
+        console.error("Erro ao atualizar registro financeiro (tabela pode não existir):", error);
       }
 
       setValidationResult({

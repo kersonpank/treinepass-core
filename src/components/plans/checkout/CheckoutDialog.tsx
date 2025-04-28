@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -7,7 +8,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, CreditCard, Barcode, QrCode, ArrowLeft, Check } from "lucide-react";
+import { Loader2, CreditCard, Barcode, QrCode, ArrowLeft, Check, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PixInfo } from "./PixInfo";
 import { BoletoInfo } from "./BoletoInfo";
@@ -18,6 +19,7 @@ import { usePaymentStatusChecker } from "../hooks/usePaymentStatusChecker";
 import { createSubscriptionRecord, updateSubscriptionWithPaymentDetails, saveSubscriptionPaymentData } from "../hooks/useSubscriptionUpdate";
 import { supabase } from "@/integrations/supabase/client";
 import { extractAsaasApiToken } from "@/utils/asaas-helpers";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -70,7 +72,7 @@ export function CheckoutDialog({
       setIsVerifying(false);
       setRetryCount(0);
     }
-  }, [open]);
+  }, [open, setIsVerifying]);
   
   const handleCloseDialog = () => {
     if (step === "checkout" && !error) {
@@ -112,10 +114,25 @@ export function CheckoutDialog({
         .from("user_profiles")
         .select("*")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
         
       if (profileError) {
+        console.error("Error fetching profile:", profileError);
         throw new Error("Erro ao buscar dados do perfil");
+      }
+      
+      if (!profile) {
+        console.warn("Profile not found, using fallback data");
+      }
+
+      // Test if the profile has complete data
+      const userHasCompleteProfile = profile && 
+        profile.full_name && 
+        profile.cpf && 
+        (profile.email || user.email);
+        
+      if (!userHasCompleteProfile) {
+        console.warn("User profile incomplete, using fallback data");
       }
 
       const checkoutResult = await createCheckoutSession({
@@ -123,14 +140,14 @@ export function CheckoutDialog({
         description: `Assinatura do plano ${planName}`,
         externalReference: newSubscription.id,
         customerData: {
-          name: profile.full_name,
-          cpfCnpj: profile.cpf,
-          email: profile.email || user.email,
-          phone: profile.phone || "",
-          address: profile.address || "Sem endereço",
-          addressNumber: profile.address_number || "S/N",
-          province: profile.neighborhood || "Centro",
-          postalCode: profile.postal_code || "01310930"
+          name: profile?.full_name || user.email?.split('@')[0] || "Cliente",
+          cpfCnpj: profile?.cpf || "00000000000", // CPF placeholder
+          email: profile?.email || user.email || "",
+          phone: profile?.phone || "",
+          address: profile?.address || "Sem endereço",
+          addressNumber: profile?.address_number || "S/N",
+          province: profile?.neighborhood || "Centro",
+          postalCode: profile?.postal_code || "01310930"
         },
         paymentMethod: paymentMethod,
         successUrl: `${window.location.origin}/payment/success?subscription=${newSubscription.id}`,
@@ -140,7 +157,8 @@ export function CheckoutDialog({
       console.log("Checkout result:", checkoutResult);
       
       if (!checkoutResult.success) {
-        throw new Error(checkoutResult.error || "Erro ao criar checkout");
+        console.error("Checkout failed:", checkoutResult.error);
+        throw new Error(checkoutResult.error?.message || "Erro ao criar checkout");
       }
 
       await updateSubscriptionWithPaymentDetails(
@@ -208,7 +226,7 @@ export function CheckoutDialog({
     if (open && paymentMethod && step === "method" && !loading && !error && retryCount === 0) {
       handleCheckout();
     }
-  }, [open, paymentMethod, step]);
+  }, [open, paymentMethod, step, loading, error, retryCount]);
   
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
@@ -270,9 +288,12 @@ export function CheckoutDialog({
           
           {error && (
             <div className="flex flex-col items-center gap-4 py-4">
-              <div className="bg-destructive/10 text-destructive p-3 rounded-md">
-                <p className="text-sm font-medium">Erro no processamento: {error}</p>
-              </div>
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {error}
+                </AlertDescription>
+              </Alert>
               <Button onClick={handleRetry} disabled={loading}>
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Tentar novamente

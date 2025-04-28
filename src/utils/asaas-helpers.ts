@@ -43,3 +43,21 @@ export function validateAsaasApiKey(key: string | null | undefined): boolean {
   // Check if we have a token of reasonable length (24+ chars)
   return token != null && token.length >= 24;
 }
+
+/**
+ * Formats error messages from Asaas API responses
+ */
+export function formatAsaasError(error: any): string {
+  // Handle HTTP errors
+  if (error?.response?.status === 401) {
+    return "Erro de autenticação com a API do Asaas. Verifique sua chave API.";
+  }
+  
+  // Handle Asaas specific error formats
+  if (error?.response?.data?.errors?.length > 0) {
+    return `Erro do Asaas: ${error.response.data.errors[0].description}`;
+  }
+  
+  // Generic error message
+  return error?.message || "Erro desconhecido ao processar pagamento";
+}

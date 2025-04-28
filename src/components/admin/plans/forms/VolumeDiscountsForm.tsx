@@ -1,186 +1,157 @@
 
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { useFieldArray, useFormContext } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { UseFormReturn } from "react-hook-form";
-import { PlanFormValues } from "../types/plan";
-import { useState } from "react";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Plus, Trash } from "lucide-react";
+import { useEffect, useState } from "react";
 
-interface VolumeDiscountsFormProps {
-  form: UseFormReturn<PlanFormValues>;
-  planId?: string;
-}
-
-// Define a type for the volume discount
-interface VolumeDiscount {
-  id: string;
-  plan_id: string;
-  min_employees: number;
-  max_employees?: number;
-  discount_percentage: number;
-}
-
-export function VolumeDiscountsForm({ form, planId }: VolumeDiscountsFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const { data: volumeDiscounts, refetch } = useQuery({
-    queryKey: ["volume-discounts", planId],
-    queryFn: async () => {
-      if (!planId) return [];
-      
-      const { data, error } = await supabase
-        .from("plan_volume_discounts")
-        .select("*")
-        .eq("plan_id", planId)
-        .order("min_employees", { ascending: true });
-
-      if (error) throw error;
-      return data as VolumeDiscount[];
-    },
-    enabled: !!planId
+export function VolumeDiscountsForm() {
+  const [nextId, setNextId] = useState(0);
+  const { control, getValues } = useFormContext();
+  
+  // Use a separate field array name that's within your form schema
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "volumeDiscounts" as any, // Cast to any since it's not in the schema directly
   });
 
-  const handleAddDiscount = async () => {
-    if (!planId) return;
-    
-    setIsSubmitting(true);
-    try {
-      const { error } = await supabase
-        .from("plan_volume_discounts")
-        .insert({
-          plan_id: planId,
-          min_employees: 1,
-          discount_percentage: 0,
-        });
-
-      if (error) throw error;
-      refetch();
-    } catch (error) {
-      console.error("Error adding volume discount:", error);
-    } finally {
-      setIsSubmitting(false);
+  // Initialize with one empty discount on first render if none exist
+  useEffect(() => {
+    if (fields.length === 0) {
+      append({
+        id: nextId,
+        min_employees: 5, 
+        max_employees: 10,
+        discount_percentage: 5
+      });
+      setNextId(nextId + 1);
     }
-  };
+  }, []);
 
-  const handleDeleteDiscount = async (id: string) => {
-    if (!planId) return;
+  const handleAddDiscount = () => {
+    // Get the last discount's values for better UX
+    const lastDiscount = fields[fields.length - 1];
+    let newMinEmployees = 5;
+    let newMaxEmployees = 10;
     
-    try {
-      const { error } = await supabase
-        .from("plan_volume_discounts")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-      refetch();
-    } catch (error) {
-      console.error("Error deleting volume discount:", error);
+    if (lastDiscount) {
+      // Set new min to previous max + 1
+      newMinEmployees = (lastDiscount.max_employees || 0) + 1;
+      newMaxEmployees = newMinEmployees + 5; // Add 5 as a reasonable step
     }
-  };
-
-  // Register form fields for each discount
-  if (volumeDiscounts && volumeDiscounts.length > 0) {
-    volumeDiscounts.forEach(discount => {
-      // Register fields for dynamic names - using a custom property in the form that's not part of the main schema
-      if (!form.getValues(`volume_discounts.${discount.id}`)) {
-        form.setValue(`volume_discounts.${discount.id}.min_employees` as any, discount.min_employees);
-        form.setValue(`volume_discounts.${discount.id}.max_employees` as any, discount.max_employees || undefined);
-        form.setValue(`volume_discounts.${discount.id}.discount_percentage` as any, discount.discount_percentage);
-      }
+    
+    append({
+      id: nextId,
+      min_employees: newMinEmployees,
+      max_employees: newMaxEmployees,
+      discount_percentage: 5
     });
-  }
+    setNextId(nextId + 1);
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Descontos por Volume</h3>
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Descontos por volume</h3>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={handleAddDiscount}
-          disabled={isSubmitting}
         >
-          {isSubmitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          <span className="ml-2">Adicionar Desconto</span>
+          <Plus className="mr-2 h-4 w-4" />
+          Adicionar faixa
         </Button>
       </div>
 
       <div className="space-y-4">
-        {volumeDiscounts?.map((discount) => (
-          <div key={discount.id} className="flex items-end gap-4">
-            <div className="flex-1">
-              <FormLabel>Mínimo de Funcionários</FormLabel>
-              <Input
-                type="number"
-                min="1"
-                value={discount.min_employees}
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  // Update the discount in the database
-                  supabase
-                    .from("plan_volume_discounts")
-                    .update({ min_employees: value })
-                    .eq("id", discount.id)
-                    .then(() => refetch());
-                }}
+        {fields.map((field, index) => (
+          <div key={field.id} className="grid grid-cols-12 gap-4 items-end">
+            <div className="col-span-3">
+              <FormField
+                control={control}
+                name={`volumeDiscounts.${index}.min_employees`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mín. funcionários</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="5"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-
-            <div className="flex-1">
-              <FormLabel>Máximo de Funcionários</FormLabel>
-              <Input
-                type="number"
-                min="1"
-                value={discount.max_employees || ''}
-                onChange={(e) => {
-                  const value = e.target.value ? Number(e.target.value) : null;
-                  // Update the discount in the database
-                  supabase
-                    .from("plan_volume_discounts")
-                    .update({ max_employees: value })
-                    .eq("id", discount.id)
-                    .then(() => refetch());
-                }}
+            <div className="col-span-3">
+              <FormField
+                control={control}
+                name={`volumeDiscounts.${index}.max_employees`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Máx. funcionários</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="10"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-
-            <div className="flex-1">
-              <FormLabel>Desconto (%)</FormLabel>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={discount.discount_percentage}
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  // Update the discount in the database
-                  supabase
-                    .from("plan_volume_discounts")
-                    .update({ discount_percentage: value })
-                    .eq("id", discount.id)
-                    .then(() => refetch());
-                }}
+            <div className="col-span-4">
+              <FormField
+                control={control}
+                name={`volumeDiscounts.${index}.discount_percentage`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Desconto (%)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="5"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="mb-2"
-              onClick={() => handleDeleteDiscount(discount.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="col-span-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-full text-red-500 hover:text-red-700"
+                onClick={() => fields.length > 1 && remove(index)}
+                disabled={fields.length <= 1}
+              >
+                <Trash className="h-4 w-4" />
+                <span className="sr-only">Remover</span>
+              </Button>
+            </div>
           </div>
         ))}
       </div>

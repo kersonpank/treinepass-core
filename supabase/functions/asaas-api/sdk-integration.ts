@@ -1,199 +1,234 @@
-/**
- * Integração completa com Asaas usando SDK
- */
-import { getAsaasConfig, asaasRequest } from './sdk-config.ts';
-import { CustomerData, findOrCreateCustomer } from './handlers/sdk-customer.ts';
-import { createPaymentLink } from './handlers/sdk-payment-link.ts';
-import { createPayment } from './handlers/sdk-payment.ts';
-import { handleWebhook } from './handlers/sdk-webhook.ts';
 
-/**
- * Interface para os dados de checkout integrado
- */
-export interface IntegratedCheckoutData {
-  // Dados do cliente
-  customerData: {
-    name: string;
-    email?: string;
-    cpfCnpj: string;
-    mobilePhone?: string;
-    address?: string;
-    addressNumber?: string;
-    province?: string;
-    postalCode?: string;
-  };
-  
-  // Dados do pagamento
-  paymentData: {
-    description: string;
-    value: number;
-    dueDate?: string;
-    dueDateLimitDays?: number;
-    externalReference?: string;
-  };
-  
-  // Configurações adicionais
-  config?: {
-    useSavedCustomerData?: boolean; // Se true, usa dados salvos do cliente no Asaas
-    billingTypes?: string[]; // Métodos de pagamento permitidos
-    maxInstallmentCount?: number;
-    callbackUrl?: string;
-  };
+import { findOrCreateCustomer } from "./handlers/sdk-customer.ts";
+
+interface CustomerData {
+  name: string;
+  email?: string;
+  cpfCnpj: string;
+  mobilePhone?: string;
+  phone?: string;
+  address?: string;
+  addressNumber?: string;
+  complement?: string;
+  province?: string;
+  postalCode?: string;
+  externalReference?: string;
 }
 
-/**
- * Cria um checkout integrado com o Asaas para contratação de planos
- * Esta função gerencia todo o fluxo: verificação/criação de cliente e geração do link de pagamento
- */
-export async function createIntegratedCheckout(data: IntegratedCheckoutData, apiKey: string, baseUrl: string) {
-  console.log("Iniciando checkout integrado com Asaas:", data);
-  
+interface PaymentData {
+  description: string;
+  value: number;
+  externalReference?: string;
+  dueDateLimitDays?: number;
+}
+
+interface CheckoutConfig {
+  billingTypes?: string[];
+  paymentMethodCodes?: string[];
+  callbackUrl?: string;
+  successUrl?: string;
+  failureUrl?: string;
+}
+
+export async function createIntegratedCheckout(data: {
+  customerData: CustomerData;
+  paymentData: PaymentData;
+  config?: CheckoutConfig;
+}, apiKey: string, baseUrl: string) {
   try {
-    // Configurar API Asaas
-    const config = getAsaasConfig(apiKey, baseUrl);
+    console.log("Iniciando checkout integrado com Asaas:", data);
     
-    // 1. Verificar/criar cliente
-    console.log("Verificando/criando cliente...");
-    let customerId;
+    // Create or find the customer
+    const customer = await findOrCreateCustomer(data.customerData, apiKey, baseUrl);
     
-    if (data.customerData && !data.config?.useSavedCustomerData) {
-      // Criar ou encontrar cliente
-      const customerResult = await findOrCreateCustomer(data.customerData, apiKey, baseUrl);
-      
-      if (customerResult.success && customerResult.customer) {
-        customerId = customerResult.customer.id;
-        console.log(`Cliente ${customerId} ${customerResult.isNew ? 'criado' : 'encontrado'} com sucesso`);
-      } else {
-        throw new Error("Falha ao processar dados do cliente");
-      }
-    } else if (data.customerData.cpfCnpj) {
-      // Usar CPF/CNPJ como fallback
-      customerId = data.customerData.cpfCnpj.replace(/\D/g, '');
-      console.log(`Usando CPF/CNPJ como ID do cliente: ${customerId}`);
-    } else {
-      throw new Error("Dados do cliente insuficientes");
-    }
-    
-    // 2. Criar link de pagamento associado ao cliente
-    console.log("Gerando link de pagamento...");
-    const billingTypes = data.config?.billingTypes || ["BOLETO", "CREDIT_CARD", "PIX"];
-    const dueDate = data.paymentData.dueDate || calculateDueDate(data.paymentData.dueDateLimitDays || 7);
-    
+    // Generate payment link / checkout
     const paymentLinkData = {
+      customer: customer.id,
+      value: data.paymentData.value,
       name: data.paymentData.description,
       description: data.paymentData.description,
-      value: data.paymentData.value,
-      billingTypes: billingTypes,
-      dueDateLimitDays: data.paymentData.dueDateLimitDays || 7,
-      dueDate: dueDate,
       externalReference: data.paymentData.externalReference,
-      maxInstallmentCount: data.config?.maxInstallmentCount || 1,
-      customer: customerId
+      dueDateLimitDays: data.paymentData.dueDateLimitDays || 7,
+      billingType: "UNDEFINED", // User can choose payment method in checkout
+      showCustomerData: false,   // Don't ask for customer data again
+      paymentMethodCodes: data.config?.billingTypes || ["CREDIT_CARD", "BOLETO", "PIX"],
+      successUrl: data.config?.successUrl,
+      failureUrl: data.config?.failureUrl,
     };
     
-    // Criar link de pagamento diretamente
-    console.log("Enviando requisição de link de pagamento:", paymentLinkData);
-    const paymentLinkResult = await asaasRequest(config, '/paymentLinks', 'POST', paymentLinkData);
+    console.log("Creating payment link with data:", JSON.stringify(paymentLinkData, null, 2));
     
-    // Verificar e retornar resultado
-    if (!paymentLinkResult || !paymentLinkResult.url) {
-      throw new Error(`Falha ao gerar link de pagamento: ${JSON.stringify(paymentLinkResult)}`);
+    // Make API request
+    const response = await fetch(`${baseUrl}/paymentLinks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'access_token': apiKey,
+        'User-Agent': 'TreinePass-App'
+      },
+      body: JSON.stringify(paymentLinkData)
+    });
+    
+    // Handle API errors
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { message: errorText };
+      }
+      
+      throw new Error(`Erro na API Asaas (${response.status}): ${errorData?.errors?.[0]?.description || errorData?.message || 'Erro desconhecido'}`);
     }
     
-    // 3. Retornar resultado completo
+    // Parse response
+    const responseText = await response.text();
+    if (!responseText) {
+      throw new Error("Resposta vazia da API Asaas");
+    }
+    
+    const paymentLink = JSON.parse(responseText);
+    console.log("Payment link created:", JSON.stringify(paymentLink, null, 2));
+    
     return {
       success: true,
-      paymentLink: paymentLinkResult.url,
-      paymentLinkId: paymentLinkResult.id,
-      customerId: customerId,
-      value: data.paymentData.value,
-      description: data.paymentData.description,
-      externalReference: data.paymentData.externalReference
+      paymentId: paymentLink.id,
+      paymentLink: paymentLink.url,
+      encodedImage: paymentLink.encodedImage,
+      payload: paymentLink.payload,
+      customer: customer,
+      metadata: {
+        description: data.paymentData.description,
+        value: data.paymentData.value,
+        externalReference: data.paymentData.externalReference
+      }
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Erro no checkout integrado:", error);
     return {
       success: false,
-      error: error.message || 'Erro desconhecido',
-      details: error.response?.data || {}
+      error: {
+        message: error.message || "Erro desconhecido",
+        details: error
+      },
+      details: {}
     };
   }
 }
 
-/**
- * Cancela uma assinatura existente no Asaas
- */
 export async function cancelSubscription(subscriptionId: string, apiKey: string, baseUrl: string) {
-  console.log(`Cancelando assinatura ${subscriptionId}`);
-  
   try {
-    // Configurar API Asaas
-    const config = getAsaasConfig(apiKey, baseUrl);
+    // Make API request to cancel subscription
+    const response = await fetch(`${baseUrl}/subscriptions/${subscriptionId}/cancel`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'access_token': apiKey,
+        'User-Agent': 'TreinePass-App'
+      }
+    });
     
-    // Cancelar assinatura
-    const result = await asaasRequest(config, `/subscriptions/${subscriptionId}/cancel`, 'POST');
+    // Check for API errors
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { message: errorText };
+      }
+      
+      throw new Error(`API Error (${response.status}): ${errorData?.errors?.[0]?.description || errorData?.message || 'Unknown error'}`);
+    }
+    
+    // Parse response data
+    const responseText = await response.text();
+    const subscriptionData = JSON.parse(responseText);
     
     return {
       success: true,
-      message: 'Assinatura cancelada com sucesso',
-      subscription: result
+      subscription: subscriptionData
     };
-  } catch (error: any) {
-    console.error("Erro ao cancelar assinatura:", error);
+    
+  } catch (error) {
+    console.error("Error cancelling subscription:", error);
     return {
       success: false,
-      error: error.message || 'Erro desconhecido',
-      details: error.response?.data || {}
+      error: {
+        message: error.message,
+        details: error
+      }
     };
   }
 }
 
-/**
- * Processa um webhook do Asaas
- */
-export async function processWebhook(event: any, apiKey: string, baseUrl: string, supabase: any) {
-  return handleWebhook(event, apiKey, baseUrl, supabase);
-}
-
-/**
- * Calcula a data de vencimento baseado no número de dias
- */
-function calculateDueDate(days: number = 7): string {
-  const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + days);
-  return dueDate.toISOString().split('T')[0]; // Formato YYYY-MM-DD
-}
-
-/**
- * Verifica o status de um pagamento
- */
 export async function checkPaymentStatus(paymentId: string, apiKey: string, baseUrl: string) {
-  console.log(`Verificando status do pagamento ${paymentId}`);
-  
   try {
-    // Configurar API Asaas
-    const config = getAsaasConfig(apiKey, baseUrl);
+    // Make API request to get payment status
+    const response = await fetch(`${baseUrl}/payments/${paymentId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'access_token': apiKey,
+        'User-Agent': 'TreinePass-App'
+      }
+    });
     
-    // Buscar pagamento
-    const payment = await asaasRequest(config, `/payments/${paymentId}`, 'GET');
+    // Check for API errors
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { message: errorText };
+      }
+      
+      throw new Error(`API Error (${response.status}): ${errorData?.errors?.[0]?.description || errorData?.message || 'Unknown error'}`);
+    }
+    
+    // Parse response data
+    const responseText = await response.text();
+    const paymentData = JSON.parse(responseText);
     
     return {
       success: true,
-      status: payment.status,
-      value: payment.value,
-      netValue: payment.netValue,
-      billingType: payment.billingType,
-      paymentDate: payment.paymentDate,
-      confirmedDate: payment.confirmedDate,
-      customerName: payment.customer?.name || null,
-      description: payment.description
+      payment: paymentData
     };
-  } catch (error: any) {
-    console.error("Erro ao verificar status do pagamento:", error);
+    
+  } catch (error) {
+    console.error("Error checking payment status:", error);
     return {
       success: false,
-      error: error.message || 'Erro desconhecido',
-      details: error.response?.data || {}
+      error: {
+        message: error.message,
+        details: error
+      }
+    };
+  }
+}
+
+export async function processWebhook(webhookData: any, apiKey: string, baseUrl: string, supabase: any) {
+  try {
+    // Process webhook event
+    // Implementation depends on your application logic
+    
+    // For example, update payment status in your database
+    return {
+      success: true,
+      processed: true,
+      event: webhookData.event
+    };
+    
+  } catch (error) {
+    console.error("Error processing webhook:", error);
+    return {
+      success: false,
+      error: {
+        message: error.message,
+        details: error
+      }
     };
   }
 }

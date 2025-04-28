@@ -135,6 +135,13 @@ export function UserSubscriptionManagement({
     );
   }
 
+  // Function to safely get plan features with a default value
+  const getPlanFeatures = (plan: any): string[] => {
+    if (!plan) return [];
+    if (Array.isArray(plan.features)) return plan.features;
+    return [];
+  };
+
   return (
     <div className="space-y-6">
       {currentSubscription && (
@@ -168,13 +175,12 @@ export function UserSubscriptionManagement({
               </span>
             </p>
             <ul className="space-y-2 mb-4">
-              {plan.features && Array.isArray(plan.features) && 
-                plan.features.map((feature: string, index: number) => (
-                  <li key={index} className="text-sm flex items-center gap-2">
-                    <span className="text-primary">✓</span>
-                    {feature}
-                  </li>
-                ))}
+              {getPlanFeatures(plan).map((feature: string, index: number) => (
+                <li key={index} className="text-sm flex items-center gap-2">
+                  <span className="text-primary">✓</span>
+                  {feature}
+                </li>
+              ))}
             </ul>
             <Button
               className="w-full"

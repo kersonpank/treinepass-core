@@ -20,11 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useEffect, useState } from "react";
-import { Loader2, Info, AlertCircle } from "lucide-react";
+import { Loader2, Info, AlertCircle, CheckCircle, TestTube } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AsaasSettings } from "@/types/system-settings";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { validateAsaasApiKey } from "@/utils/asaas-helpers";
+import { validateAsaasApiKey, extractAsaasApiToken } from "@/utils/asaas-helpers";
+import { useAsaasApiTest } from "@/hooks/useAsaasApiTest";
 
 interface AsaasSettingsFormProps {
   settings: AsaasSettings;
@@ -38,6 +39,7 @@ export function AsaasSettingsForm({
   isLoading = false
 }: AsaasSettingsFormProps) {
   const { toast } = useToast();
+  const { testApiKey, isLoading: isTesting } = useAsaasApiTest();
   const [showTestResult, setShowTestResult] = useState<{success: boolean; message: string} | null>(null);
   
   const form = useForm<AsaasSettings>({
@@ -48,6 +50,10 @@ export function AsaasSettingsForm({
       environment: "sandbox"
     }
   });
+
+  const watchEnvironment = form.watch("environment");
+  const watchSandboxKey = form.watch("sandbox_api_key");
+  const watchProductionKey = form.watch("production_api_key");
 
   useEffect(() => {
     if (settings) {
@@ -94,6 +100,29 @@ export function AsaasSettingsForm({
     }
   };
 
+  const handleTestApiKey = async () => {
+    // Determine which key to test based on the selected environment
+    const environment = form.getValues("environment") as 'sandbox' | 'production';
+    const apiKey = environment === 'sandbox' 
+      ? form.getValues("sandbox_api_key") 
+      : form.getValues("production_api_key");
+    
+    if (!apiKey) {
+      setShowTestResult({
+        success: false,
+        message: "Por favor, insira uma chave API para testar."
+      });
+      return;
+    }
+    
+    const result = await testApiKey({ 
+      apiKey, 
+      environment 
+    });
+    
+    setShowTestResult(result);
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -106,7 +135,8 @@ export function AsaasSettingsForm({
           <AlertTitle>Formato da API Key</AlertTitle>
           <AlertDescription>
             Cole a chave API exatamente como fornecida pelo Asaas.<br/>
-            Exemplo: <code className="bg-amber-100 px-2 py-1 rounded text-xs">{`$aact_YourTokenHere::$aach_MoreTokenData`}</code>
+            Exemplo: <code className="bg-amber-100 px-2 py-1 rounded text-xs">{`$aact_YourTokenHere::$aach_MoreTokenData`}</code><br/>
+            O sistema extrairá automaticamente o token necessário para autenticação.
           </AlertDescription>
         </Alert>
 
@@ -156,6 +186,16 @@ export function AsaasSettingsForm({
                     Acesse o <a href="https://sandbox.asaas.com/api-doc" target="_blank" rel="noreferrer" className="text-primary hover:underline">Painel Sandbox do Asaas</a> para obter sua chave de testes.
                   </FormDescription>
                   <FormMessage />
+                  {watchEnvironment === "sandbox" && watchSandboxKey && (
+                    <Alert className="mt-2 bg-blue-50 border-blue-200 text-blue-800">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Token que será usado</AlertTitle>
+                      <AlertDescription className="break-all">
+                        {extractAsaasApiToken(watchSandboxKey)?.substring(0, 10)}...
+                        {extractAsaasApiToken(watchSandboxKey)?.substring(extractAsaasApiToken(watchSandboxKey)?.length || 0 - 5)}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </FormItem>
               )}
             />
@@ -178,6 +218,16 @@ export function AsaasSettingsForm({
                     Acesse o <a href="https://www.asaas.com/api-doc" target="_blank" rel="noreferrer" className="text-primary hover:underline">Painel de Produção do Asaas</a> para obter sua chave de produção.
                   </FormDescription>
                   <FormMessage />
+                  {watchEnvironment === "production" && watchProductionKey && (
+                    <Alert className="mt-2 bg-blue-50 border-blue-200 text-blue-800">
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Token que será usado</AlertTitle>
+                      <AlertDescription className="break-all">
+                        {extractAsaasApiToken(watchProductionKey)?.substring(0, 10)}...
+                        {extractAsaasApiToken(watchProductionKey)?.substring(extractAsaasApiToken(watchProductionKey)?.length || 0 - 5)}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </FormItem>
               )}
             />
@@ -203,13 +253,16 @@ export function AsaasSettingsForm({
             
             {showTestResult && (
               <Alert className={showTestResult.success ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}>
-                <Info className="h-4 w-4" />
+                {showTestResult.success ? 
+                  <CheckCircle className="h-4 w-4" /> : 
+                  <AlertCircle className="h-4 w-4" />
+                }
                 <AlertTitle>{showTestResult.success ? "Teste bem sucedido!" : "Falha no teste"}</AlertTitle>
                 <AlertDescription>{showTestResult.message}</AlertDescription>
               </Alert>
             )}
             
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -219,6 +272,20 @@ export function AsaasSettingsForm({
                 ) : (
                   "Salvar configurações"
                 )}
+              </Button>
+              
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleTestApiKey}
+                disabled={isTesting}
+              >
+                {isTesting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <TestTube className="mr-2 h-4 w-4" />
+                )}
+                Testar conexão
               </Button>
             </div>
           </form>
