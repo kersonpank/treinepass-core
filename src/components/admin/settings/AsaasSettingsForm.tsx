@@ -2,14 +2,15 @@
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   Form, 
   FormControl, 
   FormField, 
   FormItem, 
   FormLabel, 
-  FormMessage 
+  FormMessage,
+  FormDescription
 } from "@/components/ui/form";
 import { 
   Select,
@@ -18,10 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Info, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AsaasSettings } from "@/types/system-settings";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { validateAsaasApiKey } from "@/utils/asaas-helpers";
 
 interface AsaasSettingsFormProps {
   settings: AsaasSettings;
@@ -35,6 +38,7 @@ export function AsaasSettingsForm({
   isLoading = false
 }: AsaasSettingsFormProps) {
   const { toast } = useToast();
+  const [showTestResult, setShowTestResult] = useState<{success: boolean; message: string} | null>(null);
   
   const form = useForm<AsaasSettings>({
     defaultValues: {
@@ -61,11 +65,26 @@ export function AsaasSettingsForm({
 
   const handleSubmit = async (values: AsaasSettings) => {
     try {
+      // Validate API key format based on selected environment
+      const keyToValidate = values.environment === 'sandbox' 
+        ? values.sandbox_api_key 
+        : values.production_api_key;
+        
+      if (!validateAsaasApiKey(keyToValidate)) {
+        toast({
+          variant: "destructive",
+          title: "Formato de API key inválido",
+          description: "Verifique se você está utilizando o formato correto da chave API do Asaas.",
+        });
+        return;
+      }
+
       await onSubmit(values);
       toast({
         title: "Configurações salvas",
         description: "As configurações do Asaas foram atualizadas com sucesso.",
       });
+      setShowTestResult(null); // Reset test result after successful save
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -79,8 +98,18 @@ export function AsaasSettingsForm({
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Configurações do Asaas</CardTitle>
+        <CardDescription>Configure suas credenciais para integração com o Asaas</CardDescription>
       </CardHeader>
       <CardContent>
+        <Alert className="mb-6 bg-amber-50 text-amber-800 border-amber-200">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Formato da API Key</AlertTitle>
+          <AlertDescription>
+            Cole a chave API exatamente como fornecida pelo Asaas.<br/>
+            Exemplo: <code className="bg-amber-100 px-2 py-1 rounded text-xs">{`$aact_YourTokenHere::$aach_MoreTokenData`}</code>
+          </AlertDescription>
+        </Alert>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <FormField
@@ -123,6 +152,9 @@ export function AsaasSettingsForm({
                       disabled={isLoading}
                     />
                   </FormControl>
+                  <FormDescription>
+                    Acesse o <a href="https://sandbox.asaas.com/api-doc" target="_blank" rel="noreferrer" className="text-primary hover:underline">Painel Sandbox do Asaas</a> para obter sua chave de testes.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -142,6 +174,9 @@ export function AsaasSettingsForm({
                       disabled={isLoading}
                     />
                   </FormControl>
+                  <FormDescription>
+                    Acesse o <a href="https://www.asaas.com/api-doc" target="_blank" rel="noreferrer" className="text-primary hover:underline">Painel de Produção do Asaas</a> para obter sua chave de produção.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -166,16 +201,26 @@ export function AsaasSettingsForm({
               )}
             />
             
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                "Salvar configurações"
-              )}
-            </Button>
+            {showTestResult && (
+              <Alert className={showTestResult.success ? "bg-green-50 border-green-200 text-green-800" : "bg-red-50 border-red-200 text-red-800"}>
+                <Info className="h-4 w-4" />
+                <AlertTitle>{showTestResult.success ? "Teste bem sucedido!" : "Falha no teste"}</AlertTitle>
+                <AlertDescription>{showTestResult.message}</AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="flex gap-4">
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar configurações"
+                )}
+              </Button>
+            </div>
           </form>
         </Form>
       </CardContent>

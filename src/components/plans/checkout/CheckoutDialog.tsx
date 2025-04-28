@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -18,6 +17,7 @@ import { useSubscriptionUpdate } from "../hooks/useSubscriptionCreation";
 import { usePaymentStatusChecker } from "../hooks/usePaymentStatusChecker";
 import { createSubscriptionRecord, updateSubscriptionWithPaymentDetails, saveSubscriptionPaymentData } from "../hooks/useSubscriptionUpdate";
 import { supabase } from "@/integrations/supabase/client";
+import { extractAsaasApiToken } from "@/utils/asaas-helpers";
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -60,7 +60,6 @@ export function CheckoutDialog({
     }
   });
   
-  // Reset state when dialog opens
   useEffect(() => {
     if (open) {
       setStep("method");
@@ -73,9 +72,7 @@ export function CheckoutDialog({
     }
   }, [open]);
   
-  // Handle closing dialog
   const handleCloseDialog = () => {
-    // Only confirm on close when payment is in progress
     if (step === "checkout" && !error) {
       const confirmed = window.confirm("Deseja realmente cancelar esta operação? O pagamento não será processado.");
       if (confirmed) {
@@ -86,19 +83,16 @@ export function CheckoutDialog({
     }
   };
 
-  // Handle going back to method selection
   const handleBack = () => {
     setStep("method");
     setError(null);
   };
 
-  // Start the checkout process
   const handleCheckout = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Get authenticated user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error("Usuário não autenticado");
@@ -106,7 +100,6 @@ export function CheckoutDialog({
       
       console.log(`Starting checkout for plan ${planId} with method ${paymentMethod}`);
       
-      // Create subscription record
       const newSubscription = await createSubscriptionRecord(user.id, planId, paymentMethod);
       if (!newSubscription) {
         throw new Error("Erro ao criar registro de assinatura");
@@ -115,7 +108,6 @@ export function CheckoutDialog({
       setSubscription(newSubscription);
       console.log("Subscription created:", newSubscription);
 
-      // Get user profile data
       const { data: profile, error: profileError } = await supabase
         .from("user_profiles")
         .select("*")
@@ -126,7 +118,6 @@ export function CheckoutDialog({
         throw new Error("Erro ao buscar dados do perfil");
       }
 
-      // Create checkout session
       const checkoutResult = await createCheckoutSession({
         value: planValue,
         description: `Assinatura do plano ${planName}`,
@@ -152,14 +143,12 @@ export function CheckoutDialog({
         throw new Error(checkoutResult.error || "Erro ao criar checkout");
       }
 
-      // Update subscription with checkout URL
       await updateSubscriptionWithPaymentDetails(
         newSubscription.id, 
         checkoutResult.checkoutUrl, 
         checkoutResult.customerId || ""
       );
 
-      // Save payment data if available
       if (checkoutResult.id) {
         setPaymentId(checkoutResult.id);
         await saveSubscriptionPaymentData({
@@ -174,7 +163,6 @@ export function CheckoutDialog({
         });
       }
 
-      // Set payment data
       setPaymentData({
         method: paymentMethod,
         value: planValue,
@@ -189,39 +177,45 @@ export function CheckoutDialog({
       setCheckoutUrl(checkoutResult.checkoutUrl);
       setStep("checkout");
 
-      // Start checking payment status if we have a payment ID
       if (checkoutResult.id) {
         setIsVerifying(true);
       }
       
     } catch (error) {
       console.error("Checkout error:", error);
-      setError(error.message || "Erro ao processar pagamento");
+      
+      let errorMessage = error.message || "Erro ao processar pagamento";
+      
+      if (error.message && (
+          error.message.includes("Invalid API key") || 
+          error.message.includes("Authentication error") || 
+          error.message.includes("401"))) {
+        errorMessage = "Erro de autenticação com o Asaas. Por favor, verifique as configurações da API.";
+      }
+      
+      setError(errorMessage);
       toast({
         variant: "destructive",
         title: "Erro ao processar pagamento",
-        description: error.message || "Não foi possível criar a sessão de pagamento"
+        description: errorMessage
       });
     } finally {
       setLoading(false);
     }
   };
   
-  // Start the checkout process when component is mounted
   useEffect(() => {
     if (open && paymentMethod && step === "method" && !loading && !error && retryCount === 0) {
       handleCheckout();
     }
   }, [open, paymentMethod, step]);
   
-  // Handle retry
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
     setError(null);
     handleCheckout();
   };
 
-  // Handle copy event
   const handleCopy = () => {
     toast({
       title: "Código copiado!",
@@ -267,7 +261,6 @@ export function CheckoutDialog({
         </DialogHeader>
 
         <div className="py-4">
-          {/* Loading state */}
           {loading && (
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
@@ -275,7 +268,6 @@ export function CheckoutDialog({
             </div>
           )}
           
-          {/* Error state */}
           {error && (
             <div className="flex flex-col items-center gap-4 py-4">
               <div className="bg-destructive/10 text-destructive p-3 rounded-md">
@@ -292,10 +284,8 @@ export function CheckoutDialog({
             </div>
           )}
           
-          {/* Checkout state */}
           {!loading && !error && step === "checkout" && (
             <>
-              {/* PIX Payment */}
               {paymentMethod === "pix" && paymentData && (
                 <PixInfo
                   qrCode={paymentData.qrCode}
@@ -305,7 +295,6 @@ export function CheckoutDialog({
                 />
               )}
               
-              {/* Boleto Payment */}
               {paymentMethod === "boleto" && paymentData && (
                 <BoletoInfo
                   digitableLine={paymentData.digitableLine}
@@ -315,7 +304,6 @@ export function CheckoutDialog({
                 />
               )}
               
-              {/* Credit Card Payment */}
               {paymentMethod === "credit_card" && (
                 <div className="flex flex-col items-center gap-4">
                   <p className="text-center">
@@ -339,7 +327,6 @@ export function CheckoutDialog({
                 </div>
               )}
               
-              {/* External checkout info */}
               {checkoutUrl && paymentMethod !== "credit_card" && (
                 <div className="mt-4 text-center text-sm text-muted-foreground">
                   <p>Se preferir, você também pode pagar clicando no link abaixo:</p>
@@ -355,7 +342,6 @@ export function CheckoutDialog({
             </>
           )}
           
-          {/* Success state */}
           {step === "success" && (
             <div className="flex flex-col items-center gap-4 py-8 text-center">
               <div className="rounded-full bg-green-100 p-3">
@@ -370,14 +356,12 @@ export function CheckoutDialog({
         </div>
 
         <DialogFooter>
-          {/* Only show cancel in checkout step */}
           {step === "checkout" && (
             <Button variant="outline" onClick={handleCloseDialog}>
               Fechar
             </Button>
           )}
           
-          {/* Only show close in success step */}
           {step === "success" && (
             <Button onClick={handleCloseDialog}>
               Concluir

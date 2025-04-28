@@ -4,6 +4,20 @@
  * According to Asaas API documentation v3
  */
 
+// Extract proper Asaas API token from a key string
+function extractAsaasApiToken(key: string): string {
+  if (key.startsWith('$aact_')) {
+    // Extract the token part (between $aact_ and the first :: if present)
+    const match = key.match(/\$aact_([^:]+)/);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  
+  // If the key doesn't match the expected format, return it as is
+  return key;
+}
+
 export async function createDirectCheckout(data: any, apiKey: string, baseUrl: string) {
   try {
     console.log("Creating direct checkout with data:", JSON.stringify(data, null, 2));
@@ -13,11 +27,17 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
       throw new Error("Value and description are required");
     }
     
-    // Check API key validity
+    // Check API key validity and extract proper format
     if (!apiKey || apiKey === 'sua_chave_api_do_asaas') {
       throw new Error("Invalid API key. Please configure a valid Asaas API key in environment variables or system settings");
     }
 
+    // Extract the proper API token format
+    const cleanApiKey = extractAsaasApiToken(apiKey);
+    if (!cleanApiKey || cleanApiKey.length < 20) {
+      throw new Error("Invalid API key format. Please check your Asaas API key configuration");
+    }
+    
     // Prepare customer data for checkout if provided
     let customerData = null;
     if (data.customerData) {
@@ -89,7 +109,7 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'access_token': apiKey,
+        'access_token': cleanApiKey,
         'User-Agent': 'TreinePass-App'
       },
       body: JSON.stringify(checkoutData)

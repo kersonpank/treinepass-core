@@ -1,6 +1,28 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";
 
+// Extract proper Asaas API token from a key string
+function extractAsaasApiToken(key: string | null | undefined): string | null {
+  if (!key) return null;
+  
+  try {
+    // Check if the key starts with the expected prefix
+    if (key.startsWith('$aact_')) {
+      // Extract the token part (between $aact_ and the first :: if present)
+      const match = key.match(/\$aact_([^:]+)/);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    
+    // If the key doesn't match the expected format, return it as is
+    return key;
+  } catch (error) {
+    console.error("Error extracting Asaas API token:", error);
+    return key; // Return original key if parsing fails
+  }
+}
+
 export async function getAsaasApiKey(supabase: any) {
   try {
     // Try to get from environment variables first
@@ -9,8 +31,14 @@ export async function getAsaasApiKey(supabase: any) {
     
     if (envApiKey && envApiKey !== 'sua_chave_api_do_asaas') {
       console.log("Using Asaas API key from environment variables");
+      // Extract proper token format
+      const cleanApiKey = extractAsaasApiToken(envApiKey);
+      if (!cleanApiKey) {
+        throw new Error("Invalid API key format in environment variable");
+      }
+      
       return {
-        apiKey: envApiKey,
+        apiKey: cleanApiKey,
         baseUrl: envBaseUrl || 'https://api-sandbox.asaas.com/v3'
       };
     }
@@ -47,20 +75,30 @@ export async function getAsaasApiKey(supabase: any) {
     const environment = settings.environment || 'sandbox';
     console.log(`Using Asaas ${environment} environment`);
     
+    let apiKey: string | null = null;
+    
     if (environment === 'production') {
       if (!settings.production_api_key) {
         throw new Error("Production API key not configured");
       }
+      apiKey = extractAsaasApiToken(settings.production_api_key);
+      if (!apiKey) {
+        throw new Error("Invalid Production API key format");
+      }
       return {
-        apiKey: settings.production_api_key,
+        apiKey: apiKey,
         baseUrl: 'https://api.asaas.com/v3'
       };
     } else {
       if (!settings.sandbox_api_key) {
         throw new Error("Sandbox API key not configured");
       }
+      apiKey = extractAsaasApiToken(settings.sandbox_api_key);
+      if (!apiKey) {
+        throw new Error("Invalid Sandbox API key format");
+      }
       return {
-        apiKey: settings.sandbox_api_key,
+        apiKey: apiKey,
         baseUrl: 'https://api-sandbox.asaas.com/v3'
       };
     }
@@ -71,8 +109,12 @@ export async function getAsaasApiKey(supabase: any) {
     const envApiKey = Deno.env.get('ASAAS_API_KEY');
     if (envApiKey && envApiKey !== 'sua_chave_api_do_asaas') {
       console.warn("Falling back to environment variable API key");
+      const cleanApiKey = extractAsaasApiToken(envApiKey);
+      if (!cleanApiKey) {
+        throw new Error("Invalid API key format in environment variable");
+      }
       return {
-        apiKey: envApiKey,
+        apiKey: cleanApiKey,
         baseUrl: 'https://api-sandbox.asaas.com/v3'
       };
     }
