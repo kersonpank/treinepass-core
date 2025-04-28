@@ -80,21 +80,6 @@ export function CheckoutDialog({
         throw new Error("Erro ao buscar perfil do usuário");
       }
 
-      // Map payment method to Asaas format
-      let billingType = "PIX";
-      switch (selectedPaymentMethod) {
-        case "credit_card":
-          billingType = "CREDIT_CARD";
-          break;
-        case "boleto":
-          billingType = "BOLETO";
-          break;
-        case "pix":
-        default:
-          billingType = "PIX";
-          break;
-      }
-
       // Create a subscription ID to track this transaction
       const { data: subscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
@@ -127,18 +112,19 @@ export function CheckoutDialog({
         postalCode: profile.postal_code || "01310930" // Default CEP for São Paulo
       };
 
-      // Create checkout session
+      // Create checkout session using the specific payment method
       const response = await createCheckoutSession({
         value: planValue,
         description: `Assinatura do plano ${planName}`,
         externalReference: subscription.id,
-        billingTypes: [billingType],
+        billingTypes: [selectedPaymentMethod.toUpperCase()],
+        paymentMethod: selectedPaymentMethod,
         customerData,
         successUrl: `${window.location.origin}/payment/success?subscription=${subscription.id}`,
         failureUrl: `${window.location.origin}/payment/failure?subscription=${subscription.id}`
       });
 
-      if (response.success) {
+      if (response && response.success) {
         console.log("Checkout success:", response);
         
         // Save checkout URL to subscription
@@ -161,7 +147,7 @@ export function CheckoutDialog({
           window.open(response.checkoutUrl, "_blank");
         }
       } else {
-        throw new Error(response.error || "Erro ao criar checkout");
+        throw new Error(response?.error || "Erro ao criar checkout");
       }
     } catch (error: any) {
       console.error("Error creating checkout:", error);

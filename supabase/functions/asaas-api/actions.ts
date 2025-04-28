@@ -39,6 +39,7 @@ export async function handleAction(action: string, data: any, apiKey: string, ba
       return handleCreateCheckout(data, apiKey, baseUrl);
       
     case 'initiateCheckout':
+      // Implementação direta do checkout de acordo com a documentação do Asaas
       return createDirectCheckout(data, apiKey, baseUrl);
       
     case 'processCreditCard':

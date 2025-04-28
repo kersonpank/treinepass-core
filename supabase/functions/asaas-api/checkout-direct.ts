@@ -1,6 +1,7 @@
 
 /**
  * Implementation of direct checkout for credit card payments
+ * According to Asaas API documentation v3
  */
 
 export async function createDirectCheckout(data: any, apiKey: string, baseUrl: string) {
@@ -15,7 +16,7 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
     // Prepare customer data for checkout if provided
     let customerData = null;
     if (data.customerData) {
-      // Format the customer data
+      // Format the customer data according to Asaas documentation
       customerData = {
         name: data.customerData.full_name || data.customerData.name,
         cpfCnpj: data.customerData.cpf || data.customerData.cpfCnpj,
@@ -52,14 +53,15 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
     
     console.log("Using billing types:", billingTypes);
     
-    // Prepare checkout data for Asaas
+    // Prepare checkout data for Asaas according to v3 API
     const checkoutData = {
       externalReference: data.externalReference,
       value: data.value,
       description: data.description,
       billingTypes: billingTypes,
-      chargeTypes: ["DETACHED"], // For single payment
+      chargeType: "DETACHED", // For single payment
       minutesToExpire: 60,
+      customer: customerData ? null : undefined,
       customerData: customerData,
       items: data.items || [
         {
@@ -71,7 +73,7 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
       callback: data.callback || {
         successUrl: `${data.callback?.successUrl || "https://app.treinepass.com.br/payment/success"}?subscription=${data.externalReference}`,
         failureUrl: `${data.callback?.failureUrl || "https://app.treinepass.com.br/payment/failure"}?subscription=${data.externalReference}`,
-        cancelUrl: `${data.callback?.failureUrl || "https://app.treinepass.com.br/payment/failure"}?subscription=${data.externalReference}`
+        autoRedirect: true
       }
     };
     

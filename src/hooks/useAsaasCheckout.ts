@@ -20,6 +20,7 @@ interface CheckoutSessionProps {
   externalReference: string;
   customerData?: CustomerData;
   billingTypes?: string[];
+  paymentMethod?: string;
   items?: Array<{
     name: string;
     value: number;
@@ -38,12 +39,17 @@ export function useAsaasCheckout() {
       setIsLoading(true);
       console.log("Creating checkout session with props:", props);
 
+      if (!props.value || isNaN(props.value) || props.value <= 0) {
+        throw new Error("Valor inválido para checkout");
+      }
+
       // Prepare data for the edge function
       const data = {
         value: props.value,
         description: props.description,
         externalReference: props.externalReference,
         customerData: props.customerData,
+        paymentMethod: props.paymentMethod, // Support for specific payment method
         billingTypes: props.billingTypes || ["CREDIT_CARD", "PIX", "BOLETO"],
         items: props.items || [
           {
@@ -53,8 +59,9 @@ export function useAsaasCheckout() {
           }
         ],
         callback: {
-          successUrl: props.successUrl || `${window.location.origin}/payment/success`,
-          failureUrl: props.failureUrl || `${window.location.origin}/payment/failure`
+          successUrl: props.successUrl || `${window.location.origin}/payment/success?subscription=${props.externalReference}`,
+          failureUrl: props.failureUrl || `${window.location.origin}/payment/failure?subscription=${props.externalReference}`,
+          autoRedirect: true
         }
       };
 
