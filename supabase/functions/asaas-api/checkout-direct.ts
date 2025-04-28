@@ -21,10 +21,10 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
         cpfCnpj: data.customerData.cpf || data.customerData.cpfCnpj,
         email: data.customerData.email,
         phone: data.customerData.phone,
-        postalCode: "01310930", // Use valid postal code to avoid validation errors
-        address: "Av Paulista",
-        addressNumber: "1000",
-        province: "Bela Vista"
+        postalCode: data.customerData.postalCode || "01310930", // Use valid postal code to avoid validation errors
+        address: data.customerData.address || "Av Paulista",
+        addressNumber: data.customerData.addressNumber || "1000",
+        province: data.customerData.province || "Bela Vista"
       };
     }
     
@@ -42,7 +42,11 @@ export async function createDirectCheckout(data: any, apiKey: string, baseUrl: s
         // Default to all payment methods if not specified or invalid
         billingTypes = ['CREDIT_CARD', 'PIX', 'BOLETO'];
       }
+    } else if (data.billingTypes && Array.isArray(data.billingTypes)) {
+      // Use the provided billing types if available
+      billingTypes = data.billingTypes;
     } else {
+      // Default to all payment methods if not specified
       billingTypes = ['CREDIT_CARD', 'PIX', 'BOLETO'];
     }
     

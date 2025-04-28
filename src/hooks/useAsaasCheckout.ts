@@ -1,98 +1,91 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { formatCustomerData } from '@/utils/customerDataFormatter';
+import { useToast } from '@/hooks/use-toast';
 
-export interface CheckoutConfig {
+interface CustomerData {
+  name: string;
+  cpfCnpj: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  addressNumber?: string;
+  province?: string;
+  postalCode?: string;
+}
+
+interface CheckoutSessionProps {
   value: number;
   description: string;
   externalReference: string;
-  customerData?: any;
+  customerData?: CustomerData;
   billingTypes?: string[];
+  items?: Array<{
+    name: string;
+    value: number;
+    quantity: number;
+  }>;
   successUrl?: string;
   failureUrl?: string;
-  items?: any[];
 }
 
 export function useAsaasCheckout() {
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  const createCheckoutSession = async (config: CheckoutConfig) => {
+  const createCheckoutSession = async (props: CheckoutSessionProps) => {
     try {
       setIsLoading(true);
-      
-      // Garantir URLs de callback absolutas
-      const origin = window.location.origin;
-      const successUrl = config.successUrl || `${origin}/payment/success?subscription=${config.externalReference}`;
-      const failureUrl = config.failureUrl || `${origin}/payment/failure?subscription=${config.externalReference}`;
-      
-      // Formatar dados do cliente se fornecidos
-      let customerData = undefined;
-      if (config.customerData) {
-        customerData = formatCustomerData(config.customerData || {});
-        
-        // Garantir que o CEP tem 8 dígitos conforme exigido pelo Asaas
-        if (customerData.postalCode) {
-          customerData.postalCode = customerData.postalCode.replace(/[^\d]/g, '');
-          if (customerData.postalCode.length !== 8) {
-            customerData.postalCode = "01310930"; // CEP válido para São Paulo
+      console.log("Creating checkout session with props:", props);
+
+      // Prepare data for the edge function
+      const data = {
+        value: props.value,
+        description: props.description,
+        externalReference: props.externalReference,
+        customerData: props.customerData,
+        billingTypes: props.billingTypes || ["CREDIT_CARD", "PIX", "BOLETO"],
+        items: props.items || [
+          {
+            name: props.description,
+            value: props.value,
+            quantity: 1
           }
-        }
-      }
-      
-      // Montar itens do checkout se não fornecidos
-      const items = config.items || [{
-        name: config.description,
-        value: config.value,
-        quantity: 1
-      }];
-      
-      // Montar dados do checkout
-      const checkoutData = {
-        externalReference: config.externalReference,
-        value: config.value,
-        billingTypes: config.billingTypes || ["CREDIT_CARD", "PIX"],
-        chargeTypes: ["DETACHED"], // Pagamento único
-        minutesToExpire: 60,
-        items: items,
-        customerData: customerData,
+        ],
         callback: {
-          successUrl,
-          failureUrl,
-          cancelUrl: failureUrl
+          successUrl: props.successUrl || `${window.location.origin}/payment/success`,
+          failureUrl: props.failureUrl || `${window.location.origin}/payment/failure`
         }
       };
 
-      console.log("Creating checkout with data:", checkoutData);
-      
-      // Chamar a Edge Function para criar o checkout
-      const { data, error } = await supabase.functions.invoke(
+      // Call the edge function to create the checkout
+      const { data: response, error } = await supabase.functions.invoke(
         'asaas-api',
         {
           body: {
-            action: "createCheckout",
-            data: checkoutData
+            action: 'initiateCheckout',
+            data
           }
         }
       );
 
       if (error) {
-        console.error("Error from Asaas API:", error);
+        console.error("Error creating checkout:", error);
         throw error;
       }
 
-      console.log("Checkout created successfully:", data);
-      
-      return {
-        success: true,
-        ...data
-      };
-
+      console.log("Checkout response:", response);
+      return response;
     } catch (error: any) {
-      console.error("Error creating checkout:", error);
+      console.error("Failed to create checkout:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao criar checkout",
+        description: error.message || "Não foi possível criar a sessão de checkout"
+      });
       return {
         success: false,
-        error
+        error: error.message || "Falha ao criar checkout"
       };
     } finally {
       setIsLoading(false);

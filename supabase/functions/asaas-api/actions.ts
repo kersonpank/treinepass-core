@@ -35,6 +35,7 @@ export async function handleAction(action: string, data: any, apiKey: string, ba
       return handleCreateSubscription(data, apiKey, baseUrl);
       
     case 'createCheckout':
+    case 'createCheckoutSession':  // Support for both naming conventions
       return handleCreateCheckout(data, apiKey, baseUrl);
       
     case 'initiateCheckout':

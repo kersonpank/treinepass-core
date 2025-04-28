@@ -67,7 +67,7 @@ export function useSubscriptionCreation() {
       setCheckoutData({
         planId,
         planName: planDetails.name,
-        planValue: planDetails.monthly_cost,
+        planValue: Number(planDetails.monthly_cost),
         open: true,
         paymentMethod: paymentMethod
       });

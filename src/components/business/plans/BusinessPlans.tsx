@@ -86,7 +86,6 @@ export function BusinessPlans() {
         return;
       }
       
-      // Fix the expected 2 arguments error by passing a payment method
       await handleSubscribe(planId, "pix");
       
       setTimeout(() => {
