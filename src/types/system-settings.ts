@@ -32,3 +32,13 @@ export function extractAsaasApiToken(key: string | null | undefined): string | n
     return key; // Em caso de erro, retornar a chave original
   }
 }
+
+// Tipo para database do Supabase
+export interface SystemSettingsRow {
+  id?: string;
+  key: string;
+  value: any;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}

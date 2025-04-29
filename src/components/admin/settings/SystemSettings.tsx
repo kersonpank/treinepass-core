@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AsaasSettingsForm } from "./AsaasSettingsForm";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { AsaasSettings } from "@/types/system-settings";
+import { AsaasSettings, SystemSettingsRow } from "@/types/system-settings";
 
 export function SystemSettings() {
   const { toast } = useToast();
@@ -80,12 +80,14 @@ export function SystemSettings() {
   // Save Asaas settings
   const saveAsaasSettings = async (values: AsaasSettings) => {
     try {
+      const settingsRow: SystemSettingsRow = {
+        key: "asaas_settings",
+        value: values
+      };
+      
       const { error } = await supabase
         .from("system_settings")
-        .upsert({
-          key: "asaas_settings",
-          value: values
-        });
+        .upsert(settingsRow);
       
       if (error) {
         throw error;
@@ -93,6 +95,11 @@ export function SystemSettings() {
       
       // Update local state
       setAsaasSettings(values);
+      
+      toast({
+        title: "Configurações salvas",
+        description: "As configurações do Asaas foram salvas com sucesso."
+      });
     } catch (error: any) {
       console.error("Error saving settings:", error);
       toast({

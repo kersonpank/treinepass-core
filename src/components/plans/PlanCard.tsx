@@ -1,97 +1,93 @@
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCurrency } from "@/utils/format";
+import { SubscribeButton } from "./SubscribeButton";
 
 interface PlanCardProps {
-  plan: any;
-  isSubscribing: boolean;
-  selectedPaymentMethod: string;
-  onPaymentMethodChange: (value: string) => void;
-  onSubscribe: (plan: any) => void;
-  CheckoutDialog: React.ComponentType;
+  id: string;
+  name: string;
+  description: string;
+  monthlyPrice: number;
+  yearlyPrice?: number;
+  features: string[];
+  periodType?: "monthly" | "yearly";
+  isPopular?: boolean;
+  status?: "active" | "inactive";
+  showSubscribeButton?: boolean;
 }
 
-export function PlanCard({
-  plan,
-  isSubscribing,
-  selectedPaymentMethod,
-  onPaymentMethodChange,
-  onSubscribe,
-  CheckoutDialog
+export function PlanCard({ 
+  id,
+  name, 
+  description, 
+  monthlyPrice, 
+  yearlyPrice, 
+  features,
+  periodType = "monthly",
+  isPopular = false,
+  status = "active",
+  showSubscribeButton = true
 }: PlanCardProps) {
+  const price = periodType === 'yearly' ? (yearlyPrice || monthlyPrice * 12) : monthlyPrice;
+  const isActive = status === "active";
+  
   return (
-    <Card className="flex flex-col">
+    <Card className={`w-full ${isPopular ? 'border-primary' : ''} relative flex flex-col h-full`}>
+      {isPopular && (
+        <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1 text-xs rounded-bl">
+          Popular
+        </div>
+      )}
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>{plan.name}</span>
-          <span className="text-2xl font-bold">
-            {formatCurrency(plan.plan_type === 'corporate_subsidized' ? plan.final_user_cost : plan.monthly_cost)}
-            <span className="text-sm font-normal text-muted-foreground">/mês</span>
-          </span>
-        </CardTitle>
-        {plan.plan_type === 'corporate_subsidized' && plan.business_profiles?.company_name && (
-          <div className="text-sm text-muted-foreground">
-            Plano subsidiado por {plan.business_profiles.company_name}
-          </div>
-        )}
+        <CardTitle>{name}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 space-y-4">
-        <p className="text-sm text-muted-foreground">{plan.description}</p>
-        
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium">Benefícios inclusos:</h4>
-          <ul className="space-y-2 text-sm">
-            {Object.entries(plan.rules || {}).map(([key, value]) => (
-              <li key={key} className="flex items-center">
-                <span className="text-muted-foreground">{key}:</span>
-                <span className="ml-1">{JSON.stringify(value)}</span>
+      <CardContent className="flex-grow">
+        <div className="mb-4">
+          <p className="text-3xl font-bold">
+            {formatCurrency(price)}
+            <span className="text-sm font-normal text-muted-foreground">
+              /{periodType === 'yearly' ? 'ano' : 'mês'}
+            </span>
+          </p>
+        </div>
+
+        {features && features.length > 0 && (
+          <ul className="space-y-2">
+            {features.map((feature, index) => (
+              <li key={index} className="flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="w-5 h-5 mr-2 text-green-500"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {feature}
               </li>
             ))}
           </ul>
-        </div>
-
-        <div className="space-y-4">
-          <Select
-            value={selectedPaymentMethod}
-            onValueChange={onPaymentMethodChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a forma de pagamento" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-              <SelectItem value="pix">PIX</SelectItem>
-              <SelectItem value="boleto">Boleto</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button 
-            className="w-full" 
-            onClick={() => onSubscribe(plan)}
-            disabled={isSubscribing}
-          >
-            {isSubscribing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processando...
-              </>
-            ) : (
-              'Contratar Plano'
-            )}
-          </Button>
-        </div>
+        )}
       </CardContent>
-
-      <CheckoutDialog />
+      <CardFooter>
+        {isActive && showSubscribeButton ? (
+          <SubscribeButton 
+            planId={id} 
+            planName={name} 
+            planValue={price} 
+            className="w-full"
+          />
+        ) : !isActive ? (
+          <div className="w-full p-2 text-center text-sm text-muted-foreground bg-muted rounded">
+            Plano temporariamente indisponível
+          </div>
+        ) : null}
+      </CardFooter>
     </Card>
   );
 }
