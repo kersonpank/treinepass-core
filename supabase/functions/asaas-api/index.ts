@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { handleCreatePaymentLink } from "./handlers/paymentLink.ts";
 import { handleCreateCustomer } from "./handlers/customer.ts";
+import { handleAction } from "./actions.ts";
 
 // CORS headers
 const corsHeaders = {
@@ -18,37 +19,29 @@ serve(async (req) => {
   try {
     // Get API keys from environment
     const apiKey = Deno.env.get('ASAAS_API_KEY');
-    const baseUrl = Deno.env.get('ASAAS_BASE_URL') || 'https://sandbox.asaas.com/api/v3';
+    const baseUrl = Deno.env.get('ASAAS_BASE_URL') || 'https://api-sandbox.asaas.com/v3';
+    
+    // Format API key - remove prefixes if present
+    const formattedApiKey = apiKey?.startsWith('$aact_') ? apiKey.substring(6) : apiKey;
     
     // Validate API key
-    if (!apiKey) {
+    if (!formattedApiKey) {
       throw new Error('Missing ASAAS_API_KEY environment variable');
     }
 
     console.log(`Using Asaas API: ${baseUrl}`);
+    console.log(`API Key present: ${formattedApiKey ? 'Yes (first 4 chars: ' + formattedApiKey.substring(0, 4) + '...)' : 'No'}`);
     
     // Parse request body
     const requestData = await req.json();
-    console.log("Received request:", JSON.stringify(requestData, null, 2));
+    console.log("Received request with action:", requestData.action);
     
     if (!requestData.action) {
       throw new Error('Missing "action" parameter');
     }
 
-    // Process based on action
-    let result;
-    switch (requestData.action) {
-      case 'createCustomer':
-        result = await handleCreateCustomer(requestData.data, apiKey, baseUrl);
-        break;
-        
-      case 'createPaymentLink':
-        result = await handleCreatePaymentLink(requestData.data, apiKey, baseUrl);
-        break;
-        
-      default:
-        throw new Error(`Unsupported action: ${requestData.action}`);
-    }
+    // Process based on action using the handleAction function
+    const result = await handleAction(requestData.action, requestData.data, formattedApiKey, baseUrl, null);
 
     // Return successful response
     return new Response(JSON.stringify(result), {

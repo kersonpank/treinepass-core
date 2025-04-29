@@ -1,9 +1,8 @@
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { CardTitle, CardDescription, CardHeader, CardContent, Card } from "@/components/ui/card";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { CardTitle, CardDescription, CardHeader, CardContent, Card, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
@@ -15,10 +14,10 @@ export default function PaymentStatusPage() {
   const [loading, setLoading] = useState(true);
   const [subscriptionData, setSubscriptionData] = useState<any>(null);
   
-  // Determinar se é sucesso ou falha com base na URL
+  // Determine if success or failure based on URL
   const isSuccess = window.location.pathname.includes("success");
   
-  // ID da assinatura da URL
+  // Subscription ID from URL
   const subscriptionId = searchParams.get("subscription");
 
   useEffect(() => {
@@ -31,7 +30,7 @@ export default function PaymentStatusPage() {
       try {
         setLoading(true);
         
-        // Buscar dados da assinatura
+        // Fetch subscription data
         const { data, error } = await supabase
           .from("user_plan_subscriptions")
           .select("*, plan:plan_id(*)")
@@ -41,7 +40,7 @@ export default function PaymentStatusPage() {
         if (error) throw error;
         setSubscriptionData(data);
         
-        // Se for página de sucesso, atualizar status da assinatura
+        // If success page, update subscription status
         if (isSuccess) {
           await supabase
             .from("user_plan_subscriptions")
@@ -107,29 +106,29 @@ export default function PaymentStatusPage() {
               {isSuccess && <p>Status: Ativo</p>}
             </div>
           )}
-          
-          <div className="flex flex-col space-y-2">
-            <Button onClick={() => navigate("/app")} className="w-full">
-              Ir para o dashboard
-            </Button>
-            
-            {!isSuccess && !loading && (
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  if (subscriptionData?.asaas_payment_link) {
-                    window.location.href = subscriptionData.asaas_payment_link;
-                  } else {
-                    navigate("/app/planos");
-                  }
-                }} 
-                className="w-full"
-              >
-                {subscriptionData?.asaas_payment_link ? "Tentar pagamento novamente" : "Ver planos disponíveis"}
-              </Button>
-            )}
-          </div>
         </CardContent>
+        
+        <CardFooter className="flex flex-col space-y-2">
+          <Button onClick={() => navigate("/app")} className="w-full">
+            Ir para o dashboard
+          </Button>
+          
+          {!isSuccess && !loading && (
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (subscriptionData?.asaas_payment_link) {
+                  window.location.href = subscriptionData.asaas_payment_link;
+                } else {
+                  navigate("/app");
+                }
+              }} 
+              className="w-full"
+            >
+              {subscriptionData?.asaas_payment_link ? "Tentar pagamento novamente" : "Ver planos disponíveis"}
+            </Button>
+          )}
+        </CardFooter>
       </Card>
     </div>
   );

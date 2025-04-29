@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { useAsaasPaymentLink } from "@/hooks/useAsaasPaymentLink";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useSimplifiedPayment } from "@/hooks/useSimplifiedPayment";
 
 interface SubscribeButtonProps {
   planId: string;
@@ -24,7 +24,7 @@ export function SubscribeButton({
 }: SubscribeButtonProps) {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const { user, profile } = useAuth();
-  const { createPaymentLink, prepareCustomerDataFromProfile, redirectToPayment } = useAsaasPaymentLink();
+  const { createPayment, prepareCustomerDataFromProfile } = useSimplifiedPayment();
   const { toast } = useToast();
 
   const handleSubscribe = async () => {
@@ -49,13 +49,13 @@ export function SubscribeButton({
     try {
       setIsSubscribing(true);
 
-      // 1. Criar uma nova assinatura no banco de dados
+      // 1. Create a new subscription in the database
       const { data: subscription, error: subscriptionError } = await supabase
         .from("user_plan_subscriptions")
         .insert({
           user_id: user.id,
           plan_id: planId,
-          status: "pending", // Status inicial
+          status: "pending", // Initial status
           payment_status: "pending",
           start_date: new Date().toISOString(),
           monthly_cost: planValue
@@ -67,24 +67,29 @@ export function SubscribeButton({
         throw subscriptionError;
       }
 
-      // 2. Preparar dados do cliente a partir do perfil
+      // 2. Prepare customer data from profile
       const customerData = prepareCustomerDataFromProfile(profile);
 
-      // 3. Criar link de pagamento
-      const paymentResult = await createPaymentLink({
+      // Set up callback URLs
+      const origin = window.location.origin;
+      const successUrl = `${origin}/payment/success?subscription=${subscription.id}`;
+      const failureUrl = `${origin}/payment/failure?subscription=${subscription.id}`;
+
+      // 3. Create payment link
+      const paymentResult = await createPayment({
         customerData,
         value: planValue,
         description: `Assinatura do plano ${planName}`,
         externalReference: subscription.id,
-        successUrl: `${window.location.origin}/payment/success?subscription=${subscription.id}`,
-        failureUrl: `${window.location.origin}/payment/failure?subscription=${subscription.id}`
+        successUrl,
+        failureUrl
       });
 
       if (!paymentResult.success) {
         throw new Error(paymentResult.error?.message || "Erro ao criar link de pagamento");
       }
 
-      // 4. Atualizar a assinatura com o link de pagamento
+      // 4. Update subscription with payment link
       await supabase
         .from("user_plan_subscriptions")
         .update({
@@ -92,13 +97,15 @@ export function SubscribeButton({
         })
         .eq("id", subscription.id);
 
-      // 5. Redirecionar para o link de pagamento
+      // 5. Redirect to payment link
       if (paymentResult.paymentLink) {
         toast({
           title: "Redirecionando para pagamento",
           description: "Você será redirecionado para a página de pagamento do Asaas."
         });
-        redirectToPayment(paymentResult.paymentLink);
+        
+        // Redirect to payment page
+        window.location.href = paymentResult.paymentLink;
       }
     } catch (error: any) {
       console.error("Erro ao processar assinatura:", error);

@@ -1,114 +1,58 @@
 
 /**
- * Configuração para a API do Asaas
+ * Simple SDK configuration for Asaas API
  */
 
-export interface AsaasConfig {
-  apiKey: string;
-  baseUrl: string;
-  headers?: Record<string, string>;
-}
-
-export function getAsaasConfig(apiKey: string, baseUrl: string): AsaasConfig {
+// Configure the API with base URL and key
+export function getAsaasConfig(apiKey: string, baseUrl: string) {
   return {
     apiKey,
-    baseUrl,
-    headers: {
-      'Content-Type': 'application/json',
-      'access_token': apiKey,
-      'User-Agent': 'TreinePass-App'
-    }
+    baseUrl
   };
 }
 
-/**
- * Cliente simplificado para o Asaas SDK
- */
-export function getAsaasClient(apiKey: string, isProduction: boolean = false) {
-  const baseUrl = isProduction ? 'https://api.asaas.com/v3' : 'https://api-sandbox.asaas.com/v3';
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    'access_token': apiKey,
-    'User-Agent': 'TreinePass-App'
-  };
-
-  // Implementação simplificada do cliente Asaas
-  return {
-    // Implementa métodos comuns do SDK do Asaas
-    createNewPayment: async ({ body }: { body: any }) => {
-      const response = await fetch(`${baseUrl}/payments`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.errors?.[0]?.description || 'Erro ao criar pagamento');
-      }
-      
-      return await response.json();
-    },
-    
-    createNewCustomer: async ({ body }: { body: any }) => {
-      const response = await fetch(`${baseUrl}/customers`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.errors?.[0]?.description || 'Erro ao criar cliente');
-      }
-      
-      return await response.json();
-    },
-    
-    createCheckout: async ({ body }: { body: any }) => {
-      const response = await fetch(`${baseUrl}/checkouts`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.errors?.[0]?.description || 'Erro ao criar checkout');
-      }
-      
-      return await response.json();
-    }
-  };
-}
-
-/**
- * Função para fazer requisições à API do Asaas
- */
-export async function asaasRequest(config: AsaasConfig, endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', data?: any) {
-  const url = `${config.baseUrl}${endpoint}`;
-  
+// Make API requests to Asaas
+export async function asaasRequest(config: any, endpoint: string, method: string, data?: any) {
   try {
-    const response = await fetch(url, {
+    const url = `${config.baseUrl}${endpoint}`;
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      'access_token': config.apiKey
+    };
+    
+    const requestOptions: RequestInit = {
       method,
-      headers: config.headers,
-      body: data ? JSON.stringify(data) : undefined
-    });
+      headers
+    };
     
-    const responseData = await response.json();
-    
-    if (!response.ok) {
-      throw {
-        status: response.status,
-        message: responseData.errors?.[0]?.description || 'Erro desconhecido',
-        details: responseData
-      };
+    if (data && (method === 'POST' || method === 'PUT')) {
+      requestOptions.body = JSON.stringify(data);
     }
     
-    return responseData;
+    console.log(`Making ${method} request to ${endpoint}`);
+    const response = await fetch(url, requestOptions);
+    
+    // Handle non-OK responses
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorData;
+      
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { message: errorText };
+      }
+      
+      throw new Error(`API Error (${response.status}): ${errorData?.errors?.[0]?.description || errorData?.message || 'Unknown error'}`);
+    }
+    
+    // Parse and return successful response
+    const responseText = await response.text();
+    return responseText ? JSON.parse(responseText) : {};
+    
   } catch (error) {
-    console.error(`Erro na requisição para ${url}:`, error);
+    console.error("Error making Asaas API request:", error);
     throw error;
   }
 }

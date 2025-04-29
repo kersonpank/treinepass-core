@@ -1,5 +1,6 @@
+
 /**
- * Handler para links de pagamento usando o SDK do Asaas
+ * Handler for payment links using the Asaas SDK
  */
 import { getAsaasConfig, asaasRequest } from '../sdk-config.ts';
 import { CustomerData, findOrCreateCustomer } from './sdk-customer.ts';
@@ -16,28 +17,30 @@ export interface PaymentLinkData {
   maxInstallmentCount?: number;
   expirationDate?: string;
   customerData?: CustomerData;
-  customer?: string; // ID do cliente ou CPF/CNPJ
+  customer?: string; // ID of the customer or CPF/CNPJ
+  successUrl?: string;
+  failureUrl?: string;
 }
 
 /**
- * Cria um link de pagamento usando o SDK do Asaas
+ * Creates a payment link using the Asaas SDK
  */
 export async function createPaymentLink(data: PaymentLinkData, apiKey: string, baseUrl: string) {
   console.log("Creating payment link with SDK:", data);
   
   try {
-    // Configurar API Asaas
+    // Configure Asaas API
     const config = getAsaasConfig(apiKey, baseUrl);
     
-    // Validar dados obrigatu00f3rios
+    // Validate required data
     if (!data.name || !data.value) {
       throw new Error("Name and value are required");
     }
     
-    // Definir billingTypes padru00e3o
+    // Define default billing types
     const billingTypeArray = data.billingTypes || ["BOLETO", "CREDIT_CARD", "PIX"];
     
-    // Se foram enviados dados do cliente, criar/buscar o cliente
+    // If customer data provided, find or create the customer
     let customerId = data.customer;
     
     if (data.customerData && !customerId) {
@@ -51,7 +54,7 @@ export async function createPaymentLink(data: PaymentLinkData, apiKey: string, b
         }
       } catch (customerError) {
         console.error("Error processing customer data:", customerError);
-        // Continuar com o CPF/CNPJ como fallback
+        // Continue with CPF/CNPJ as fallback
         if (data.customerData.cpfCnpj) {
           customerId = data.customerData.cpfCnpj.replace(/\D/g, '');
           console.log(`Using CPF/CNPJ as fallback: ${customerId}`);
@@ -59,24 +62,26 @@ export async function createPaymentLink(data: PaymentLinkData, apiKey: string, b
       }
     }
     
-    // Preparar dados para o link de pagamento
+    // Prepare data for the payment link
     const paymentLinkData = {
       name: data.name,
       description: data.description,
       value: data.value,
-      billingTypes: billingTypeArray, // Corrigido para a API v3
+      billingTypes: billingTypeArray, // API v3 format
       dueDateLimitDays: data.dueDateLimitDays || 30,
       dueDate: data.dueDate,
       externalReference: data.externalReference,
       maxInstallmentCount: data.maxInstallmentCount,
       expirationDate: data.expirationDate,
-      customer: customerId
+      customer: customerId,
+      callbackUrl: data.successUrl,
+      cancelUrl: data.failureUrl
     };
     
-    // Criar link de pagamento
+    // Create payment link
     const paymentLink = await asaasRequest(config, '/paymentLinks', 'POST', paymentLinkData);
     
-    // Retornar resposta padronizada
+    // Return standardized response
     return {
       success: true,
       id: paymentLink.id,

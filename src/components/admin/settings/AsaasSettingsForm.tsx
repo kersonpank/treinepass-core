@@ -19,8 +19,9 @@ interface AsaasSettingsFormProps {
   isLoading?: boolean;
 }
 
+// Define schema matching the AsaasSettings type
 const asaasSettingsSchema = z.object({
-  environment: z.enum(["sandbox", "production"]).default("sandbox"),
+  environment: z.enum(["sandbox", "production"]),
   sandbox_api_key: z.string().min(1, "API Key de sandbox é obrigatória"),
   production_api_key: z.string().optional(),
   webhook_token: z.string().optional()
@@ -32,20 +33,25 @@ export function AsaasSettingsForm({ settings, onSubmit, isLoading = false }: Asa
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const form = useForm<AsaasSettings>({
-    resolver: zodResolver(asaasSettingsSchema),
-    defaultValues: settings
+    resolver: zodResolver(asaasSettingsSchema) as any,
+    defaultValues: {
+      environment: settings.environment,
+      sandbox_api_key: settings.sandbox_api_key || "",
+      production_api_key: settings.production_api_key || "",
+      webhook_token: settings.webhook_token || ""
+    }
   });
 
   const handleSubmit = async (values: AsaasSettings) => {
     try {
       await onSubmit(values);
     } catch (error) {
-      // Erro já tratado no onSubmit
+      // Error already handled in onSubmit
       console.error("Error submitting form:", error);
     }
   };
 
-  // Função para testar a conexão com o Asaas
+  // Function to test connection with Asaas
   const testConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
@@ -58,16 +64,15 @@ export function AsaasSettingsForm({ settings, onSubmit, isLoading = false }: Asa
         throw new Error("API Key não configurada para o ambiente selecionado");
       }
       
-      // Chamar a edge function para testar a conexão
+      // Call edge function to test connection
       const { data, error } = await supabase.functions.invoke(
         'asaas-api',
         {
           body: {
-            action: "createCustomer",
+            action: "testApiKey",
             data: {
-              name: "Cliente de Teste",
-              cpfCnpj: "12345678909", // CPF fictício
-              email: "teste@teste.com"
+              apiKey,
+              environment: values.environment
             }
           }
         }
@@ -75,10 +80,10 @@ export function AsaasSettingsForm({ settings, onSubmit, isLoading = false }: Asa
       
       if (error) throw error;
       
-      if (data && data.id) {
-        setTestResult({ success: true, message: "Conexão com o Asaas estabelecida com sucesso!" });
+      if (data && data.success) {
+        setTestResult({ success: true, message: data.message || "Conexão com o Asaas estabelecida com sucesso!" });
       } else {
-        throw new Error("Resposta inválida do Asaas");
+        throw new Error(data?.message || "Resposta inválida do Asaas");
       }
     } catch (error: any) {
       console.error("Erro ao testar conexão:", error);

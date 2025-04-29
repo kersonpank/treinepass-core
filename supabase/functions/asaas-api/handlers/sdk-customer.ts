@@ -1,15 +1,15 @@
 
 /**
- * Customer handling functions for Asaas API
+ * SDK-style handler for customer operations in Asaas API
  */
+import { asaasRequest, getAsaasConfig } from '../sdk-config.ts';
 
-// Interfaces for type safety
-interface CustomerData {
+export interface CustomerData {
   name: string;
-  email?: string;
   cpfCnpj: string;
-  mobilePhone?: string;
+  email?: string;
   phone?: string;
+  mobilePhone?: string;
   address?: string;
   addressNumber?: string;
   complement?: string;
@@ -18,194 +18,124 @@ interface CustomerData {
   externalReference?: string;
 }
 
-/**
- * Find a customer by CPF/CNPJ
- */
+// Find customer by CPF/CNPJ
 export async function findCustomerByCpfCnpj(cpfCnpj: string, apiKey: string, baseUrl: string) {
   try {
-    console.log(`Buscando cliente por CPF/CNPJ: ${cpfCnpj}`);
+    const config = getAsaasConfig(apiKey, baseUrl);
+    const sanitizedCpfCnpj = cpfCnpj.replace(/\D/g, '');
+    const result = await asaasRequest(config, `/customers?cpfCnpj=${sanitizedCpfCnpj}`, 'GET');
     
-    // Format query parameters
-    const params = new URLSearchParams({ cpfCnpj });
-    
-    // Make API request
-    const response = await fetch(`${baseUrl}/customers?${params}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'access_token': apiKey,
-        'User-Agent': 'TreinePass-App'
-      }
-    });
-    
-    // Check for API errors
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch (e) {
-        errorData = { message: errorText || `API Error: ${response.status}` };
-      }
-      
-      throw new Error(`API Error (${response.status}): ${errorData?.errors?.[0]?.description || errorData?.message || 'Unknown error'}`);
+    if (result && result.data && result.data.length > 0) {
+      console.log(`Customer found with ID: ${result.data[0].id}`);
+      return result.data[0];
     }
-    
-    // Parse response data
-    const responseText = await response.text();
-    if (!responseText || responseText.trim() === '') {
-      console.log("Empty response received from Asaas API");
-      return { data: [] };
-    }
-    
-    const responseData = JSON.parse(responseText);
-    
-    // Check if customer exists
-    if (responseData.data && responseData.data.length > 0) {
-      console.log(`Cliente encontrado: ${responseData.data[0].id}`);
-      return responseData.data[0];
-    }
-    
-    console.log("Cliente não encontrado");
     return null;
-    
   } catch (error) {
     console.error("Erro ao buscar cliente:", error);
     throw error;
   }
 }
 
-/**
- * Create a new customer in Asaas
- */
-export async function createCustomer(customerData: CustomerData, apiKey: string, baseUrl: string) {
-  console.log(`Creating customer with SDK: ${JSON.stringify(customerData)}`);
-  
+// Create customer in Asaas
+export async function createCustomer(data: CustomerData, apiKey: string, baseUrl: string) {
   try {
-    // First check if customer already exists
-    let customer;
+    console.log("Creating customer with SDK:", data);
+    const config = getAsaasConfig(apiKey, baseUrl);
+    
+    // Check if customer already exists
     try {
-      customer = await findCustomerByCpfCnpj(customerData.cpfCnpj, apiKey, baseUrl);
-    } catch (e) {
-      console.log("Error checking if customer exists, proceeding to create new customer", e);
+      const existingCustomer = await findCustomerByCpfCnpj(data.cpfCnpj, apiKey, baseUrl);
+      if (existingCustomer) {
+        console.log("Customer already exists:", existingCustomer);
+        return {
+          success: true,
+          customer: existingCustomer,
+          isExistingCustomer: true
+        };
+      }
+    } catch (searchError) {
+      console.error("Error checking if customer exists, proceeding to create new customer", searchError);
     }
     
-    // If customer exists, return it
-    if (customer) {
-      console.log(`Customer already exists with id: ${customer.id}`);
-      return {
-        id: customer.id,
-        name: customer.name,
-        email: customer.email,
-        cpfCnpj: customer.cpfCnpj,
-        isExistingCustomer: true
-      };
-    }
-    
-    // Customer doesn't exist, create a new one
     console.log("Creating new customer");
     
-    // Make API request to create customer
-    const response = await fetch(`${baseUrl}/customers`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'access_token': apiKey,
-        'User-Agent': 'TreinePass-App'
-      },
-      body: JSON.stringify({
-        name: customerData.name,
-        email: customerData.email,
-        cpfCnpj: customerData.cpfCnpj,
-        mobilePhone: customerData.mobilePhone || customerData.phone,
-        address: customerData.address,
-        addressNumber: customerData.addressNumber,
-        complement: customerData.complement,
-        province: customerData.province,
-        postalCode: customerData.postalCode,
-        externalReference: customerData.externalReference,
-        notificationDisabled: false
-      })
-    });
-    
-    // Check for API errors
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch (e) {
-        errorData = { message: errorText || `API Error: ${response.status}` };
-      }
-      
-      throw new Error(`API Error (${response.status}): ${errorData?.errors?.[0]?.description || errorData?.message || 'Unknown error'}`);
+    // Ensure email is provided (required by Asaas)
+    if (!data.email) {
+      data.email = `${data.cpfCnpj}@cliente.com.br`;
     }
     
-    // Parse response data
-    const responseText = await response.text();
-    if (!responseText || responseText.trim() === '') {
-      throw new Error("Empty response received from Asaas API");
-    }
-    
-    const customerResponse = JSON.parse(responseText);
-    console.log(`Created new customer with id: ${customerResponse.id}`);
-    
-    return {
-      id: customerResponse.id,
-      name: customerResponse.name,
-      email: customerResponse.email,
-      cpfCnpj: customerResponse.cpfCnpj,
-      isExistingCustomer: false
+    // Prepare customer data
+    const customerPayload = {
+      name: data.name,
+      cpfCnpj: data.cpfCnpj.replace(/\D/g, ''),
+      email: data.email,
+      phone: data.phone,
+      mobilePhone: data.mobilePhone || data.phone,
+      address: data.address,
+      addressNumber: data.addressNumber,
+      complement: data.complement,
+      province: data.province,
+      postalCode: data.postalCode?.replace(/\D/g, ''),
+      externalReference: data.externalReference,
+      notificationDisabled: false
     };
     
+    // Create customer in Asaas
+    const customer = await asaasRequest(config, '/customers', 'POST', customerPayload);
+    
+    console.log(`New customer created with ID: ${customer.id}`);
+    
+    return {
+      success: true,
+      customer,
+      isExistingCustomer: false
+    };
   } catch (error) {
     console.error("Error creating customer:", error);
-    throw error;
+    return {
+      success: false,
+      error: error.message || 'Unknown error',
+      details: error.response?.data || {}
+    };
   }
 }
 
-/**
- * Find or create a customer in Asaas
- */
-export async function findOrCreateCustomer(customerData: CustomerData, apiKey: string, baseUrl: string) {
+// Find or create customer in one operation
+export async function findOrCreateCustomer(data: CustomerData, apiKey: string, baseUrl: string) {
   try {
-    console.log("Verificando/criando cliente...");
+    // Validate required fields
+    if (!data.name || !data.cpfCnpj) {
+      throw new Error("Name and CPF/CNPJ are required fields");
+    }
     
-    // First try to find the customer
-    let customer;
+    // Sanitize CPF/CNPJ
+    const sanitizedCpfCnpj = data.cpfCnpj.replace(/\D/g, '');
+    
+    // First try to find customer by CPF/CNPJ
     try {
-      customer = await findCustomerByCpfCnpj(customerData.cpfCnpj, apiKey, baseUrl);
-    } catch (e) {
-      console.error("Erro ao buscar cliente:", e);
-      // We will try to create a new customer
+      console.log(`Buscando cliente por CPF/CNPJ: ${sanitizedCpfCnpj}`);
+      const existingCustomer = await findCustomerByCpfCnpj(sanitizedCpfCnpj, apiKey, baseUrl);
+      
+      if (existingCustomer) {
+        return {
+          success: true,
+          customer: existingCustomer,
+          isExistingCustomer: true
+        };
+      }
+    } catch (error) {
+      console.error("Erro ao buscar cliente:", error);
+      // Continue to create customer if not found
     }
     
-    // If customer exists, return it
-    if (customer) {
-      console.log(`Cliente encontrado: ${customer.id}`);
-      return {
-        id: customer.id,
-        name: customer.name,
-        email: customer.email,
-        cpfCnpj: customer.cpfCnpj,
-        isExistingCustomer: true
-      };
-    }
-    
-    // Create new customer
-    console.log("Creating customer with SDK:", customerData);
-    const newCustomer = await createCustomer(customerData, apiKey, baseUrl);
-    
-    return {
-      id: newCustomer.id,
-      name: newCustomer.name,
-      email: newCustomer.email,
-      cpfCnpj: newCustomer.cpfCnpj,
-      isExistingCustomer: false
-    };
-    
+    // Customer not found, create new one
+    return await createCustomer(data, apiKey, baseUrl);
   } catch (error) {
     console.error("Error in findOrCreateCustomer:", error);
-    throw error;
+    return {
+      success: false,
+      error: error.message || 'Unknown error',
+      details: error.response?.data || {}
+    };
   }
 }
