@@ -32,28 +32,49 @@ export function SystemSettings() {
       }
       
       if (data?.value) {
-        // Ensure the value is properly typed
-        const settings = data.value as AsaasSettings;
-        setAsaasSettings(settings);
+        // Cast to AsaasSettings type with proper type safety
+        const settings = data.value as unknown;
+        const typedSettings = settings as AsaasSettings;
+        
+        // Ensure all required fields are present
+        if (
+          typeof typedSettings.environment === 'string' &&
+          typeof typedSettings.sandbox_api_key === 'string' &&
+          typeof typedSettings.production_api_key === 'string' &&
+          typeof typedSettings.webhook_token === 'string'
+        ) {
+          setAsaasSettings(typedSettings);
+        } else {
+          // Create default settings if the data structure is incorrect
+          createDefaultSettings();
+        }
       } else {
-        // Create default settings
-        const defaultSettings: AsaasSettings = {
-          environment: "sandbox",
-          sandbox_api_key: "",
-          production_api_key: "",
-          webhook_token: ""
-        };
-        setAsaasSettings(defaultSettings);
+        // Create default settings if there's no data
+        createDefaultSettings();
       }
     } catch (error: any) {
+      console.error("Error loading settings:", error);
       toast({
         variant: "destructive",
         title: "Erro ao carregar configurações",
-        description: error.message
+        description: error.message || "Não foi possível carregar as configurações."
       });
+      // Fallback to default settings
+      createDefaultSettings();
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Create default settings
+  const createDefaultSettings = () => {
+    const defaultSettings: AsaasSettings = {
+      environment: "sandbox",
+      sandbox_api_key: "",
+      production_api_key: "",
+      webhook_token: ""
+    };
+    setAsaasSettings(defaultSettings);
   };
   
   // Save Asaas settings
@@ -63,7 +84,7 @@ export function SystemSettings() {
         .from("system_settings")
         .upsert({
           key: "asaas_settings",
-          value: values as any // Type cast to any since Supabase expects Json
+          value: values
         });
       
       if (error) {
@@ -73,10 +94,11 @@ export function SystemSettings() {
       // Update local state
       setAsaasSettings(values);
     } catch (error: any) {
+      console.error("Error saving settings:", error);
       toast({
         variant: "destructive",
         title: "Erro ao salvar configurações",
-        description: error.message
+        description: error.message || "Não foi possível salvar as configurações."
       });
       throw error;
     }

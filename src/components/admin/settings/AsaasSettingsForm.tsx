@@ -1,8 +1,8 @@
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -13,37 +13,25 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
-import { AsaasSettings } from "@/types/system-settings";
-import { useAsaasApiTest } from "@/hooks/useAsaasApiTest";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import { AsaasSettings, extractAsaasApiToken } from "@/types/system-settings";
+import { supabase } from "@/integrations/supabase/client";
 
-const settingsSchema = z.object({
+// Schema for form validation
+const asaasSettingsSchema = z.object({
   environment: z.enum(["sandbox", "production"]),
-  sandbox_api_key: z.string().min(1, "Chave API Sandbox é obrigatória"),
+  sandbox_api_key: z.string().min(1, "API Key de Sandbox é obrigatória"),
   production_api_key: z.string().optional(),
   webhook_token: z.string().optional(),
 });
 
+type AsaasSettingsFormValues = z.infer<typeof asaasSettingsSchema>;
+
 interface AsaasSettingsFormProps {
   settings: AsaasSettings;
-  onSubmit: (values: AsaasSettings) => Promise<any>;
+  onSubmit: (values: AsaasSettings) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -53,11 +41,11 @@ export function AsaasSettingsForm({
   isLoading = false,
 }: AsaasSettingsFormProps) {
   const { toast } = useToast();
-  const [isTesting, setIsTesting] = useState(false);
-  const { testApiKey } = useAsaasApiTest();
+  const [isTestingApi, setIsTestingApi] = useState(false);
 
-  const form = useForm<AsaasSettings>({
-    resolver: zodResolver(settingsSchema),
+  // Initialize form with settings
+  const form = useForm<AsaasSettingsFormValues>({
+    resolver: zodResolver(asaasSettingsSchema),
     defaultValues: {
       environment: settings.environment,
       sandbox_api_key: settings.sandbox_api_key || "",
@@ -66,201 +54,187 @@ export function AsaasSettingsForm({
     },
   });
 
-  const handleTestApiKey = async () => {
+  const handleSubmit = async (values: AsaasSettingsFormValues) => {
     try {
-      setIsTesting(true);
-      const formValues = form.getValues();
+      // Normalize the form values to match the AsaasSettings type
+      const submissionValues: AsaasSettings = {
+        environment: values.environment,
+        sandbox_api_key: values.sandbox_api_key,
+        production_api_key: values.production_api_key || "",
+        webhook_token: values.webhook_token || "",
+      };
       
-      // Escolher qual chave testar com base no ambiente selecionado
-      const apiKey = formValues.environment === "production"
-        ? formValues.production_api_key
-        : formValues.sandbox_api_key;
-        
-      if (!apiKey) {
-        toast({
-          title: "Erro ao testar API",
-          description: "Por favor, informe uma chave API válida para o ambiente selecionado.",
-          variant: "destructive"
-        });
-        return;
-      }
+      await onSubmit(submissionValues);
       
-      const result = await testApiKey({
-        apiKey,
-        environment: formValues.environment
-      });
-      
-      if (result.success) {
-        toast({
-          title: "Teste bem-sucedido",
-          description: result.message || "Conexão estabelecida com sucesso!"
-        });
-      } else {
-        toast({
-          title: "Erro ao conectar",
-          description: result.message || "Não foi possível conectar à API do Asaas.",
-          variant: "destructive"
-        });
-      }
-    } catch (error: any) {
-      console.error("Erro ao testar API:", error);
       toast({
-        title: "Erro ao testar API",
-        description: error.message || "Ocorreu um erro ao testar a conexão com a API.",
-        variant: "destructive"
+        title: "Configurações salvas",
+        description: "As configurações do Asaas foram salvas com sucesso.",
       });
-    } finally {
-      setIsTesting(false);
+    } catch (error) {
+      console.error("Error saving Asaas settings:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar as configurações do Asaas.",
+      });
     }
   };
 
-  const handleFormSubmit = async (values: AsaasSettings) => {
+  const testApiConnection = async () => {
     try {
-      await onSubmit(values);
+      setIsTestingApi(true);
+      const environment = form.getValues("environment");
+      const apiKey = environment === "sandbox" 
+        ? form.getValues("sandbox_api_key") 
+        : form.getValues("production_api_key");
+      
+      if (!apiKey) {
+        throw new Error("API Key não informada");
+      }
+      
+      const baseUrl = environment === "production"
+        ? "https://api.asaas.com/v3"
+        : "https://api-sandbox.asaas.com/v3";
+
+      const extractedApiKey = extractAsaasApiToken(apiKey);
+      
+      // Test the API connection
+      const response = await fetch(`${baseUrl}/finance/balance`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "access_token": extractedApiKey || "",
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.errors?.[0]?.description || "Erro de conexão com a API");
+      }
+      
       toast({
-        title: "Configurações salvas",
-        description: "As configurações do Asaas foram atualizadas com sucesso."
+        title: "Conexão bem-sucedida",
+        description: "A conexão com a API do Asaas foi estabelecida com sucesso.",
       });
     } catch (error: any) {
+      console.error("API connection test error:", error);
       toast({
-        title: "Erro ao salvar",
-        description: error.message || "Ocorreu um erro ao salvar as configurações.",
-        variant: "destructive"
+        variant: "destructive",
+        title: "Erro de conexão",
+        description: error.message || "Não foi possível conectar à API do Asaas.",
       });
+    } finally {
+      setIsTestingApi(false);
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Configurações do Asaas</CardTitle>
-        <CardDescription>
-          Configure a integração com a plataforma de pagamentos Asaas.
-        </CardDescription>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleFormSubmit)}>
-          <CardContent className="space-y-6">
-            <FormField
-              control={form.control}
-              name="environment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ambiente</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="environment"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Ambiente</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex flex-col space-y-1"
+                >
+                  <FormItem className="flex items-center space-x-3 space-y-0">
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o ambiente" />
-                      </SelectTrigger>
+                      <RadioGroupItem value="sandbox" />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="sandbox">Sandbox (Testes)</SelectItem>
-                      <SelectItem value="production">Produção</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Ambiente de desenvolvimento (sandbox) ou produção.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormLabel className="font-normal">
+                      Sandbox (Testes)
+                    </FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-3 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="production" />
+                    </FormControl>
+                    <FormLabel className="font-normal">
+                      Produção (Ao vivo)
+                    </FormLabel>
+                  </FormItem>
+                </RadioGroup>
+              </FormControl>
+              <FormDescription>
+                Selecione o ambiente para processar pagamentos.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-            <FormField
-              control={form.control}
-              name="sandbox_api_key"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Chave API (Sandbox)</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="$aact_YourSandboxApiKey"
-                      type="password"
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Chave de API do ambiente de testes Asaas. Formato: $aact_XXXXX.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <FormField
+          control={form.control}
+          name="sandbox_api_key"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>API Key (Sandbox)</FormLabel>
+              <FormControl>
+                <Input {...field} type="text" placeholder="$aact_..." />
+              </FormControl>
+              <FormDescription>
+                Chave de API para o ambiente de testes do Asaas.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-            <FormField
-              control={form.control}
-              name="production_api_key"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Chave API (Produção)</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="$aact_YourProductionApiKey"
-                      type="password"
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Chave de API do ambiente de produção Asaas. Formato: $aact_XXXXX.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <FormField
+          control={form.control}
+          name="production_api_key"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>API Key (Produção)</FormLabel>
+              <FormControl>
+                <Input {...field} type="text" placeholder="$aact_..." />
+              </FormControl>
+              <FormDescription>
+                Chave de API para o ambiente de produção do Asaas.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-            <FormField
-              control={form.control}
-              name="webhook_token"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Token do Webhook</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Token para validação de webhooks"
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Token utilizado para validar notificações do Asaas via webhook.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleTestApiKey} 
-              disabled={isLoading || isTesting}
-            >
-              {isTesting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Testando...
-                </>
-              ) : (
-                "Testar Conexão"
-              )}
-            </Button>
-            
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                "Salvar Configurações"
-              )}
-            </Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+        <FormField
+          control={form.control}
+          name="webhook_token"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Token do Webhook</FormLabel>
+              <FormControl>
+                <Input {...field} type="text" placeholder="Token de segurança para webhooks" />
+              </FormControl>
+              <FormDescription>
+                Token para validar as notificações recebidas via webhook.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={testApiConnection}
+            disabled={isTestingApi}
+          >
+            {isTestingApi ? "Testando..." : "Testar Conexão"}
+          </Button>
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? "Salvando..." : "Salvar Configurações"}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

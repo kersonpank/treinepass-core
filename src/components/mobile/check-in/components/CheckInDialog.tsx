@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
 } from "@/components/ui/alert-dialog";
-import { QRCodeScanner } from "./QRCodeScanner";
+import { QRCodeTab } from "./dialog/QRCodeTab";
 import { AccessTokenDisplay } from "./AccessTokenDisplay";
 
 interface CheckInDialogProps {
@@ -52,7 +52,7 @@ export function CheckInDialog({
             <TabsTrigger value="token">Token de Acesso</TabsTrigger>
           </TabsList>
           <TabsContent value="qrcode" className="mt-4">
-            <QRCodeScanner onScan={onScan} />
+            <QRCodeTab onScan={onScan} />
           </TabsContent>
           <TabsContent value="token" className="mt-4">
             <AccessTokenDisplay accessCode={accessCode} timeLeft={timeLeft} />

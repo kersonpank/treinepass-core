@@ -175,7 +175,7 @@ export function PlansList({
                   notice_period_days: 30
                 }
               }}
-              onSubmit={handleEditSubmit}
+              onSuccess={handleEditSubmit}
             />
           )}
         </DialogContent>
