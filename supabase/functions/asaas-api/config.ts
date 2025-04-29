@@ -1,124 +1,87 @@
 
+/**
+ * Configuração para a integração com o Asaas API
+ */
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";
 
-// Extract proper Asaas API token from a key string
-function extractAsaasApiToken(key: string | null | undefined): string | null {
+/**
+ * Extrai o token da API do Asaas do formato da chave bruta
+ * Formato: $aact_MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmQ3YjczYzA0LWVmMTEtNDk1Ny1hZjI1LTlhNzZlNGRiMjgyOA
+ * Resultado: MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmQ3YjczYzA0LWVmMTEtNDk1Ny1hZjI1LTlhNzZlNGRiMjgyOA
+ */
+export function extractAsaasApiToken(key: string | null | undefined): string | null {
   if (!key) return null;
   
   try {
-    // Check if the key starts with the expected prefix
+    // Se a chave começar com $aact_, extrair apenas a parte do token
     if (key.startsWith('$aact_')) {
-      // Extract the token part (between $aact_ and the first :: if present)
-      const match = key.match(/\$aact_([^:]+)/);
-      if (match && match[1]) {
-        return match[1];
-      }
+      const tokenPart = key.substring(6); // Remove '$aact_'
+      // Se houver ::, pegar apenas a primeira parte
+      const endIndex = tokenPart.indexOf('::');
+      return endIndex > 0 ? tokenPart.substring(0, endIndex) : tokenPart;
     }
     
-    // If the key doesn't match the expected format, return it as is
-    return key;
+    return key; // Se não tiver o prefixo, retornar como está
   } catch (error) {
-    console.error("Error extracting Asaas API token:", error);
-    return key; // Return original key if parsing fails
+    console.error("Erro ao extrair token da API do Asaas:", error);
+    return key; // Em caso de erro, retornar a chave original
   }
 }
 
+/**
+ * Obtém a configuração da API do Asaas
+ */
 export async function getAsaasApiKey(supabase: any) {
   try {
-    // Try to get from environment variables first
-    const envApiKey = Deno.env.get('ASAAS_API_KEY');
-    const envBaseUrl = Deno.env.get('ASAAS_BASE_URL');
+    console.log("Using Asaas API key from environment variables");
     
-    if (envApiKey && envApiKey !== 'sua_chave_api_do_asaas') {
-      console.log("Using Asaas API key from environment variables");
-      // Extract proper token format
-      const cleanApiKey = extractAsaasApiToken(envApiKey);
-      if (!cleanApiKey) {
-        throw new Error("Invalid API key format in environment variable");
+    // Primeiro, tentar usar a variável de ambiente (para desenvolvimento/testes)
+    const apiKeyFromEnv = Deno.env.get('ASAAS_API_KEY');
+    if (apiKeyFromEnv) {
+      const cleanApiKey = extractAsaasApiToken(apiKeyFromEnv);
+      if (cleanApiKey && cleanApiKey.length >= 20) {
+        return {
+          apiKey: cleanApiKey,
+          baseUrl: Deno.env.get('ASAAS_BASE_URL') || 'https://api-sandbox.asaas.com/v3'
+        };
       }
-      
-      return {
-        apiKey: cleanApiKey,
-        baseUrl: envBaseUrl || 'https://api-sandbox.asaas.com/v3'
-      };
     }
     
-    // If not in env vars, try to get from database settings
+    // Se não encontrar na variável de ambiente ou for inválida, buscar no banco de dados
     const { data, error } = await supabase
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'asaas_settings')
+      .from("system_settings")
+      .select("value")
+      .eq("key", "asaas_settings")
       .single();
       
     if (error) {
       console.error("Error fetching Asaas settings:", error);
-      throw new Error("Failed to fetch Asaas API settings");
+      throw new Error("Falha ao obter configurações do Asaas");
     }
     
-    if (!data || !data.value) {
-      throw new Error("Asaas API settings not found");
+    if (!data?.value) {
+      throw new Error("Configurações do Asaas não encontradas");
     }
     
-    let settings;
-    if (typeof data.value === 'string') {
-      try {
-        settings = JSON.parse(data.value);
-      } catch (e) {
-        console.error("Error parsing settings JSON:", e);
-        throw new Error("Invalid Asaas settings format");
-      }
-    } else {
-      settings = data.value;
+    // Obter chave API com base no ambiente
+    const settings = data.value;
+    const apiKey = settings.environment === 'production' 
+      ? extractAsaasApiToken(settings.production_api_key) 
+      : extractAsaasApiToken(settings.sandbox_api_key);
+    
+    if (!apiKey) {
+      throw new Error(`Chave API do Asaas não configurada para o ambiente ${settings.environment}`);
     }
     
-    // Determine environment and return appropriate key
-    const environment = settings.environment || 'sandbox';
-    console.log(`Using Asaas ${environment} environment`);
-    
-    let apiKey: string | null = null;
-    
-    if (environment === 'production') {
-      if (!settings.production_api_key) {
-        throw new Error("Production API key not configured");
-      }
-      apiKey = extractAsaasApiToken(settings.production_api_key);
-      if (!apiKey) {
-        throw new Error("Invalid Production API key format");
-      }
-      return {
-        apiKey: apiKey,
-        baseUrl: 'https://api.asaas.com/v3'
-      };
-    } else {
-      if (!settings.sandbox_api_key) {
-        throw new Error("Sandbox API key not configured");
-      }
-      apiKey = extractAsaasApiToken(settings.sandbox_api_key);
-      if (!apiKey) {
-        throw new Error("Invalid Sandbox API key format");
-      }
-      return {
-        apiKey: apiKey,
-        baseUrl: 'https://api-sandbox.asaas.com/v3'
-      };
-    }
+    // Definir URL base com base no ambiente
+    const baseUrl = settings.environment === 'production'
+      ? 'https://api.asaas.com/v3'
+      : 'https://api-sandbox.asaas.com/v3';
+      
+    return { apiKey, baseUrl };
   } catch (error) {
-    console.error("Error in getAsaasApiKey:", error);
-    
-    // Fallback to environment variable or provide a clear error
-    const envApiKey = Deno.env.get('ASAAS_API_KEY');
-    if (envApiKey && envApiKey !== 'sua_chave_api_do_asaas') {
-      console.warn("Falling back to environment variable API key");
-      const cleanApiKey = extractAsaasApiToken(envApiKey);
-      if (!cleanApiKey) {
-        throw new Error("Invalid API key format in environment variable");
-      }
-      return {
-        apiKey: cleanApiKey,
-        baseUrl: 'https://api-sandbox.asaas.com/v3'
-      };
-    }
-    
-    throw new Error("No valid Asaas API key found. Please configure it in system settings or environment variables.");
+    console.error("Error getting Asaas API config:", error);
+    throw error;
   }
 }

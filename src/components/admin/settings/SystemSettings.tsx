@@ -33,20 +33,7 @@ export function SystemSettings() {
       
       if (data?.value) {
         // Ensure the value is properly typed
-        let settings: AsaasSettings;
-        
-        if (typeof data.value === 'string') {
-          try {
-            settings = JSON.parse(data.value) as AsaasSettings;
-          } catch (e) {
-            console.error("Error parsing settings JSON:", e);
-            throw new Error("Invalid settings format");
-          }
-        } else {
-          // The value is already an object, cast it to AsaasSettings
-          settings = data.value as AsaasSettings;
-        }
-        
+        const settings = data.value as AsaasSettings;
         setAsaasSettings(settings);
       } else {
         // Create default settings
@@ -72,13 +59,12 @@ export function SystemSettings() {
   // Save Asaas settings
   const saveAsaasSettings = async (values: AsaasSettings) => {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("system_settings")
         .upsert({
           key: "asaas_settings",
-          value: values
-        })
-        .select();
+          value: values as any // Type cast to any since Supabase expects Json
+        });
       
       if (error) {
         throw error;
@@ -86,8 +72,6 @@ export function SystemSettings() {
       
       // Update local state
       setAsaasSettings(values);
-      
-      return data;
     } catch (error: any) {
       toast({
         variant: "destructive",

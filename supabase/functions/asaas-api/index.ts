@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "./cors.ts";
-import { getAsaasApiKey } from "./config.ts";
+import { getAsaasApiKey, extractAsaasApiToken } from "./config.ts";
 import { handleAction } from "./actions.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.32.0";
 
@@ -65,23 +65,54 @@ serve(async (req) => {
       );
     }
 
-    // Get Asaas configuration
+    // Get Asaas configuration - vamos usar diretamente a API key fornecida para testes
     let apiKey, baseUrl;
-    try {
-      const config = await getAsaasApiKey(supabase);
-      apiKey = config.apiKey;
-      baseUrl = config.baseUrl;
-      console.log(`Using Asaas API: ${baseUrl}`);
-    } catch (error) {
-      console.error("Error getting Asaas API key:", error);
+    
+    // Se estiver testando a API key
+    if (action === 'testApiKey') {
+      apiKey = extractAsaasApiToken(data.apiKey);
+      baseUrl = data.environment === 'production' 
+        ? 'https://api.asaas.com/v3' 
+        : 'https://api-sandbox.asaas.com/v3';
+      
+      console.log(`Testing API key in ${baseUrl}`);
+    } else {
+      // Para outras ações, obter do ambiente ou banco de dados
+      try {
+        const config = await getAsaasApiKey(supabase);
+        apiKey = config.apiKey;
+        baseUrl = config.baseUrl;
+        console.log(`Using Asaas API: ${baseUrl}`);
+      } catch (error) {
+        console.error("Error getting Asaas API key:", error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Failed to obtain Asaas API configuration: " + error.message,
+            details: { message: error.message }
+          }),
+          { 
+            status: 500,
+            headers: { 
+              ...corsHeaders,
+              "Content-Type": "application/json",
+              "User-Agent": "TreinePass-App"
+            } 
+          }
+        );
+      }
+    }
+
+    // Validar a API key antes de prosseguir
+    if (!apiKey || apiKey.length < 20) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Failed to obtain Asaas API configuration: " + error.message,
-          details: { message: error.message }
+          error: "Invalid API key format. Please check your Asaas API key configuration.",
+          details: { message: "API key is missing or invalid" }
         }),
         { 
-          status: 500,
+          status: 400,
           headers: { 
             ...corsHeaders,
             "Content-Type": "application/json",
