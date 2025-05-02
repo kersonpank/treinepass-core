@@ -3,6 +3,12 @@
  * Tipos para configurações do sistema
  */
 
+export type PaymentGatewayType = 'asaas' | 'mercadopago';
+
+export interface PaymentGatewaySettings {
+  active_gateway: PaymentGatewayType;
+}
+
 export interface AsaasSettings {
   environment: 'sandbox' | 'production';
   sandbox_api_key: string;

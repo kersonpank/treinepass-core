@@ -46,8 +46,18 @@ export function SubscribeButton({
       return;
     }
 
+    let timeoutId: any;
     try {
       setIsSubscribing(true);
+      // Timeout de segurança (30s)
+      timeoutId = setTimeout(() => {
+        setIsSubscribing(false);
+        toast({
+          variant: "destructive",
+          title: "Tempo excedido",
+          description: "A solicitação demorou demais. Tente novamente ou verifique sua conexão."
+        });
+      }, 30000);
 
       // 1. Create a new subscription in the database
       const { data: subscription, error: subscriptionError } = await supabase

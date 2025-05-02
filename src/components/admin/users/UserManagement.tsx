@@ -75,46 +75,13 @@ export function UserManagement() {
     try {
       // First confirm with the user
       if (!confirm("Tem certeza que deseja excluir este usuário?")) return;
-      
-      // Delete related records in user_types
-      const { error: typesError } = await supabase
-        .from("user_types")
-        .delete()
-        .eq("user_id", userId);
-      
-      if (typesError) {
-        console.error("Error deleting user types:", typesError);
-        throw new Error(`Erro ao excluir tipos de usuário: ${typesError.message}`);
-      }
-      
-      // Check if user has any subscriptions
-      const { data: subscriptions } = await supabase
-        .from("user_plan_subscriptions")
-        .select("id")
-        .eq("user_id", userId);
-      
-      if (subscriptions && subscriptions.length > 0) {
-        // Delete subscriptions first
-        const { error: subError } = await supabase
-          .from("user_plan_subscriptions")
-          .delete()
-          .eq("user_id", userId);
-          
-        if (subError) {
-          console.error("Error deleting subscriptions:", subError);
-          throw new Error(`Erro ao excluir assinaturas do usuário: ${subError.message}`);
-        }
-      }
-      
-      // Now delete the user profile
-      const { error } = await supabase
-        .from("user_profiles")
-        .delete()
-        .eq("id", userId);
+
+      // Call the Supabase RPC function for cascading delete
+      const { error } = await supabase.rpc("delete_user_cascade", { target_user_id: userId });
 
       if (error) {
-        console.error("Error deleting user profile:", error);
-        throw new Error(`Erro ao excluir perfil do usuário: ${error.message}`);
+        console.error("Error deleting user via cascade:", error);
+        throw new Error(`Erro ao excluir usuário: ${error.message}`);
       }
 
       toast({
@@ -132,6 +99,7 @@ export function UserManagement() {
       });
     }
   };
+
 
   const handleEditUser = async (userId: string, data: Partial<User>) => {
     try {

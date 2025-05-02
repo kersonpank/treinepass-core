@@ -10,6 +10,9 @@ interface RegisterData {
   phone: string;
 }
 
+import { PaymentGatewayType } from "@/types/system-settings";
+// importação removida: createMercadoPagoCustomer agora é chamada via API backend
+
 export async function registerUser(data: RegisterData) {
   console.log("Starting user registration process...", { email: data.email });
 
@@ -68,45 +71,91 @@ export async function registerUser(data: RegisterData) {
       const [day, month, year] = data.birth_date.split('/');
       const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-      // Criar cliente no Asaas
-      let asaasCustomerId = null;
+      // 1. Consultar gateway de pagamento ativo
+      let activeGateway: PaymentGatewayType = 'asaas';
       try {
-        const { data: asaasResult, error: asaasError } = await supabase.functions.invoke('asaas-api', {
-          body: {
-            action: 'sdkCreateCustomer',
-            data: {
-              name: data.full_name,
-              email: data.email,
-              cpfCnpj: data.cpf.replace(/\D/g, ""),
-              mobilePhone: data.phone.replace(/\D/g, ""),
-              postalCode: "01310930" // CEP válido padrão
-            }
-          }
-        });
-
-        if (asaasError) {
-          console.error("Erro ao criar cliente no Asaas:", asaasError);
-        } else if (asaasResult?.success && asaasResult?.customer?.id) {
-          console.log("Cliente criado no Asaas com sucesso:", asaasResult.customer.id);
-          asaasCustomerId = asaasResult.customer.id;
+        const { data: gatewayData, error: gatewayError } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'active_payment_gateway')
+          .maybeSingle();
+        if (!gatewayError && gatewayData?.value?.active_gateway) {
+          activeGateway = gatewayData.value.active_gateway;
         }
-      } catch (asaasError) {
-        console.error("Exceção ao criar cliente no Asaas:", asaasError);
-        // Não interromper o fluxo de registro se falhar a criação no Asaas
+      } catch (e) {
+        console.warn('Não foi possível consultar o gateway ativo, usando padrão Asaas');
       }
 
-      // Create/update user profile
+      let paymentCustomerId = null;
+      let paymentGatewayField = null;
+      // 2. Criar cliente no gateway selecionado
+      if (activeGateway === 'asaas') {
+        try {
+          const { data: asaasResult, error: asaasError } = await supabase.functions.invoke('asaas-api', {
+            body: {
+              action: 'sdkCreateCustomer',
+              data: {
+                name: data.full_name,
+                email: data.email,
+                cpfCnpj: data.cpf.replace(/\D/g, ""),
+                mobilePhone: data.phone.replace(/\D/g, ""),
+                postalCode: "01310930"
+              }
+            }
+          });
+          if (asaasError) {
+            console.error("Erro ao criar cliente no Asaas:", asaasError);
+          } else if (asaasResult?.success && asaasResult?.customer?.id) {
+            console.log("Cliente criado no Asaas com sucesso:", asaasResult.customer.id);
+            paymentCustomerId = asaasResult.customer.id;
+            paymentGatewayField = 'asaas_customer_id';
+          }
+        } catch (asaasError) {
+          console.error("Exceção ao criar cliente no Asaas:", asaasError);
+        }
+      } else if (activeGateway === 'mercadopago') {
+        try {
+          // Chamada segura ao endpoint backend
+          const response = await fetch('/api/mercadopago-create-customer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: data.full_name,
+              email: data.email,
+              cpf: data.cpf,
+              phone: data.phone,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok || !result.customer) {
+            throw new Error(result.error?.message || 'Erro ao criar cliente Mercado Pago');
+          }
+          if (result.success && result.customer?.id) {
+            paymentCustomerId = result.customer.id;
+            paymentGatewayField = 'mercadopago_customer_id';
+            console.log("Cliente criado no MercadoPago com sucesso:", result.customer.id);
+            console.error("Erro ao criar cliente no MercadoPago:", result.error);
+          }
+        } catch (mpError) {
+          console.error("Exceção ao criar cliente no MercadoPago:", mpError);
+        }
+      }
+
+      // 3. Create/update user profile
+      const profilePayload: any = {
+        id: userId,
+        full_name: data.full_name,
+        email: data.email,
+        cpf: data.cpf.replace(/\D/g, ""),
+        birth_date: formattedDate,
+        phone: data.phone.replace(/\D/g, "")
+      };
+      if (paymentCustomerId && paymentGatewayField) {
+        profilePayload[paymentGatewayField] = paymentCustomerId;
+      }
       const { error: profileError } = await supabase
         .from("user_profiles")
-        .upsert({
-          id: userId,
-          full_name: data.full_name,
-          email: data.email,
-          cpf: data.cpf.replace(/\D/g, ""),
-          birth_date: formattedDate,
-          phone: data.phone.replace(/\D/g, ""),
-          asaas_customer_id: asaasCustomerId // Salvar o ID do cliente Asaas
-        });
+        .upsert(profilePayload);
 
       if (profileError) {
         console.error("Profile Error:", profileError);

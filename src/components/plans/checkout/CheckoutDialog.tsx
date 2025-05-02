@@ -20,6 +20,7 @@ import { createSubscriptionRecord, updateSubscriptionWithPaymentDetails, saveSub
 import { supabase } from "@/integrations/supabase/client";
 import { extractAsaasApiToken } from "@/utils/asaas-helpers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { MercadoPagoCheckout } from "./MercadoPagoCheckout";
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -64,7 +65,12 @@ export function CheckoutDialog({
   
   useEffect(() => {
     if (open) {
-      setStep("method");
+      // Se for Mercado Pago, já pulamos para o checkout
+      if (paymentMethod === "mercadopago") {
+        setStep("checkout");
+      } else {
+        setStep("method");
+      }
       setLoading(false);
       setCheckoutUrl(null);
       setError(null);
@@ -72,7 +78,7 @@ export function CheckoutDialog({
       setIsVerifying(false);
       setRetryCount(0);
     }
-  }, [open, setIsVerifying]);
+  }, [open, setIsVerifying, paymentMethod]);
   
   const handleCloseDialog = () => {
     if (step === "checkout" && !error) {
@@ -193,6 +199,7 @@ export function CheckoutDialog({
       });
 
       setCheckoutUrl(checkoutResult.checkoutUrl);
+      console.log('[CheckoutDialog] setStep checkout (asaas)');
       setStep("checkout");
 
       if (checkoutResult.id) {
@@ -222,11 +229,99 @@ export function CheckoutDialog({
     }
   };
   
+  // Criar assinatura pendente para Mercado Pago
+  const createMercadoPagoPendingSubscription = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Usuário não autenticado");
+      }
+      
+      console.log(`Creating pending subscription for Mercado Pago: plan ${planId}`);
+      
+      // Cancelar assinaturas pendentes anteriores
+      const { error: cancelError } = await supabase
+        .from('user_plan_subscriptions')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      if (cancelError) {
+        console.error('Error cancelling pending subscriptions:', cancelError);
+      }
+      
+      // Verificar se já existe uma assinatura ativa para este usuário
+      const { data: activeSubscriptions } = await supabase
+        .from('user_plan_subscriptions')
+        .select('id, plan_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      // Se já existe uma assinatura ativa para o mesmo plano, não criamos outra
+      if (activeSubscriptions && activeSubscriptions.plan_id === planId) {
+        console.log('User already has an active subscription for this plan');
+        toast({
+          title: 'Assinatura já existente',
+          description: 'Você já possui uma assinatura ativa para este plano.',
+          variant: 'default',
+        });
+        setError('Você já possui uma assinatura ativa para este plano');
+        setLoading(false);
+        return null;
+      }
+
+      // Definindo o tipo explicitamente para evitar erros de tipagem
+      const subscriptionData: any = {
+        user_id: user.id,
+        plan_id: planId,
+        status: 'pending',
+        payment_method: 'mercadopago',
+        total_value: planValue,
+        created_at: new Date().toISOString(),
+      };
+      
+      // Criar assinatura pendente
+      const { data: newSubscription, error } = await supabase
+        .from('user_plan_subscriptions')
+        .insert(subscriptionData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating pending subscription:', error);
+        setError('Erro ao criar assinatura pendente');
+        setLoading(false);
+        return null;
+      }
+
+      console.log('[CheckoutDialog] Mercado Pago pending subscription created:', newSubscription);
+      setSubscription(newSubscription);
+      setLoading(false);
+      return newSubscription;
+    } catch (error) {
+      console.error('Error in createMercadoPagoPendingSubscription:', error);
+      setError(typeof error === 'string' ? error : error.message || 'Erro ao criar assinatura pendente');
+      setLoading(false);
+      return null;
+    }
+  };
+  
   useEffect(() => {
-    if (open && paymentMethod && step === "method" && !loading && !error && retryCount === 0) {
+    // Para métodos de pagamento que não são Mercado Pago
+    if (open && paymentMethod && paymentMethod !== "mercadopago" && step === "method" && !loading && !error && retryCount === 0) {
       handleCheckout();
     }
-  }, [open, paymentMethod, step, loading, error, retryCount]);
+    
+    // Para Mercado Pago, criar assinatura pendente quando o diálogo for aberto
+    if (open && paymentMethod === "mercadopago" && step === "checkout" && !subscription && !loading && !error) {
+      console.log('[CheckoutDialog] Criando assinatura pendente Mercado Pago...');
+      createMercadoPagoPendingSubscription();
+    }
+  }, [open, paymentMethod, step, loading, error, retryCount, subscription]);
   
   const handleRetry = () => {
     setRetryCount(prev => prev + 1);
@@ -268,6 +363,12 @@ export function CheckoutDialog({
                     Cartão de Crédito
                   </>
                 )}
+                {paymentMethod === "mercadopago" && (
+                  <>
+                    <CreditCard size={20} />
+                    Pagamento com Mercado Pago
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -307,6 +408,34 @@ export function CheckoutDialog({
           
           {!loading && !error && step === "checkout" && (
             <>
+              {paymentMethod === "mercadopago" && subscription?.user_id && (
+                <MercadoPagoCheckout
+                  planId={planId}
+                  planName={planName}
+                  planValue={planValue}
+                  userId={subscription.user_id}
+                  onSuccess={() => {
+                    console.log('[CheckoutDialog] Pagamento Mercado Pago confirmado!');
+                    setStep("success");
+                    toast({
+                      title: "Pagamento confirmado!",
+                      description: "Sua assinatura foi ativada com sucesso"
+                    });
+                    setTimeout(() => onOpenChange(false), 3000);
+                  }}
+                  onError={(error) => {
+                    console.error('[CheckoutDialog] Erro no pagamento Mercado Pago:', error);
+                    setError(typeof error === 'string' ? error : error.message || 'Erro ao processar pagamento');
+                  }}
+                />
+              )}
+              {paymentMethod === "mercadopago" && !subscription?.user_id && (
+                <div className="flex flex-col items-center gap-2 text-amber-600">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span>Aguardando inicialização do pagamento Mercado Pago...</span>
+                </div>
+              )}
+              
               {paymentMethod === "pix" && paymentData && (
                 <PixInfo
                   qrCode={paymentData.qrCode}

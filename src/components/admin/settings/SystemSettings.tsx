@@ -4,9 +4,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AsaasSettingsForm } from "./AsaasSettingsForm";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { AsaasSettings, SystemSettingsRow } from "@/types/system-settings";
+import { AsaasSettings, PaymentGatewaySettings, PaymentGatewayType, SystemSettingsRow } from "@/types/system-settings";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 export function SystemSettings() {
+  const [activeGateway, setActiveGateway] = useState<PaymentGatewayType>('asaas');
+  const [isLoadingGateway, setIsLoadingGateway] = useState(true);
+
   const { toast } = useToast();
   const [asaasSettings, setAsaasSettings] = useState<AsaasSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -14,7 +19,49 @@ export function SystemSettings() {
   // Load settings on first render
   useEffect(() => {
     loadSettings();
+    loadActiveGateway();
   }, []);
+
+  // Load active gateway from db
+  const loadActiveGateway = async () => {
+    setIsLoadingGateway(true);
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'active_payment_gateway')
+      .maybeSingle();
+    if (!error && data?.value?.active_gateway) {
+      setActiveGateway(data.value.active_gateway);
+    }
+    setIsLoadingGateway(false);
+  };
+
+  // Save active gateway to db
+  const saveActiveGateway = async (gateway: PaymentGatewayType) => {
+    setIsLoadingGateway(true);
+    const settingsRow: SystemSettingsRow = {
+      key: 'active_payment_gateway',
+      value: { active_gateway: gateway },
+    };
+    const { error } = await supabase
+      .from('system_settings')
+      .upsert(settingsRow);
+    setIsLoadingGateway(false);
+    if (!error) {
+      setActiveGateway(gateway);
+      toast({
+        title: 'Gateway de pagamento atualizado',
+        description: `Gateway ativo: ${gateway === 'asaas' ? 'Asaas' : 'MercadoPago'}`,
+      });
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao salvar gateway',
+        description: error.message,
+      });
+    }
+  };
+
   
   // Load settings from database
   const loadSettings = async () => {
@@ -125,7 +172,22 @@ export function SystemSettings() {
         <TabsContent value="payment" className="py-4">
           <div className="space-y-8">
             <h2 className="text-xl font-semibold">Configurações de Pagamento</h2>
-            
+
+            <div>
+              <Label className="block mb-2">Gateway de pagamento ativo</Label>
+              <RadioGroup
+                value={activeGateway}
+                onValueChange={(v) => saveActiveGateway(v as PaymentGatewayType)}
+                disabled={isLoadingGateway}
+                className="flex flex-row gap-6 mb-4"
+              >
+                <RadioGroupItem value="asaas" id="asaas" />
+                <Label htmlFor="asaas">Asaas</Label>
+                <RadioGroupItem value="mercadopago" id="mercadopago" />
+                <Label htmlFor="mercadopago">MercadoPago</Label>
+              </RadioGroup>
+            </div>
+
             {asaasSettings && (
               <AsaasSettingsForm 
                 settings={asaasSettings} 

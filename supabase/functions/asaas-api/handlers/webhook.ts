@@ -119,8 +119,7 @@ export async function handleWebhook(event: any, apiKey: string, baseUrl: string,
 // Handlers para cada tipo de evento
 async function handlePaymentReceived(subscription: any, payment: any, isBusinessSubscription: boolean, supabase: any) {
   const table = isBusinessSubscription ? 'business_plan_subscriptions' : 'user_plan_subscriptions';
-  
-  // Atualizar status da assinatura
+  // Atualizar status da assinatura atual
   const { error } = await supabase
     .from(table)
     .update({
@@ -131,12 +130,29 @@ async function handlePaymentReceived(subscription: any, payment: any, isBusiness
       updated_at: new Date().toISOString()
     })
     .eq('id', subscription.id);
-  
   if (error) {
     console.error(`Erro ao atualizar assinatura após pagamento recebido:`, error);
     return { success: false, error };
   }
-  
+
+  // Cancelar todas as outras assinaturas pendentes do mesmo usuário/empresa
+  const userField = isBusinessSubscription ? 'business_id' : 'user_id';
+  const userId = subscription[userField];
+  const { error: cancelError } = await supabase
+    .from(table)
+    .update({
+      status: 'cancelled',
+      payment_status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq(userField, userId)
+    .neq('id', subscription.id)
+    .in('status', ['pending', 'active']); // Cancela pendentes e ativas antigas
+  if (cancelError) {
+    console.error('Erro ao cancelar assinaturas pendentes/antigas:', cancelError);
+  }
+
   // Registrar o pagamento no histórico
   const { error: historyError } = await supabase
     .from('payment_history')
@@ -150,14 +166,13 @@ async function handlePaymentReceived(subscription: any, payment: any, isBusiness
       status: 'paid',
       external_reference: payment.externalReference || null
     });
-  
   if (historyError) {
     console.error(`Erro ao registrar histórico de pagamento:`, historyError);
   }
-  
+
   return {
     success: true,
-    message: 'Assinatura ativada após pagamento'
+    message: 'Assinatura ativada e pendentes/antigas canceladas após pagamento'
   };
 }
 
