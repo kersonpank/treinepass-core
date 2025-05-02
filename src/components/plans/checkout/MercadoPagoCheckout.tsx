@@ -233,5 +233,3 @@ export function MercadoPagoCheckout({
     </div>
   );
 }
-
-export default MercadoPagoCheckout;

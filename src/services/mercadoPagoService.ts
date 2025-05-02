@@ -25,12 +25,6 @@ export function createCardPaymentBrick(
     console.log(`Criando brick de pagamento para ${containerId} com valor ${amount}`);
     const brickBuilder = mercadoPago.bricks();
     
-    // Limpar container
-    const container = document.getElementById(containerId);
-    if (container) {
-      container.innerHTML = '';
-    }
-    
     brickBuilder.create('payment', containerId, {
       initialization: {
         amount: amount.toString(),

@@ -12,55 +12,35 @@ export default async function handler(
   }
 
   try {
-    const accessToken = process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN || 
-                        import.meta.env.VITE_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN;
-    
-    if (!accessToken) {
-      return res.status(500).json({ 
-        message: 'MercadoPago access token not configured'
-      });
-    }
-
-    // Initialize MercadoPago client
     const client = new MercadoPagoConfig({
-      accessToken
+      accessToken: process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN || '',
     });
 
     const payment = new Payment(client);
     const paymentData = req.body;
-    
-    // Extract metadata
-    const userId = paymentData.metadata?.user_id;
-    const planId = paymentData.metadata?.plan_id;
-    const planName = paymentData.metadata?.plan_name;
+    const userId = req.body.metadata?.user_id;
+    const planId = req.body.metadata?.plan_id;
 
-    if (!userId || !planId) {
-      return res.status(400).json({ message: 'Missing required metadata (user_id or plan_id)' });
-    }
-
-    // Create payment
+    // Criar pagamento no Mercado Pago
     const result = await payment.create({
       body: {
+        ...paymentData,
         transaction_amount: Number(paymentData.transaction_amount),
-        description: paymentData.description || `Assinatura do plano ${planName || ''}`,
+        description: paymentData.description || 'Assinatura TreinePass',
         payment_method_id: paymentData.payment_method_id,
-        token: paymentData.token,
-        installments: Number(paymentData.installments) || 1,
         payer: paymentData.payer,
       },
     });
 
-    console.log('Mercado Pago payment result:', result);
-
-    // Save payment record in database
+    // Salvar no banco de dados
     const { error: paymentError } = await supabase
       .from('payments')
       .insert({
-        external_id: result.id.toString(),
-        user_id: userId,
+        external_id: result.id,
+        status: result.status,
         amount: result.transaction_amount,
         payment_method: result.payment_method_id,
-        status: result.status,
+        user_id: userId,
         metadata: {
           plan_id: planId,
           payment_details: result,
@@ -68,19 +48,16 @@ export default async function handler(
       });
 
     if (paymentError) {
-      console.error('Error saving payment record:', paymentError);
-      // Continue execution even if the database save fails
+      console.error('Error saving payment:', paymentError);
+      return res.status(500).json({ message: 'Database error', error: paymentError });
     }
 
-    // If payment is successful, update or create subscription
-    if (result.status === 'approved') {
-      // Cancel any pending subscriptions for this user
+    // Se o pagamento foi aprovado, atualizar a assinatura
+    if (result.status === 'approved' && userId && planId) {
+      // Cancelar assinaturas pendentes anteriores
       const { error: cancelError } = await supabase
         .from('user_plan_subscriptions')
-        .update({ 
-          status: 'cancelled', 
-          cancelled_at: new Date().toISOString() 
-        })
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('user_id', userId)
         .eq('status', 'pending');
 
@@ -88,7 +65,7 @@ export default async function handler(
         console.error('Error cancelling pending subscriptions:', cancelError);
       }
 
-      // Create/update subscription
+      // Criar ou atualizar a assinatura
       const { error: subscriptionError } = await supabase
         .from('user_plan_subscriptions')
         .upsert({
@@ -97,8 +74,7 @@ export default async function handler(
           status: 'active',
           payment_status: 'paid',
           payment_method: 'mercadopago',
-          payment_id: result.id.toString(),
-          start_date: new Date().toISOString().split('T')[0],
+          payment_id: result.id,
           total_value: result.transaction_amount,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -106,20 +82,16 @@ export default async function handler(
 
       if (subscriptionError) {
         console.error('Error updating subscription:', subscriptionError);
+        return res.status(500).json({ message: 'Subscription update error', error: subscriptionError });
       }
     }
 
-    // Return successful response
-    return res.status(200).json({ 
-      success: true, 
-      payment: result,
-      status: result.status
-    });
+    return res.status(200).json({ success: true, payment: result });
   } catch (error: any) {
     console.error('Payment processing error:', error);
     return res.status(500).json({ 
-      message: 'Payment processing failed', 
-      error: error.message || 'Unknown error'
+      message: 'Payment failed', 
+      error: error.message || 'Unknown error' 
     });
   }
 }

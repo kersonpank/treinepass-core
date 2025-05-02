@@ -1,3 +1,4 @@
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { supabase } from '@/integrations/supabase/client';

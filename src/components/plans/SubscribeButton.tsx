@@ -108,5 +108,3 @@ export function SubscribeButton({
     </>
   );
 }
-
-export default SubscribeButton;

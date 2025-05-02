@@ -167,5 +167,3 @@ export function MercadoPagoBrick({
     </div>
   );
 }
-
-export default MercadoPagoBrick;
