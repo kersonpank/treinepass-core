@@ -69,7 +69,7 @@ export function MercadoPagoCheckout({
   }, [userId, planId, onError]);
 
   const handlePaymentSuccess = async () => {
-    console.log('[MercadoPagoCheckout] Handler de sucesso do pagamento chamado');
+    console.log('[MercadoPagoCheckout] Pagamento realizado com sucesso!');
     setStatus('success');
     
     toast({
@@ -119,12 +119,58 @@ export function MercadoPagoCheckout({
     }
   };
 
-  // Tentar pagamento novamente sem redirecionar ou recarregar
+  // Tentar pagamento novamente
   const handleRetry = () => {
     console.log('[MercadoPagoCheckout] Tentando pagamento novamente');
     setStatus('idle');
     setErrorMessage('');
   };
+  
+  // Criar assinatura pendente antes de iniciar o checkout
+  useEffect(() => {
+    if (status === 'idle' && userId && planId) {
+      const createPendingSubscription = async () => {
+        try {
+          // Verificar se já existe uma assinatura pendente
+          const { data: existingPending } = await supabase
+            .from('user_plan_subscriptions')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('plan_id', planId)
+            .eq('status', 'pending')
+            .maybeSingle();
+            
+          // Se já existe, não criar nova
+          if (existingPending) {
+            console.log('Assinatura pendente já existe:', existingPending);
+            return;
+          }
+          
+          console.log('Criando assinatura pendente');
+          const { error } = await supabase
+            .from('user_plan_subscriptions')
+            .insert({
+              user_id: userId,
+              plan_id: planId,
+              status: 'pending',
+              payment_method: 'mercadopago',
+              start_date: new Date().toISOString().split('T')[0],
+              total_value: planValue,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+            
+          if (error) {
+            console.error('Erro ao criar assinatura pendente:', error);
+          }
+        } catch (err) {
+          console.error('Erro ao criar assinatura pendente:', err);
+        }
+      };
+      
+      createPendingSubscription();
+    }
+  }, [status, userId, planId, planValue]);
   
   return (
     <div className="w-full max-w-md mx-auto p-4">
