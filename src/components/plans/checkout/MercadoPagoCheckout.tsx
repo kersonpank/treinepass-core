@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -44,9 +44,6 @@ export function MercadoPagoCheckout({
             unit_price: planValue
           }
         ],
-        payer: {
-          email: 'exemplo@email.com', // Seria ideal ter o email do usuário
-        },
         back_urls: {
           success: `${window.location.origin}/payment/success`,
           failure: `${window.location.origin}/payment/failure`,
@@ -56,6 +53,8 @@ export function MercadoPagoCheckout({
         notification_url: `${window.location.origin}/api/webhooks/mercadopago`,
         external_reference: `plan_${planId}_user_${userId}`,
       };
+
+      console.log('Iniciando checkout com dados:', preferenceData);
 
       // Chamar API para criar preferência
       const response = await fetch('/api/mercadopago/create-preference', {
@@ -72,9 +71,10 @@ export function MercadoPagoCheckout({
       }
 
       const data = await response.json();
+      console.log('Preferência criada com sucesso:', data);
       
-      // Salvar no banco de dados que começou um checkout
-      const { error: dbError } = await fetch('/api/mercadopago/register-checkout', {
+      // Registrar checkout no banco de dados
+      const registerResponse = await fetch('/api/mercadopago/register-checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -85,22 +85,24 @@ export function MercadoPagoCheckout({
           preference_id: data.id,
           amount: planValue
         })
-      }).then(res => res.json());
+      });
 
-      if (dbError) {
-        console.error('Erro ao registrar checkout:', dbError);
+      if (!registerResponse.ok) {
+        console.warn('Aviso: Erro ao registrar checkout, mas continuando com pagamento');
+      } else {
+        console.log('Checkout registrado com sucesso');
       }
 
-      // Redirecionar para checkout do Mercado Pago
-      const checkoutUrl = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX === 'true'
-        ? data.sandbox_init_point
-        : data.init_point;
+      // Determinar URL de checkout baseado no ambiente
+      const isSandbox = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX === 'true';
+      const checkoutUrl = isSandbox ? data.sandbox_init_point : data.init_point;
 
       if (onSuccess) {
         onSuccess({ preferenceId: data.id, checkoutUrl });
       }
       
       // Redirecionar para página de checkout do Mercado Pago
+      console.log('Redirecionando para:', checkoutUrl);
       window.location.href = checkoutUrl;
       
     } catch (err: any) {

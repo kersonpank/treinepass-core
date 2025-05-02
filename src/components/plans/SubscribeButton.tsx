@@ -45,16 +45,16 @@ export function SubscribeButton({
       return;
     }
 
+    // Abrir diálogo de checkout
     setIsDialogOpen(true);
   };
 
   const handlePaymentSuccess = () => {
     setIsDialogOpen(false);
     toast({
-      title: "Assinatura realizada",
-      description: "Sua assinatura foi processada com sucesso.",
+      title: "Redirecionando para pagamento",
+      description: "Você será redirecionado para a página de pagamento do Mercado Pago.",
     });
-    navigate('/dashboard');
   };
 
   const handlePaymentError = (error: any) => {

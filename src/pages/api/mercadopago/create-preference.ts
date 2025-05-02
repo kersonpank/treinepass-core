@@ -20,6 +20,8 @@ export default async function handler(
       });
     }
 
+    console.log('Criando preferência com token:', accessToken.substring(0, 5) + '...');
+
     // Initialize MercadoPago client
     const client = new MercadoPagoConfig({
       accessToken
@@ -40,6 +42,12 @@ export default async function handler(
     // Process the request data
     const result = await preference.create({
       body: preferenceData
+    });
+
+    console.log('Preference created successfully:', {
+      id: result.id,
+      init_point: result.init_point,
+      sandbox_init_point: result.sandbox_init_point
     });
 
     // Return successful response
