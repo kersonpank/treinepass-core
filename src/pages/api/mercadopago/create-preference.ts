@@ -27,7 +27,15 @@ export default async function handler(
 
     // Create a new preference
     const preference = new Preference(client);
-    const preferenceData = req.body;
+    
+    const preferenceData = {
+      ...req.body,
+      statement_descriptor: 'TreinePass',
+      expires: true,
+      expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
+    };
+    
+    console.log('Creating preference with data:', JSON.stringify(preferenceData, null, 2));
     
     // Process the request data
     const result = await preference.create({
