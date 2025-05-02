@@ -2,26 +2,26 @@
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Initialize Mercado Pago with public key
+ * Inicializa o Mercado Pago com a chave pública
  */
 export function initializeMercadoPago() {
   const publicKey = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY;
   
   if (!publicKey) {
-    throw new Error('Mercado Pago public key not found');
+    throw new Error('Mercado Pago public key não encontrada');
   }
   
   if (typeof window === 'undefined' || !(window as any).MercadoPago) {
-    throw new Error('Mercado Pago SDK not loaded');
+    throw new Error('Mercado Pago SDK não carregado');
   }
   
   return new (window as any).MercadoPago(publicKey, { locale: 'pt-BR' });
 }
 
 /**
- * Create a card payment brick
+ * Cria um brick de pagamento com cartão
  */
-export async function createCardPaymentBrick(
+export function createCardPaymentBrick(
   containerId: string,
   amount: number,
   options: {
@@ -29,14 +29,14 @@ export async function createCardPaymentBrick(
     metadata?: Record<string, any>;
     onReady?: () => void;
     onError?: (error: any) => void;
-    onSubmit?: (data: any) => Promise<boolean>;
+    onSubmit?: (formData: any) => Promise<boolean>;
   }
 ) {
   try {
     const mp = initializeMercadoPago();
     const brickBuilder = mp.bricks();
     
-    await brickBuilder.create('cardPayment', containerId, {
+    brickBuilder.create('cardPayment', containerId, {
       initialization: {
         amount: amount.toString(),
         payer: options.payerEmail ? { email: options.payerEmail } : undefined,
@@ -52,12 +52,12 @@ export async function createCardPaymentBrick(
       },
       callbacks: {
         onReady: () => {
-          console.log('Brick ready and rendered');
+          console.log('Brick pronto e renderizado');
           if (options.onReady) options.onReady();
         },
         onSubmit: options.onSubmit,
         onError: (error: any) => {
-          console.error('Brick error:', error);
+          console.error('Erro no Brick:', error);
           if (options.onError) options.onError(error);
         },
       },
@@ -65,25 +65,25 @@ export async function createCardPaymentBrick(
     
     return true;
   } catch (error) {
-    console.error('Error creating card payment brick:', error);
+    console.error('Erro ao criar brick de pagamento:', error);
     if (options.onError) options.onError(error);
     return false;
   }
 }
 
 /**
- * Process payment with Mercado Pago
+ * Processa pagamento com o Mercado Pago
  */
 export async function processMercadoPagoPayment(
   formData: any,
   amount: number,
   metadata: Record<string, any> = {}
 ) {
-  // In a real implementation, this would call your backend API
-  // For demo purposes, we're simulating a successful payment
-  console.log('[MercadoPagoService] Processing payment with amount:', amount);
+  // Em uma implementação real, isso chamaria sua API de backend
+  // Para fins de demonstração, estamos simulando um pagamento bem-sucedido
+  console.log('[MercadoPagoService] Processando pagamento com valor:', amount);
   
-  // Create a mock successful response
+  // Criar uma resposta simulada de sucesso
   const mockPaymentResponse = {
     success: true,
     payment: {
@@ -99,7 +99,7 @@ export async function processMercadoPagoPayment(
 }
 
 /**
- * Update user subscription in database after successful payment
+ * Atualiza a assinatura do usuário no banco de dados após pagamento bem-sucedido
  */
 export async function updateSubscriptionAfterPayment(
   userId: string,
@@ -108,9 +108,9 @@ export async function updateSubscriptionAfterPayment(
   amount: number
 ) {
   try {
-    console.log('[MercadoPagoService] Updating subscription for user:', userId);
+    console.log('[MercadoPagoService] Atualizando assinatura para usuário:', userId);
     
-    // 1. Cancel pending subscriptions
+    // 1. Cancelar assinaturas pendentes
     const { error: cancelError } = await supabase
       .from('user_plan_subscriptions')
       .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
@@ -118,10 +118,10 @@ export async function updateSubscriptionAfterPayment(
       .eq('status', 'pending');
       
     if (cancelError) {
-      console.error('[MercadoPagoService] Error cancelling pending subscriptions:', cancelError);
+      console.error('[MercadoPagoService] Erro ao cancelar assinaturas pendentes:', cancelError);
     }
     
-    // 2. Check for active subscriptions (for upgrade scenario)
+    // 2. Verificar assinaturas ativas (para cenário de upgrade)
     const { data: activeSubscription } = await supabase
       .from('user_plan_subscriptions')
       .select('id, plan_id')
@@ -129,9 +129,9 @@ export async function updateSubscriptionAfterPayment(
       .eq('status', 'active')
       .maybeSingle();
       
-    // If upgrading from an existing plan, cancel previous subscription
+    // Se estiver fazendo upgrade de um plano existente, cancelar assinatura anterior
     if (activeSubscription && activeSubscription.plan_id !== planId) {
-      console.log('[MercadoPagoService] Upgrading from plan:', activeSubscription.plan_id);
+      console.log('[MercadoPagoService] Fazendo upgrade do plano:', activeSubscription.plan_id);
       
       const { error: upgradeError } = await supabase
         .from('user_plan_subscriptions')
@@ -143,11 +143,11 @@ export async function updateSubscriptionAfterPayment(
         .eq('id', activeSubscription.id);
         
       if (upgradeError) {
-        console.error('[MercadoPagoService] Error cancelling previous subscription:', upgradeError);
+        console.error('[MercadoPagoService] Erro ao cancelar assinatura anterior:', upgradeError);
       }
     }
     
-    // 3. Create or update subscription
+    // 3. Criar ou atualizar assinatura
     const { error: subscriptionError } = await supabase
       .from('user_plan_subscriptions')
       .upsert({
@@ -165,13 +165,13 @@ export async function updateSubscriptionAfterPayment(
       });
       
     if (subscriptionError) {
-      console.error('[MercadoPagoService] Error creating subscription:', subscriptionError);
+      console.error('[MercadoPagoService] Erro ao criar assinatura:', subscriptionError);
       throw subscriptionError;
     }
     
     return true;
   } catch (error) {
-    console.error('[MercadoPagoService] Error in updateSubscriptionAfterPayment:', error);
+    console.error('[MercadoPagoService] Erro em updateSubscriptionAfterPayment:', error);
     throw error;
   }
 }

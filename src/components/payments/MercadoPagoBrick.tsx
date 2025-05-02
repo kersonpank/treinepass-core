@@ -28,28 +28,28 @@ export function MercadoPagoBrick({
   const [error, setError] = useState<string | null>(sdkError?.message || null);
   const brickContainerRef = useRef<HTMLDivElement>(null);
   
-  // Handle payment events
+  // Manipular eventos de pagamento
   const handlePaymentSuccess = useCallback((data: any) => {
-    console.log('Payment success:', data);
+    console.log('Pagamento realizado com sucesso:', data);
     onPaymentSuccess?.();
   }, [onPaymentSuccess]);
   
   const handlePaymentError = useCallback((err: any) => {
-    console.error('Payment error:', err);
+    console.error('Erro no pagamento:', err);
     setError(err.message || 'Ocorreu um erro ao processar o pagamento');
     onPaymentError?.(err);
   }, [onPaymentError]);
   
-  // Initialize payment brick when SDK is loaded
+  // Inicializar o brick de pagamento quando o SDK estiver carregado
   useEffect(() => {
     if (!isLoaded || isSdkLoading) return;
 
     const initBrick = async () => {
       try {
-        // Reset any previous errors
+        // Resetar erros anteriores
         setError(null);
         
-        // Clear container
+        // Limpar container
         const container = document.getElementById('brick-container');
         if (!container) {
           setError('Container do formulário não encontrado');
@@ -57,7 +57,7 @@ export function MercadoPagoBrick({
         }
         container.innerHTML = '';
         
-        // Create payment brick
+        // Criar brick de pagamento
         await createCardPaymentBrick('brick-container', amount, {
           payerEmail,
           metadata,
@@ -67,22 +67,22 @@ export function MercadoPagoBrick({
             try {
               setIsProcessing(true);
               
-              // Add metadata to payload
+              // Adicionar metadados ao payload
               const paymentData = {
                 ...formData,
                 metadata: metadata || {},
               };
               
-              // Process payment
+              // Processar pagamento
               const response = await processMercadoPagoPayment(
                 paymentData, 
                 amount,
                 metadata
               );
               
-              console.log('[MercadoPagoBrick] Payment response:', response);
+              console.log('[MercadoPagoBrick] Resposta do pagamento:', response);
               
-              // If payment successful, update subscription in database
+              // Se pagamento bem-sucedido, atualizar assinatura no banco de dados
               if (response.success && response.payment) {
                 try {
                   if (metadata.user_id && metadata.plan_id) {
@@ -94,18 +94,18 @@ export function MercadoPagoBrick({
                     );
                   }
                 } catch (dbError) {
-                  console.error('[MercadoPagoBrick] Database error:', dbError);
-                  // Continue with success flow even if DB update fails
+                  console.error('[MercadoPagoBrick] Erro de banco de dados:', dbError);
+                  // Continuar com fluxo de sucesso mesmo se atualização do BD falhar
                 }
                 
-                // Trigger success event
+                // Disparar evento de sucesso
                 handlePaymentSuccess(response);
                 return true;
               }
               
               return false;
             } catch (error: any) {
-              console.error('[MercadoPagoBrick] Payment processing error:', error);
+              console.error('[MercadoPagoBrick] Erro ao processar pagamento:', error);
               handlePaymentError(error);
               return false;
             } finally {
@@ -114,7 +114,7 @@ export function MercadoPagoBrick({
           }
         });
       } catch (err: any) {
-        console.error('Error initializing brick:', err);
+        console.error('Erro ao inicializar brick:', err);
         setError(err.message || 'Não foi possível inicializar o formulário de pagamento');
       }
     };
@@ -130,7 +130,7 @@ export function MercadoPagoBrick({
     };
   }, [isLoaded, isSdkLoading, amount, payerEmail, metadata, handlePaymentSuccess, handlePaymentError]);
   
-  // Display loading state
+  // Exibir estado de carregamento
   const showLoading = isSdkLoading || !isLoaded || isProcessing;
   
   return (

@@ -2,16 +2,16 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Hook para carregar e inicializar o SDK do Mercado Pago
+ * Hook para carregar o SDK do Asaas
  */
-export function useMercadoPagoSdk() {
+export function useAsaasSdk() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     // Verificar se o SDK já está carregado
-    if ((window as any).MercadoPago) {
+    if ((window as any).Asaas) {
       setIsLoaded(true);
       return;
     }
@@ -20,26 +20,26 @@ export function useMercadoPagoSdk() {
       try {
         setIsLoading(true);
         
-        // Carregar SDK do Mercado Pago
+        // Carregar script do SDK do Asaas
         await new Promise<void>((resolve, reject) => {
-          console.log('Carregando MercadoPago SDK...');
+          console.log('Carregando Asaas SDK...');
           const script = document.createElement('script');
-          script.src = 'https://sdk.mercadopago.com/js/v2';
+          script.src = 'https://assets.asaas.com/assets/multistep-checkout/main.js';
           script.async = true;
           script.onload = () => {
-            console.log('MercadoPago SDK carregado com sucesso');
+            console.log('Asaas SDK carregado com sucesso');
             resolve();
           };
           script.onerror = (error) => {
-            console.error('Erro ao carregar MercadoPago SDK:', error);
-            reject(new Error('Falha ao carregar Mercado Pago SDK'));
+            console.error('Erro ao carregar Asaas SDK:', error);
+            reject(new Error('Falha ao carregar Asaas SDK'));
           };
           document.body.appendChild(script);
         });
 
         setIsLoaded(true);
       } catch (err: any) {
-        console.error('Erro em useMercadoPagoSdk:', err);
+        console.error('Erro em useAsaasSdk:', err);
         setError(err);
       } finally {
         setIsLoading(false);
@@ -52,4 +52,4 @@ export function useMercadoPagoSdk() {
   return { isLoaded, isLoading, error };
 }
 
-export default useMercadoPagoSdk;
+export default useAsaasSdk;

@@ -30,7 +30,7 @@ export function MercadoPagoCheckout({
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  // Check for existing subscription
+  // Verificar se já existe uma assinatura
   useEffect(() => {
     if (userId && planId) {
       const checkExistingSubscription = async () => {
@@ -46,12 +46,12 @@ export function MercadoPagoCheckout({
             .maybeSingle();
             
           if (error) {
-            console.error('[MercadoPagoCheckout] Error checking subscription:', error);
-            // Continue even with error, just log it
+            console.error('[MercadoPagoCheckout] Erro ao verificar assinatura:', error);
+            // Continuar mesmo com erro, apenas logar
           }
           
           if (data) {
-            console.log('[MercadoPagoCheckout] User already has active subscription for this plan', data);
+            console.log('[MercadoPagoCheckout] Usuário já possui assinatura ativa para este plano', data);
             setErrorMessage('Você já possui uma assinatura ativa para este plano.');
             setStatus('error');
             onError?.({ message: 'Assinatura já existe' });
@@ -59,7 +59,7 @@ export function MercadoPagoCheckout({
             setStatus('idle');
           }
         } catch (err) {
-          console.error('[MercadoPagoCheckout] Error in checkExistingSubscription:', err);
+          console.error('[MercadoPagoCheckout] Erro em checkExistingSubscription:', err);
           setStatus('idle');
         }
       };
@@ -69,7 +69,7 @@ export function MercadoPagoCheckout({
   }, [userId, planId, onError]);
 
   const handlePaymentSuccess = async () => {
-    console.log('[MercadoPagoCheckout] Payment success handler called');
+    console.log('[MercadoPagoCheckout] Handler de sucesso do pagamento chamado');
     setStatus('success');
     
     toast({
@@ -82,17 +82,17 @@ export function MercadoPagoCheckout({
       onSuccess();
     }
     
-    // Redirect to dashboard after 2 seconds
+    // Redirecionar para o dashboard após 2 segundos
     setTimeout(() => {
       navigate('/dashboard');
     }, 2000);
   };
 
   const handlePaymentError = (error: any) => {
-    console.error('[MercadoPagoCheckout] Payment error:', error);
+    console.error('[MercadoPagoCheckout] Erro no pagamento:', error);
     setStatus('error');
     
-    // Improve error message for user
+    // Melhorar mensagem de erro para o usuário
     let errorMsg = 'Ocorreu um erro ao processar o pagamento';
     
     if (error.message) {
@@ -119,9 +119,9 @@ export function MercadoPagoCheckout({
     }
   };
 
-  // Retry payment without redirecting or reloading
+  // Tentar pagamento novamente sem redirecionar ou recarregar
   const handleRetry = () => {
-    console.log('[MercadoPagoCheckout] Retrying payment');
+    console.log('[MercadoPagoCheckout] Tentando pagamento novamente');
     setStatus('idle');
     setErrorMessage('');
   };
