@@ -1,5 +1,7 @@
+
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MercadoPagoBrickProps {
   amount: number;
@@ -136,6 +138,8 @@ export function MercadoPagoBrick({
                 
                 console.log('[MercadoPagoBrick] Sending payment data to Mercado Pago API', { amount: amount });
                 
+                let responseData;
+                
                 try {
                   // Processar pagamento diretamente usando o SDK do MercadoPago
                   // O serviço de pagamento agora usa o SDK diretamente sem dependência de uma API Next.js
@@ -173,13 +177,16 @@ export function MercadoPagoBrick({
                   if (!response.ok) {
                     throw new Error('Falha no processamento do pagamento');
                   }
-                }
                   
-                  const responseData = await response.json();
+                  responseData = await response.json();
                   console.log('[MercadoPagoBrick] Payment processed successfully', responseData);
+                } catch (apiError: any) {
+                  console.error('[MercadoPagoBrick] API error:', apiError);
+                  throw apiError;
+                }
                 
                 // Atualizar assinatura no Supabase diretamente
-                if (responseData.success && responseData.payment) {
+                if (responseData && responseData.success && responseData.payment) {
                   try {
                     console.log('[MercadoPagoBrick] Updating subscription status in Supabase');
                     
@@ -329,8 +336,6 @@ export function MercadoPagoBrick({
           </button>
         </div>
       )}
-      
-      {/* O container do Brick já foi definido acima */}
     </div>
   );
 }
