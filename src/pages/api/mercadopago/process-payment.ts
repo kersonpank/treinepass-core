@@ -20,20 +20,21 @@ export default async function handler(
       amount: paymentData.transaction_amount,
       userId,
       planId,
-      subscriptionId
+      subscriptionId,
+      paymentMethodId: paymentData.payment_method_id
     });
 
     // Em um ambiente de produção, você comunicaria com a API do Mercado Pago.
-    // Para fins de demonstração, simularemos um pagamento bem-sucedido.
+    // Para fins de demonstração, simularemos um pagamento em processamento.
     const paymentResult = {
       id: `test_${Math.random().toString(36).substring(2, 15)}`,
-      status: 'approved',
+      status: 'in_process', // Alterado para in_process para simular um PIX ou boleto
       transaction_amount: paymentData.transaction_amount,
       payment_method_id: paymentData.payment_method_id,
     };
 
     // Salvar no banco de dados
-    const { error: paymentError } = await supabase
+    const { error: paymentError, data: savedPayment } = await supabase
       .from('payments')
       .insert({
         external_id: paymentResult.id,
@@ -45,49 +46,38 @@ export default async function handler(
           plan_id: planId,
           subscription_id: subscriptionId,
           payment_details: paymentResult,
+          original_request: {
+            ...paymentData,
+            // Remove dados sensíveis antes de salvar
+            token: undefined,
+            card: undefined
+          }
         },
-      });
+      })
+      .select()
+      .single();
 
     if (paymentError) {
-      console.error('Error saving payment:', paymentError);
+      console.error('[MercadoPago] Error saving payment:', paymentError);
       return res.status(500).json({ message: 'Database error', error: paymentError });
     }
 
-    // Se o pagamento foi aprovado, atualizar a assinatura
-    if (paymentResult.status === 'approved' && userId && planId && subscriptionId) {
-      // Cancelar assinaturas pendentes anteriores
-      const { error: cancelError } = await supabase
-        .from('user_plan_subscriptions')
-        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-        .eq('user_id', userId)
-        .neq('id', subscriptionId)
-        .eq('status', 'pending');
+    // Não atualizar a assinatura ainda para pagamentos em processamento
+    // Isso será feito pelo webhook quando o pagamento for confirmado
 
-      if (cancelError) {
-        console.error('Error cancelling pending subscriptions:', cancelError);
-      }
+    // Adicionar um log para depuração
+    console.log('[MercadoPago] Payment processed successfully:', {
+      paymentId: paymentResult.id,
+      status: paymentResult.status
+    });
 
-      // Atualizar a assinatura atual
-      const { error: subscriptionError } = await supabase
-        .from('user_plan_subscriptions')
-        .update({
-          status: 'active',
-          payment_status: 'paid',
-          payment_method: 'mercadopago',
-          payment_id: paymentResult.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', subscriptionId);
-
-      if (subscriptionError) {
-        console.error('Error updating subscription:', subscriptionError);
-        return res.status(500).json({ message: 'Subscription update error', error: subscriptionError });
-      }
-    }
-
-    return res.status(200).json({ success: true, payment: paymentResult });
+    return res.status(200).json({ 
+      success: true, 
+      payment: paymentResult,
+      savedPaymentId: savedPayment.id
+    });
   } catch (error: any) {
-    console.error('Payment processing error:', error);
+    console.error('[MercadoPago] Payment processing error:', error);
     return res.status(500).json({ 
       message: 'Payment failed', 
       error: error.message || 'Unknown error' 

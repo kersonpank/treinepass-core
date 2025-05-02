@@ -16,7 +16,7 @@ export default async function handler(
     const eventType = topic || type;
     const eventId = id;
     
-    console.log('Received Mercado Pago webhook:', { id, topic, type });
+    console.log('[MercadoPago] Received webhook:', { id, topic, type, body: req.body });
     
     // Registrar evento do webhook
     const { error: logError } = await supabase
@@ -28,7 +28,7 @@ export default async function handler(
       });
 
     if (logError) {
-      console.error('Error logging webhook event:', logError);
+      console.error('[MercadoPago] Error logging webhook event:', logError);
     }
     
     // Se não for um evento de pagamento, não processamos
@@ -43,24 +43,41 @@ export default async function handler(
       .eq('external_id', eventId)
       .single();
       
-    if (paymentError || !paymentData) {
-      console.error('Payment not found in database:', eventId);
+    if (paymentError) {
+      console.error('[MercadoPago] Payment not found in database:', eventId);
       return res.status(200).json({ message: 'Payment not found in database' });
     }
     
-    // Atualizar status do pagamento no banco de dados
-    const paymentStatus = req.body.status || req.body.action;
+    // Extrair o status do pagamento do corpo do webhook
+    const paymentStatus = req.body.status || req.body.action || 'unknown';
+    console.log('[MercadoPago] Updating payment status:', { 
+      paymentId: eventId, 
+      newStatus: paymentStatus, 
+      oldStatus: paymentData.status 
+    });
     
+    // Atualizar status do pagamento no banco de dados
     const { error: updateError } = await supabase
       .from('payments')
       .update({
         status: paymentStatus,
         updated_at: new Date().toISOString(),
+        metadata: {
+          ...paymentData.metadata,
+          webhook_data: req.body,
+          status_history: [
+            ...(paymentData.metadata?.status_history || []),
+            {
+              status: paymentStatus,
+              timestamp: new Date().toISOString()
+            }
+          ]
+        }
       })
       .eq('external_id', eventId);
 
     if (updateError) {
-      console.error('Error updating payment status:', updateError);
+      console.error('[MercadoPago] Error updating payment status:', updateError);
     }
     
     // Se o pagamento foi aprovado, atualizar a assinatura
@@ -70,6 +87,21 @@ export default async function handler(
       const subscriptionId = paymentData.metadata?.subscription_id;
       
       if (userId && planId && subscriptionId) {
+        // Cancelar quaisquer assinaturas pendentes anteriores
+        const { error: cancelError } = await supabase
+          .from('user_plan_subscriptions')
+          .update({ 
+            status: 'cancelled', 
+            cancelled_at: new Date().toISOString() 
+          })
+          .eq('user_id', userId)
+          .neq('id', subscriptionId)
+          .eq('status', 'pending');
+          
+        if (cancelError) {
+          console.error('[MercadoPago] Error cancelling pending subscriptions:', cancelError);
+        }
+        
         // Atualizar a assinatura para ativa
         const { error: subscriptionError } = await supabase
           .from('user_plan_subscriptions')
@@ -77,11 +109,14 @@ export default async function handler(
             status: 'active',
             payment_status: 'paid',
             updated_at: new Date().toISOString(),
+            payment_id: eventId as string
           })
           .eq('id', subscriptionId);
         
         if (subscriptionError) {
-          console.error('Error updating subscription:', subscriptionError);
+          console.error('[MercadoPago] Error updating subscription:', subscriptionError);
+        } else {
+          console.log('[MercadoPago] Subscription activated successfully:', subscriptionId);
         }
       }
     }
@@ -90,7 +125,7 @@ export default async function handler(
     return res.status(200).json({ success: true });
     
   } catch (error: any) {
-    console.error('Error processing webhook:', error);
+    console.error('[MercadoPago] Error processing webhook:', error);
     return res.status(500).json({
       message: 'Error processing webhook',
       error: error.message || 'Unknown error'
