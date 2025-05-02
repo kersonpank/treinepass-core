@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { MercadoPagoBrick } from '@/components/payments/MercadoPagoBrick';
@@ -26,7 +27,6 @@ export function MercadoPagoCheckout({
 }: MercadoPagoCheckoutProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [isBrickReady, setIsBrickReady] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -171,14 +171,13 @@ export function MercadoPagoCheckout({
         </div>
       )}
       
-      {status === 'idle' && isBrickReady && (
+      {status === 'idle' && (
         <>
           <p className="text-sm text-muted-foreground mb-4">
             Preencha os dados do seu cartão para concluir a assinatura do plano.
           </p>
           <MercadoPagoBrick
             amount={planValue}
-            payerEmail={undefined} // Passe o email real do usuário se disponível
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentError={handlePaymentError}
             metadata={{
@@ -217,3 +216,5 @@ export function MercadoPagoCheckout({
     </div>
   );
 }
+
+export default MercadoPagoCheckout;

@@ -12,7 +12,8 @@ export default async function handler(
   }
 
   try {
-    const accessToken = process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN;
+    const accessToken = process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN || 
+                        import.meta.env.VITE_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN;
     
     if (!accessToken) {
       return res.status(500).json({ 
@@ -43,9 +44,13 @@ export default async function handler(
         transaction_amount: Number(paymentData.transaction_amount),
         description: paymentData.description || `Assinatura do plano ${planName || ''}`,
         payment_method_id: paymentData.payment_method_id,
+        token: paymentData.token,
+        installments: Number(paymentData.installments) || 1,
         payer: paymentData.payer,
       },
     });
+
+    console.log('Mercado Pago payment result:', result);
 
     // Save payment record in database
     const { error: paymentError } = await supabase

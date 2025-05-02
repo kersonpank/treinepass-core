@@ -136,57 +136,34 @@ export function MercadoPagoBrick({
                   metadata: metadata || {},
                 };
                 
-                console.log('[MercadoPagoBrick] Sending payment data to Mercado Pago API', { amount: amount });
+                console.log('[MercadoPagoBrick] Sending payment data to API', { 
+                  amount: amount,
+                  metadata: formData.metadata 
+                });
                 
-                let responseData;
+                // Enviar para a API de processamento de pagamento
+                const response = await fetch('/api/mercadopago/process-payment', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    ...formData,
+                    transaction_amount: amount,
+                    description: `Assinatura TreinePass - ${formData.metadata?.plan_name || 'Plano'}`,
+                  }),
+                });
                 
-                try {
-                  // Processar pagamento diretamente usando o SDK do MercadoPago
-                  // O serviço de pagamento agora usa o SDK diretamente sem dependência de uma API Next.js
-                  const accessToken = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN;
-                  
-                  if (!accessToken) {
-                    console.error('[MercadoPagoBrick] Missing Mercado Pago access token');
-                    throw new Error('Configuração do Mercado Pago incompleta');
-                  }
-                  
-                  console.log('[MercadoPagoBrick] Processing payment directly');
-                  
-                  // Simular chamada de API para evitar expor token diretamente
-                  // Em produção, esse token deve ser usado apenas no backend
-                  // Aqui nós lidamos com isso para fins de desenvolvimento
-                  
-                  // Em vez de uma chamada de API real, vamos simular o sucesso para desenvolvimento
-                  // isso deve ser substituído por uma chamada de API real em produção
-                  const mockResponse = {
-                    ok: true,
-                    json: async () => ({
-                      success: true,
-                      payment: {
-                        id: "test_" + Math.random().toString(36).substring(2),
-                        status: 'approved',
-                        transaction_amount: amount,
-                        payment_method_id: formData.payment_method_id || 'card',
-                        metadata: formData.metadata
-                      }
-                    })
-                  };
-
-                  const response = mockResponse;
-                  
-                  if (!response.ok) {
-                    throw new Error('Falha no processamento do pagamento');
-                  }
-                  
-                  responseData = await response.json();
-                  console.log('[MercadoPagoBrick] Payment processed successfully', responseData);
-                } catch (apiError: any) {
-                  console.error('[MercadoPagoBrick] API error:', apiError);
-                  throw apiError;
+                if (!response.ok) {
+                  const errorData = await response.json();
+                  throw new Error(errorData.message || 'Falha no processamento do pagamento');
                 }
                 
+                const responseData = await response.json();
+                console.log('[MercadoPagoBrick] Payment processed successfully', responseData);
+                
                 // Atualizar assinatura no Supabase diretamente
-                if (responseData && responseData.success && responseData.payment) {
+                if (responseData.success && responseData.payment) {
                   try {
                     console.log('[MercadoPagoBrick] Updating subscription status in Supabase');
                     
@@ -238,6 +215,7 @@ export function MercadoPagoBrick({
                         payment_method: 'mercadopago',
                         payment_id: responseData.payment.id,
                         total_value: responseData.payment.transaction_amount,
+                        start_date: new Date().toISOString().split('T')[0],
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString(),
                         // Se for upgrade, referenciar assinatura anterior

@@ -4,10 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
-import { useMercadoPago } from '@/hooks/useMercadoPago';
 import { useAuth } from '@/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import MercadoPagoPayment from '@/components/payments/MercadoPagoPayment';
+import { MercadoPagoCheckout } from '@/components/plans/checkout/MercadoPagoCheckout';
 
 interface SubscribeButtonProps {
   planId: string;
@@ -18,7 +17,6 @@ interface SubscribeButtonProps {
   variant?: 'default' | 'outline' | 'secondary' | 'ghost' | 'link' | 'destructive';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
-  redirectToCheckout?: boolean;
 }
 
 export function SubscribeButton({
@@ -30,14 +28,12 @@ export function SubscribeButton({
   variant = 'default',
   size = 'default',
   className = '',
-  redirectToCheckout = true
 }: SubscribeButtonProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { createSubscriptionAndRedirect } = useMercadoPago();
 
   const handleSubscribe = async () => {
     if (!user) {
@@ -49,22 +45,7 @@ export function SubscribeButton({
       return;
     }
 
-    if (redirectToCheckout) {
-      setIsLoading(true);
-      try {
-        await createSubscriptionAndRedirect(
-          planId,
-          user.id,
-          planPrice,
-          planName
-        );
-      } catch (error) {
-        console.error('Error redirecting to checkout:', error);
-        setIsLoading(false);
-      }
-    } else {
-      setIsDialogOpen(true);
-    }
+    setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
@@ -117,14 +98,13 @@ export function SubscribeButton({
           </DialogHeader>
           
           {user && (
-            <MercadoPagoPayment
+            <MercadoPagoCheckout
               planId={planId}
               planName={planName}
-              amount={planPrice}
+              planValue={planPrice}
               userId={user.id}
               onSuccess={handlePaymentSuccess}
               onError={handlePaymentError}
-              redirectAfterPayment={false}
             />
           )}
         </DialogContent>
