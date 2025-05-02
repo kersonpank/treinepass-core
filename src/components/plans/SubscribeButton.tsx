@@ -48,10 +48,6 @@ export function SubscribeButton({
     setIsDialogOpen(true);
   };
 
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-  };
-
   const handlePaymentSuccess = () => {
     setIsDialogOpen(false);
     toast({

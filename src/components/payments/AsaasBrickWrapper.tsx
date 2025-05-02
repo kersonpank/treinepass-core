@@ -1,10 +1,10 @@
 
 import { useState } from 'react';
-import { MercadoPagoBrick } from './MercadoPagoBrick';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ExclamationTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { MercadoPagoBrick } from './MercadoPagoBrick';
 
 interface AsaasBrickWrapperProps {
   planId: string;
@@ -104,7 +104,7 @@ export function AsaasBrickWrapper({
       {status === 'idle' && (
         <MercadoPagoBrick
           amount={amount}
-          payerEmail={undefined} // Você pode passar o e-mail do usuário aqui
+          payerEmail={undefined}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentError={handlePaymentError}
           metadata={{

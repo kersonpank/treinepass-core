@@ -1,12 +1,12 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { MercadoPagoBrick } from '@/components/payments/MercadoPagoBrick';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { MercadoPagoBrick } from '@/components/payments/MercadoPagoBrick';
 
 interface MercadoPagoCheckoutProps {
   planId: string;
@@ -30,13 +30,12 @@ export function MercadoPagoCheckout({
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  // Verificar se o usuário já tem uma assinatura ativa para este plano
+  // Check for existing subscription
   useEffect(() => {
     if (userId && planId) {
       const checkExistingSubscription = async () => {
         try {
           setStatus('loading');
-          console.log('[MercadoPagoCheckout] Checking for existing subscription', { userId, planId });
           
           const { data, error } = await supabase
             .from('user_plan_subscriptions')
@@ -48,7 +47,7 @@ export function MercadoPagoCheckout({
             
           if (error) {
             console.error('[MercadoPagoCheckout] Error checking subscription:', error);
-            // Continua mesmo com erro, apenas loga
+            // Continue even with error, just log it
           }
           
           if (data) {
@@ -72,59 +71,28 @@ export function MercadoPagoCheckout({
   const handlePaymentSuccess = async () => {
     console.log('[MercadoPagoCheckout] Payment success handler called');
     setStatus('success');
+    
     toast({
       title: 'Pagamento realizado com sucesso!',
       description: 'Seu plano foi ativado.',
       variant: 'default',
     });
     
-    // Verificar status da assinatura
-    try {
-      console.log('[MercadoPagoCheckout] Verifying subscription status');
-      const { data, error } = await supabase
-        .from('user_plan_subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('plan_id', planId)
-        .eq('status', 'active')
-        .single();
-
-      if (error) {
-        console.error('[MercadoPagoCheckout] Error verifying subscription:', error);
-      }
-
-      if (data) {
-        console.log('[MercadoPagoCheckout] Active subscription confirmed', data);
-        onSuccess?.();
-        // Redirecionar para página de sucesso após 2 segundos
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 2000);
-      } else {
-        console.warn('[MercadoPagoCheckout] Payment successful but no active subscription found');
-        // Mesmo sem encontrar assinatura ativa, consideramos como sucesso
-        // pois o pagamento foi confirmado e o MercadoPagoBrick já deve ter
-        // criado a assinatura
-        onSuccess?.();
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 2000);
-      }
-    } catch (err) {
-      console.error('[MercadoPagoCheckout] Error in handlePaymentSuccess:', err);
-      // Mesmo com erro, consideramos o pagamento bem-sucedido
-      onSuccess?.();
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+    if (onSuccess) {
+      onSuccess();
     }
+    
+    // Redirect to dashboard after 2 seconds
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 2000);
   };
 
   const handlePaymentError = (error: any) => {
     console.error('[MercadoPagoCheckout] Payment error:', error);
     setStatus('error');
     
-    // Melhorar mensagem de erro para o usuário
+    // Improve error message for user
     let errorMsg = 'Ocorreu um erro ao processar o pagamento';
     
     if (error.message) {
@@ -145,10 +113,13 @@ export function MercadoPagoCheckout({
       description: errorMsg,
       variant: 'destructive',
     });
-    onError?.(error);
+    
+    if (onError) {
+      onError(error);
+    }
   };
 
-  // Reprocessamento sem redirecionar ou recarregar a página
+  // Retry payment without redirecting or reloading
   const handleRetry = () => {
     console.log('[MercadoPagoCheckout] Retrying payment');
     setStatus('idle');
