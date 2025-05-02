@@ -1,6 +1,5 @@
 
-import { NextApiRequest, NextApiResponse } from 'next';
-import { MercadoPagoConfig, Payment } from 'mercadopago';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '@/integrations/supabase/client';
 
 export default async function handler(
@@ -13,102 +12,88 @@ export default async function handler(
 
   try {
     // Extrair dados do webhook
-    const { id, topic } = req.query;
+    const { id, topic, type } = req.query;
+    const eventType = topic || type;
+    const eventId = id;
     
-    if (topic !== 'payment') {
-      return res.status(200).json({ message: 'Ignored non-payment webhook' });
-    }
-
-    const client = new MercadoPagoConfig({
-      accessToken: process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN || '',
-    });
-
-    const payment = new Payment(client);
-    const paymentId = id as string;
-
-    // Buscar detalhes do pagamento
-    const paymentDetails = await payment.get({
-      id: paymentId,
-    });
-
+    console.log('Received Mercado Pago webhook:', { id, topic, type });
+    
     // Registrar evento do webhook
     const { error: logError } = await supabase
       .from('mercadopago_webhook_events')
       .insert({
-        event_id: paymentId,
-        event_type: topic as string,
+        event_id: eventId as string,
+        event_type: eventType as string,
         payload: req.body,
-        processed_at: new Date().toISOString(),
       });
 
     if (logError) {
       console.error('Error logging webhook event:', logError);
     }
-
-    // Atualizar status do pagamento
+    
+    // Se não for um evento de pagamento, não processamos
+    if (eventType !== 'payment') {
+      return res.status(200).json({ message: 'Event received but not processed (not a payment event)' });
+    }
+    
+    // Buscar detalhes do pagamento no nosso banco
+    const { data: paymentData, error: paymentError } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('external_id', eventId)
+      .single();
+      
+    if (paymentError || !paymentData) {
+      console.error('Payment not found in database:', eventId);
+      return res.status(200).json({ message: 'Payment not found in database' });
+    }
+    
+    // Atualizar status do pagamento no banco de dados
+    const paymentStatus = req.body.status || req.body.action;
+    
     const { error: updateError } = await supabase
       .from('payments')
       .update({
-        status: paymentDetails.status,
+        status: paymentStatus,
         updated_at: new Date().toISOString(),
-        metadata: {
-          ...paymentDetails,
-        },
       })
-      .eq('external_id', paymentId);
+      .eq('external_id', eventId);
 
     if (updateError) {
       console.error('Error updating payment status:', updateError);
-      return res.status(500).json({ message: 'Database error' });
     }
-
+    
     // Se o pagamento foi aprovado, atualizar a assinatura
-    if (paymentDetails.status === 'approved') {
-      // Buscar o pagamento para obter o user_id e plan_id
-      const { data: paymentData } = await supabase
-        .from('payments')
-        .select('metadata')
-        .eq('external_id', paymentId)
-        .single();
-
-      if (paymentData?.metadata) {
-        const userId = paymentData.metadata.user_id;
-        const planId = paymentData.metadata.plan_id;
-
-        if (userId && planId) {
-          // Cancelar assinaturas pendentes anteriores
-          const { error: cancelError } = await supabase
-            .from('user_plan_subscriptions')
-            .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-            .eq('user_id', userId)
-            .eq('status', 'pending');
-
-          if (cancelError) {
-            console.error('Error cancelling pending subscriptions:', cancelError);
-          }
-
-          // Atualizar a assinatura para ativa
-          const { error: subscriptionError } = await supabase
-            .from('user_plan_subscriptions')
-            .update({
-              status: 'active',
-              payment_status: 'paid',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId)
-            .eq('plan_id', planId)
-            .eq('payment_id', paymentId);
-
-          if (subscriptionError) {
-            console.error('Error updating subscription:', subscriptionError);
-          }
+    if (paymentStatus === 'approved') {
+      const userId = paymentData.metadata?.user_id;
+      const planId = paymentData.metadata?.plan_id;
+      const subscriptionId = paymentData.metadata?.subscription_id;
+      
+      if (userId && planId && subscriptionId) {
+        // Atualizar a assinatura para ativa
+        const { error: subscriptionError } = await supabase
+          .from('user_plan_subscriptions')
+          .update({
+            status: 'active',
+            payment_status: 'paid',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', subscriptionId);
+        
+        if (subscriptionError) {
+          console.error('Error updating subscription:', subscriptionError);
         }
       }
     }
-
+    
+    // Responder ao webhook
     return res.status(200).json({ success: true });
-  } catch (error) {
+    
+  } catch (error: any) {
     console.error('Error processing webhook:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({
+      message: 'Error processing webhook',
+      error: error.message || 'Unknown error'
+    });
   }
 }

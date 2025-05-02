@@ -20,20 +20,13 @@ export function useMercadoPagoSdk() {
           console.log('MercadoPago SDK já está disponível no window');
           setIsLoaded(true);
           
-          try {
-            // Inicializar o SDK com a chave pública
-            const publicKey = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY;
-            if (!publicKey) {
-              throw new Error('Chave pública do Mercado Pago não encontrada');
-            }
-            
-            const mpInstance = new (window as any).MercadoPago(publicKey, { locale: 'pt-BR' });
-            setMercadoPagoInstance(mpInstance);
-          } catch (err: any) {
-            console.error('Erro ao inicializar Mercado Pago:', err);
-            setError(err);
+          const publicKey = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY;
+          if (!publicKey) {
+            throw new Error('Chave pública do Mercado Pago não encontrada');
           }
           
+          const mpInstance = new (window as any).MercadoPago(publicKey, { locale: 'pt-BR' });
+          setMercadoPagoInstance(mpInstance);
           setIsLoading(false);
           return;
         }
@@ -48,26 +41,22 @@ export function useMercadoPagoSdk() {
           console.log('MercadoPago SDK carregado com sucesso');
           setIsLoaded(true);
           
-          try {
-            // Inicializar o SDK com a chave pública
-            const publicKey = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY;
-            if (!publicKey) {
-              throw new Error('Chave pública do Mercado Pago não encontrada');
-            }
-            
-            console.log('Inicializando Mercado Pago com a chave:', publicKey.substring(0, 10) + '...');
-            const mpInstance = new (window as any).MercadoPago(publicKey, { locale: 'pt-BR' });
-            setMercadoPagoInstance(mpInstance);
-          } catch (err: any) {
-            console.error('Erro ao inicializar Mercado Pago:', err);
-            setError(err);
+          // Inicializar o SDK com a chave pública
+          const publicKey = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY;
+          if (!publicKey) {
+            setError(new Error('Chave pública do Mercado Pago não encontrada'));
+            setIsLoading(false);
+            return;
           }
           
+          console.log('Inicializando Mercado Pago...');
+          const mpInstance = new (window as any).MercadoPago(publicKey, { locale: 'pt-BR' });
+          setMercadoPagoInstance(mpInstance);
           setIsLoading(false);
         };
         
-        script.onerror = (error) => {
-          console.error('Erro ao carregar MercadoPago SDK:', error);
+        script.onerror = () => {
+          console.error('Erro ao carregar MercadoPago SDK');
           setError(new Error('Falha ao carregar Mercado Pago SDK'));
           setIsLoading(false);
         };
