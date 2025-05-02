@@ -1421,6 +1421,36 @@ export type Database = {
           },
         ]
       }
+      mercadopago_webhook_events: {
+        Row: {
+          error_message: string | null
+          event_id: string
+          event_type: string
+          id: string
+          payload: Json | null
+          processed_at: string
+          status: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          event_id: string
+          event_type: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string
+          status?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          event_id?: string
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       modalidades: {
         Row: {
           active: boolean | null
@@ -1448,39 +1478,48 @@ export type Database = {
       payments: {
         Row: {
           amount: number
-          business_id: string
+          business_id: string | null
           created_at: string
           due_date: string
+          external_id: string | null
           id: string
           invoice_url: string | null
+          metadata: Json | null
           payment_date: string | null
           payment_method: string | null
           status: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           amount: number
-          business_id: string
+          business_id?: string | null
           created_at?: string
           due_date: string
+          external_id?: string | null
           id?: string
           invoice_url?: string | null
+          metadata?: Json | null
           payment_date?: string | null
           payment_method?: string | null
           status?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           amount?: number
-          business_id?: string
+          business_id?: string | null
           created_at?: string
           due_date?: string
+          external_id?: string | null
           id?: string
           invoice_url?: string | null
+          metadata?: Json | null
           payment_date?: string | null
           payment_method?: string | null
           status?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -2329,6 +2368,10 @@ export type Database = {
         }
         Returns: string
       }
+      delete_user_cascade: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
       generate_check_in_token: {
         Args: { p_user_id: string; p_academia_id: string }
         Returns: {
@@ -2439,6 +2482,10 @@ export type Database = {
         Args: { payload: Json }
         Returns: Json
       }
+      process_mercadopago_webhook: {
+        Args: { payload: Json }
+        Returns: Json
+      }
       process_payment_webhook: {
         Args: { payload: Json }
         Returns: Json
@@ -2480,6 +2527,10 @@ export type Database = {
           error: string
           processed_at: string
         }[]
+      }
+      reprocess_mercadopago_webhook_event: {
+        Args: { event_id_param: string }
+        Returns: Json
       }
       save_asaas_customer: {
         Args: {
@@ -2586,6 +2637,7 @@ export type Database = {
         | "pix"
         | "boleto"
         | "transfer"
+        | "mercadopago"
       payment_status:
         | "pending"
         | "paid"
@@ -2758,6 +2810,7 @@ export const Constants = {
         "pix",
         "boleto",
         "transfer",
+        "mercadopago",
       ],
       payment_status: [
         "pending",
