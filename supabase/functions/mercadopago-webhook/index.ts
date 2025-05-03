@@ -7,6 +7,8 @@ import { createHmac } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-signature',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Content-Type': 'application/json'
 }
 
 // URL e chave do Supabase
@@ -21,6 +23,8 @@ const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') || 'e45c42beaba
 
 serve(async (req) => {
   console.log('[MercadoPago Webhook] Requisição recebida')
+  console.log('[MercadoPago Webhook] URL:', req.url)
+  console.log('[MercadoPago Webhook] Método:', req.method)
   console.log('[MercadoPago Webhook] Headers:', Object.fromEntries(req.headers.entries()))
   
   // Tratar requisições OPTIONS (CORS preflight)
@@ -32,13 +36,23 @@ serve(async (req) => {
     })
   }
 
+  // Verificar se é POST
+  if (req.method !== 'POST') {
+    console.error('[MercadoPago Webhook] Método não suportado:', req.method)
+    return new Response(JSON.stringify({ error: 'Método não suportado' }), {
+      status: 405,
+      headers: corsHeaders,
+    })
+  }
+
   try {
     // Extrair dados da requisição
     const { searchParams } = new URL(req.url)
-    const id = searchParams.get('id')
-    const topic = searchParams.get('topic') || searchParams.get('type')
+    const id = searchParams.get('id') || searchParams.get('data.id')
+    const topic = searchParams.get('topic') || searchParams.get('type') || searchParams.get('action')
     
     // Log para debug
+    console.log('[MercadoPago Webhook] Parâmetros de URL:', Object.fromEntries(searchParams.entries()))
     console.log('[MercadoPago Webhook] Recebido:', { id, topic })
 
     // Tentar obter o corpo da requisição como texto
@@ -55,6 +69,11 @@ serve(async (req) => {
         console.log('[MercadoPago Webhook] Aviso: Corpo não é um JSON válido:', e.message)
       }
     }
+    
+    // Extrair dados do evento em diferentes formatos possíveis
+    const eventId = id || body?.id || body?.data?.id || 'unknown'
+    const eventType = topic || body?.type || body?.action || body?.event || 'unknown'
+    let payload = body
     
     // Verificar assinatura do webhook (se disponível)
     const signatureHeader = req.headers.get('x-signature') || req.headers.get('X-Signature')
@@ -91,9 +110,9 @@ serve(async (req) => {
     const { error: logError, data: eventRecord } = await supabase
       .from('mercadopago_webhook_events')
       .insert({
-        event_id: id || 'unknown',
-        event_type: topic || 'unknown',
-        payload: body,
+        event_id: eventId,
+        event_type: eventType,
+        payload: payload,
         status: 'received',
         signature_valid: signatureValid
       })
@@ -106,7 +125,7 @@ serve(async (req) => {
     }
 
     // Se for uma notificação de pagamento, processar
-    if (topic === 'payment') {
+    if (eventType === 'payment' || eventType === 'payment.updated' || eventType === 'payment.created') {
       console.log('[MercadoPago Webhook] Processando notificação de pagamento')
       
       // Obter as credenciais do Mercado Pago do ambiente
@@ -116,11 +135,18 @@ serve(async (req) => {
         throw new Error('Token de acesso do Mercado Pago não configurado')
       }
       
+      // Extrair o ID do pagamento
+      const paymentId = eventId !== 'unknown' ? eventId : (body?.data?.id || null)
+      
+      if (!paymentId) {
+        throw new Error('ID do pagamento não encontrado na requisição')
+      }
+      
       try {
         // Buscar detalhes do pagamento diretamente na API do Mercado Pago
-        console.log(`[MercadoPago Webhook] Buscando dados do pagamento ${id}`)
+        console.log(`[MercadoPago Webhook] Buscando dados do pagamento ${paymentId}`)
         const paymentResponse = await fetch(
-          `https://api.mercadopago.com/v1/payments/${id}`,
+          `https://api.mercadopago.com/v1/payments/${paymentId}`,
           {
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -167,13 +193,38 @@ serve(async (req) => {
               webhook_processed_at: new Date().toISOString()
             }
           })
-          .eq('external_id', id)
+          .eq('external_id', paymentId)
           .select()
           
         if (updatePaymentError) {
           console.error('[MercadoPago Webhook] Erro ao atualizar pagamento:', updatePaymentError)
-        } else {
+        } else if (updatedPayment && updatedPayment.length > 0) {
           console.log('[MercadoPago Webhook] Registro de pagamento atualizado com sucesso:', updatedPayment)
+        } else {
+          console.log('[MercadoPago Webhook] Pagamento não encontrado, verificando se precisamos criar um novo registro')
+          
+          // Se o pagamento não existe no nosso sistema mas temos userId e planId, podemos criar um
+          if (userId && planId) {
+            const { error: createError } = await supabase
+              .from('payments')
+              .insert({
+                external_id: paymentId,
+                user_id: userId,
+                amount: paymentData.transaction_amount,
+                status: paymentData.status,
+                payment_method: paymentData.payment_method_id,
+                metadata: {
+                  plan_id: planId,
+                  payment_details: paymentData
+                }
+              })
+              
+            if (createError) {
+              console.error('[MercadoPago Webhook] Erro ao criar registro de pagamento:', createError)
+            } else {
+              console.log('[MercadoPago Webhook] Novo registro de pagamento criado com sucesso')
+            }
+          }
         }
         
         // Se o pagamento foi aprovado, atualizar a assinatura
@@ -184,7 +235,7 @@ serve(async (req) => {
             .update({
               status: 'active',
               payment_status: 'paid',
-              payment_id: id,
+              payment_id: paymentId,
               updated_at: new Date().toISOString()
             })
             .eq('user_id', userId)
@@ -206,7 +257,7 @@ serve(async (req) => {
             status: 'processed',
             processed_at: new Date().toISOString()
           })
-          .eq('event_id', id)
+          .eq('event_id', eventId)
           
         if (updateEventError) {
           console.error('[MercadoPago Webhook] Erro ao atualizar evento webhook:', updateEventError)
@@ -222,7 +273,7 @@ serve(async (req) => {
             status: 'error',
             error_message: error.message
           })
-          .eq('event_id', id)
+          .eq('event_id', eventId)
           
         if (updateEventError) {
           console.error('[MercadoPago Webhook] Erro ao atualizar status do evento webhook:', updateEventError)
@@ -236,10 +287,7 @@ serve(async (req) => {
       JSON.stringify({ success: true }),
       { 
         status: 200, 
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json' 
-        } 
+        headers: corsHeaders
       }
     )
     
@@ -253,10 +301,7 @@ serve(async (req) => {
       }),
       { 
         status: 500, 
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json' 
-        } 
+        headers: corsHeaders
       }
     )
   }

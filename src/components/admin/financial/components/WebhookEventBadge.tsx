@@ -18,6 +18,8 @@ export function WebhookEventBadge({ status, type = "status" }: WebhookEventBadge
           return "destructive";
         case "reprocessing":
           return "warning";
+        case "received":
+          return "warning";
         default:
           return "default";
       }
@@ -30,13 +32,17 @@ export function WebhookEventBadge({ status, type = "status" }: WebhookEventBadge
       case "RECEIVED_IN_CASH":
       case "processed":
       case "paid":
+      case "approved":
         return "success";
       case "PENDING":
       case "AWAITING_RISK_ANALYSIS":
       case "pending":
+      case "in_process":
+      case "received":
         return "warning";
       case "OVERDUE":
       case "overdue":
+      case "rejected":
         return "destructive";
       case "REFUNDED":
       case "REFUND_REQUESTED":

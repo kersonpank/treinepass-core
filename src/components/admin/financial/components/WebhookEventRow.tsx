@@ -74,10 +74,23 @@ export function WebhookEventRow({ event, onViewPayload, gatewayType = "asaas" }:
     return event.processed_at ? formatDate(event.processed_at) : "Pendente";
   };
 
+  // Display signature validation status for Mercado Pago
+  const getSignatureValidation = () => {
+    if (gatewayType === "mercadopago" && event.signature_valid !== null) {
+      return event.signature_valid ? 
+        <span className="text-green-600 text-xs">✅ Válida</span> : 
+        <span className="text-red-600 text-xs">❌ Inválida</span>;
+    }
+    return null;
+  };
+
   return (
     <TableRow>
       <TableCell>{formatDate(event.created_at)}</TableCell>
-      <TableCell>{getEventType()}</TableCell>
+      <TableCell>
+        {getEventType()}
+        {gatewayType === "mercadopago" && getSignatureValidation()}
+      </TableCell>
       <TableCell>{getPaymentId()}</TableCell>
       <TableCell>
         <WebhookEventBadge 
