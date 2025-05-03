@@ -6,7 +6,7 @@ import { createHmac } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 // Configurações de CORS para aceitar requisições de qualquer origem
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-signature',
 }
 
 // URL e chave do Supabase
@@ -21,6 +21,7 @@ const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') || 'e45c42beaba
 
 serve(async (req) => {
   console.log('[MercadoPago Webhook] Requisição recebida')
+  console.log('[MercadoPago Webhook] Headers:', Object.fromEntries(req.headers.entries()))
   
   // Tratar requisições OPTIONS (CORS preflight)
   if (req.method === 'OPTIONS') {
@@ -38,22 +39,29 @@ serve(async (req) => {
     const topic = searchParams.get('topic') || searchParams.get('type')
     
     // Log para debug
-    console.log('[MercadoPago Webhook] Recebido:', { id, topic, headers: Object.fromEntries(req.headers.entries()) })
+    console.log('[MercadoPago Webhook] Recebido:', { id, topic })
 
-    // Tentar obter o corpo da requisição como JSON
-    let body = {}
+    // Tentar obter o corpo da requisição como texto
     const rawBody = await req.text()
+    console.log('[MercadoPago Webhook] Corpo da requisição raw:', rawBody)
     
-    try {
-      body = JSON.parse(rawBody)
-      console.log('[MercadoPago Webhook] Corpo da requisição:', JSON.stringify(body, null, 2))
-    } catch (e) {
-      console.log('[MercadoPago Webhook] Sem corpo JSON na requisição ou formato inválido:', e.message)
+    // Tentar parsear como JSON se não for vazio
+    let body = {}
+    if (rawBody && rawBody.trim()) {
+      try {
+        body = JSON.parse(rawBody)
+        console.log('[MercadoPago Webhook] Corpo da requisição JSON:', JSON.stringify(body, null, 2))
+      } catch (e) {
+        console.log('[MercadoPago Webhook] Aviso: Corpo não é um JSON válido:', e.message)
+      }
     }
     
     // Verificar assinatura do webhook (se disponível)
     const signatureHeader = req.headers.get('x-signature') || req.headers.get('X-Signature')
-    let signatureValid = false
+    let signatureValid = null
+    
+    console.log('[MercadoPago Webhook] Assinatura recebida:', signatureHeader)
+    console.log('[MercadoPago Webhook] Secret configurado:', webhookSecret ? 'Sim (primeiros 4 caracteres: ' + webhookSecret.substring(0, 4) + '...)' : 'Não')
     
     if (signatureHeader && webhookSecret) {
       try {
@@ -71,23 +79,16 @@ serve(async (req) => {
         });
       } catch (e) {
         console.error('[MercadoPago Webhook] Erro ao validar assinatura:', e.message);
+        signatureValid = false;
       }
     } else {
       console.log('[MercadoPago Webhook] Assinatura não fornecida ou secret não configurado');
       // Como estamos no modo de teste/desenvolvimento, continuamos mesmo sem validação
-      signatureValid = true;
+      signatureValid = null;  // null significa que não foi possível validar
     }
     
-    // Em produção, você pode querer rejeitar webhooks não autenticados
-    // if (!signatureValid) {
-    //   return new Response(JSON.stringify({ error: 'Assinatura inválida' }), {
-    //     status: 401, // Unauthorized
-    //     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    //   });
-    // }
-    
     // Registrar o evento no banco de dados para auditoria
-    const { error: logError } = await supabase
+    const { error: logError, data: eventRecord } = await supabase
       .from('mercadopago_webhook_events')
       .insert({
         event_id: id || 'unknown',
@@ -96,9 +97,12 @@ serve(async (req) => {
         status: 'received',
         signature_valid: signatureValid
       })
+      .select()
       
     if (logError) {
       console.error('[MercadoPago Webhook] Erro ao registrar evento:', logError)
+    } else {
+      console.log('[MercadoPago Webhook] Evento registrado com sucesso:', eventRecord)
     }
 
     // Se for uma notificação de pagamento, processar
@@ -153,7 +157,7 @@ serve(async (req) => {
         console.log('[MercadoPago Webhook] Referências extraídas:', { planId, userId })
         
         // Atualizar registro de pagamento no banco de dados
-        const { error: updatePaymentError } = await supabase
+        const { error: updatePaymentError, data: updatedPayment } = await supabase
           .from('payments')
           .update({
             status: paymentData.status,
@@ -164,17 +168,18 @@ serve(async (req) => {
             }
           })
           .eq('external_id', id)
+          .select()
           
         if (updatePaymentError) {
           console.error('[MercadoPago Webhook] Erro ao atualizar pagamento:', updatePaymentError)
         } else {
-          console.log('[MercadoPago Webhook] Registro de pagamento atualizado com sucesso')
+          console.log('[MercadoPago Webhook] Registro de pagamento atualizado com sucesso:', updatedPayment)
         }
         
         // Se o pagamento foi aprovado, atualizar a assinatura
         if (paymentData.status === 'approved' && userId && planId) {
           console.log('[MercadoPago Webhook] Pagamento aprovado. Atualizando assinatura')
-          const { error: subscriptionError } = await supabase
+          const { error: subscriptionError, data: updatedSubscription } = await supabase
             .from('user_plan_subscriptions')
             .update({
               status: 'active',
@@ -185,11 +190,12 @@ serve(async (req) => {
             .eq('user_id', userId)
             .eq('plan_id', planId)
             .eq('status', 'pending')
+            .select()
             
           if (subscriptionError) {
             console.error('[MercadoPago Webhook] Erro ao atualizar assinatura:', subscriptionError)
           } else {
-            console.log('[MercadoPago Webhook] Assinatura ativada com sucesso')
+            console.log('[MercadoPago Webhook] Assinatura ativada com sucesso:', updatedSubscription)
           }
         }
         

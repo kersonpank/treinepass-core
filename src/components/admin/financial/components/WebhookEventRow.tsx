@@ -80,7 +80,10 @@ export function WebhookEventRow({ event, onViewPayload, gatewayType = "asaas" }:
       <TableCell>{getEventType()}</TableCell>
       <TableCell>{getPaymentId()}</TableCell>
       <TableCell>
-        <WebhookEventBadge status={getStatus()} />
+        <WebhookEventBadge 
+          status={getStatus()} 
+          type={gatewayType}
+        />
       </TableCell>
       <TableCell>{getProcessedTime()}</TableCell>
       <TableCell className="text-right">
