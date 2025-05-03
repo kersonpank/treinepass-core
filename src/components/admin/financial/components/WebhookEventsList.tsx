@@ -11,9 +11,10 @@ import { WebhookEventRow } from "./WebhookEventRow";
 interface WebhookEventsListProps {
   events: any[];
   onViewPayload: (event: any) => void;
+  gatewayType?: string;
 }
 
-export function WebhookEventsList({ events, onViewPayload }: WebhookEventsListProps) {
+export function WebhookEventsList({ events, onViewPayload, gatewayType = "asaas" }: WebhookEventsListProps) {
   return (
     <div className="rounded-md border">
       <Table>
@@ -32,7 +33,8 @@ export function WebhookEventsList({ events, onViewPayload }: WebhookEventsListPr
             <WebhookEventRow 
               key={event.id} 
               event={event} 
-              onViewPayload={onViewPayload} 
+              onViewPayload={onViewPayload}
+              gatewayType={gatewayType}
             />
           ))}
         </TableBody>

@@ -1,45 +1,91 @@
 
+import React from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
 import { WebhookEventBadge } from "./WebhookEventBadge";
-import { getEventTypeLabel, getNestedValue } from "../utils/webhook-utils";
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface WebhookEventRowProps {
   event: any;
   onViewPayload: (event: any) => void;
+  gatewayType?: string;
 }
 
-export function WebhookEventRow({ event, onViewPayload }: WebhookEventRowProps) {
-  // Convert nested values to string to avoid type errors
-  const paymentStatus = String(getNestedValue(event.payload, 'payment.status') || '');
-  const subscriptionStatus = String(getNestedValue(event.payload, 'subscription.status') || '');
-  const status = paymentStatus || subscriptionStatus;
+export function WebhookEventRow({ event, onViewPayload, gatewayType = "asaas" }: WebhookEventRowProps) {
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
+    } catch {
+      return "Data inválida";
+    }
+  };
+
+  // Format event type differently based on gateway
+  const getEventType = () => {
+    if (gatewayType === "mercadopago") {
+      return event.event_type || "Desconhecido";
+    }
+
+    // Default Asaas format
+    return event.event_type || "Desconhecido";
+  };
+
+  // Get payment ID based on gateway
+  const getPaymentId = () => {
+    if (gatewayType === "mercadopago") {
+      return event.event_id || "N/A";
+    }
+
+    // Default Asaas format
+    return event.payment_id || "N/A"; 
+  };
+
+  // Get status based on gateway
+  const getStatus = () => {
+    if (gatewayType === "mercadopago") {
+      return event.status || "received";
+    }
+
+    // Default Asaas format
+    return event.status || "pending";
+  };
+
+  // Check if processed based on gateway
+  const isProcessed = () => {
+    if (gatewayType === "mercadopago") {
+      return event.status === "processed";
+    }
+
+    // Default Asaas format
+    return event.processed === true;
+  };
+
+  // Get processed time based on gateway
+  const getProcessedTime = () => {
+    if (gatewayType === "mercadopago") {
+      return event.processed_at ? formatDate(event.processed_at) : "Pendente";
+    }
+
+    // Default Asaas format
+    return event.processed_at ? formatDate(event.processed_at) : "Pendente";
+  };
 
   return (
-    <TableRow key={event.id}>
+    <TableRow>
+      <TableCell>{formatDate(event.created_at)}</TableCell>
+      <TableCell>{getEventType()}</TableCell>
+      <TableCell>{getPaymentId()}</TableCell>
       <TableCell>
-        {new Date(event.created_at).toLocaleString('pt-BR')}
+        <WebhookEventBadge status={getStatus()} />
       </TableCell>
-      <TableCell>{getEventTypeLabel(event.event_type)}</TableCell>
-      <TableCell>{event.payment_id}</TableCell>
-      <TableCell>
-        <WebhookEventBadge status={status} type="status" />
-      </TableCell>
-      <TableCell>
-        <WebhookEventBadge 
-          status={event.processed ? "processed" : null} 
-          type="processed" 
-          processedAt={event.processed_at}
-        />
-      </TableCell>
+      <TableCell>{getProcessedTime()}</TableCell>
       <TableCell className="text-right">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onViewPayload(event)}
-        >
-          <Eye className="h-4 w-4 mr-2" />
+        <Button size="sm" variant="ghost" onClick={() => onViewPayload(event)}>
+          <Eye className="h-4 w-4 mr-1" />
           Ver Payload
         </Button>
       </TableCell>

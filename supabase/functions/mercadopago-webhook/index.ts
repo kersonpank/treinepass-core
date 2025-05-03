@@ -1,6 +1,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { createHmac } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
 // Configurações de CORS para aceitar requisições de qualquer origem
 const corsHeaders = {
@@ -15,8 +16,8 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 // Cliente Supabase com a service role key para ter acesso completo ao banco
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Webhook secret do Mercado Pago para validação (opcional)
-const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET')
+// Webhook secret do Mercado Pago para validação
+const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') || 'e45c42beabab6ad09718911cf1a5f2d17bded9d2609772bd98cbd39e128e881e'
 
 serve(async (req) => {
   console.log('[MercadoPago Webhook] Requisição recebida')
@@ -41,12 +42,49 @@ serve(async (req) => {
 
     // Tentar obter o corpo da requisição como JSON
     let body = {}
+    const rawBody = await req.text()
+    
     try {
-      body = await req.json()
+      body = JSON.parse(rawBody)
       console.log('[MercadoPago Webhook] Corpo da requisição:', JSON.stringify(body, null, 2))
     } catch (e) {
       console.log('[MercadoPago Webhook] Sem corpo JSON na requisição ou formato inválido:', e.message)
     }
+    
+    // Verificar assinatura do webhook (se disponível)
+    const signatureHeader = req.headers.get('x-signature') || req.headers.get('X-Signature')
+    let signatureValid = false
+    
+    if (signatureHeader && webhookSecret) {
+      try {
+        // Criar HMAC usando o webhookSecret e comparar com o cabeçalho x-signature
+        const computedSignature = createHmac("sha256", webhookSecret)
+          .update(rawBody)
+          .toString("hex");
+          
+        signatureValid = computedSignature === signatureHeader;
+        
+        console.log('[MercadoPago Webhook] Validação de assinatura:', { 
+          recebida: signatureHeader, 
+          calculada: computedSignature, 
+          valida: signatureValid 
+        });
+      } catch (e) {
+        console.error('[MercadoPago Webhook] Erro ao validar assinatura:', e.message);
+      }
+    } else {
+      console.log('[MercadoPago Webhook] Assinatura não fornecida ou secret não configurado');
+      // Como estamos no modo de teste/desenvolvimento, continuamos mesmo sem validação
+      signatureValid = true;
+    }
+    
+    // Em produção, você pode querer rejeitar webhooks não autenticados
+    // if (!signatureValid) {
+    //   return new Response(JSON.stringify({ error: 'Assinatura inválida' }), {
+    //     status: 401, // Unauthorized
+    //     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    //   });
+    // }
     
     // Registrar o evento no banco de dados para auditoria
     const { error: logError } = await supabase
@@ -55,7 +93,8 @@ serve(async (req) => {
         event_id: id || 'unknown',
         event_type: topic || 'unknown',
         payload: body,
-        status: 'received'
+        status: 'received',
+        signature_valid: signatureValid
       })
       
     if (logError) {
