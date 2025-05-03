@@ -32,6 +32,10 @@ export function MercadoPagoCheckout({
       setIsLoading(true);
       setError(null);
 
+      console.log('[MercadoPagoCheckout] Iniciando checkout com dados:', {
+        planId, planName, planValue, userId
+      });
+
       // Criar objeto de preferência
       const preferenceData = {
         items: [
@@ -54,7 +58,7 @@ export function MercadoPagoCheckout({
         external_reference: `plan_${planId}_user_${userId}`,
       };
 
-      console.log('Iniciando checkout com dados:', preferenceData);
+      console.log('[MercadoPagoCheckout] Enviando dados para criar preferência:', JSON.stringify(preferenceData, null, 2));
 
       // Chamar API para criar preferência
       const response = await fetch('/api/mercadopago/create-preference', {
@@ -65,48 +69,67 @@ export function MercadoPagoCheckout({
         body: JSON.stringify(preferenceData)
       });
 
+      console.log('[MercadoPagoCheckout] Status da resposta:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('[MercadoPagoCheckout] Erro na resposta da API:', errorData);
         throw new Error(errorData.message || 'Erro ao criar preferência de pagamento');
       }
 
       const data = await response.json();
-      console.log('Preferência criada com sucesso:', data);
+      console.log('[MercadoPagoCheckout] Preferência criada com sucesso:', data);
       
       // Registrar checkout no banco de dados
-      const registerResponse = await fetch('/api/mercadopago/register-checkout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          plan_id: planId,
-          preference_id: data.id,
-          amount: planValue
-        })
-      });
+      try {
+        console.log('[MercadoPagoCheckout] Registrando checkout no banco de dados');
+        const registerResponse = await fetch('/api/mercadopago/register-checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            plan_id: planId,
+            preference_id: data.id,
+            amount: planValue
+          })
+        });
 
-      if (!registerResponse.ok) {
-        console.warn('Aviso: Erro ao registrar checkout, mas continuando com pagamento');
-      } else {
-        console.log('Checkout registrado com sucesso');
+        if (!registerResponse.ok) {
+          console.warn('[MercadoPagoCheckout] Aviso: Erro ao registrar checkout, mas continuando com pagamento');
+        } else {
+          console.log('[MercadoPagoCheckout] Checkout registrado com sucesso');
+        }
+      } catch (registerErr) {
+        console.error('[MercadoPagoCheckout] Erro ao registrar checkout:', registerErr);
+        // Continua mesmo com erro no registro
       }
 
       // Determinar URL de checkout baseado no ambiente
       const isSandbox = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX === 'true';
       const checkoutUrl = isSandbox ? data.sandbox_init_point : data.init_point;
 
+      if (!checkoutUrl) {
+        throw new Error('URL de checkout não recebida do Mercado Pago');
+      }
+
+      console.log('[MercadoPagoCheckout] URL de checkout:', checkoutUrl);
+      
       if (onSuccess) {
         onSuccess({ preferenceId: data.id, checkoutUrl });
       }
       
-      // Redirecionar para página de checkout do Mercado Pago
-      console.log('Redirecionando para:', checkoutUrl);
-      window.location.href = checkoutUrl;
+      // Redirecionar para página de checkout do Mercado Pago após um breve delay
+      // para garantir que os logs sejam enviados
+      console.log('[MercadoPagoCheckout] Redirecionando para Mercado Pago em 500ms...');
+      setTimeout(() => {
+        console.log('[MercadoPagoCheckout] Redirecionando agora para:', checkoutUrl);
+        window.location.href = checkoutUrl;
+      }, 500);
       
     } catch (err: any) {
-      console.error('Erro ao iniciar checkout:', err);
+      console.error('[MercadoPagoCheckout] Erro ao iniciar checkout:', err);
       setError(err);
       if (onError) {
         onError(err);
@@ -116,7 +139,6 @@ export function MercadoPagoCheckout({
         description: err.message || 'Não foi possível iniciar o checkout',
         variant: 'destructive',
       });
-    } finally {
       setIsLoading(false);
     }
   };

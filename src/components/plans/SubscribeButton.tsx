@@ -36,6 +36,8 @@ export function SubscribeButton({
   const { toast } = useToast();
 
   const handleSubscribe = async () => {
+    console.log('handleSubscribeToPlan clicked:', { planId, planName, planPrice });
+    
     if (!user) {
       toast({
         title: "Autenticação necessária",
@@ -49,7 +51,8 @@ export function SubscribeButton({
     setIsDialogOpen(true);
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (data: any) => {
+    console.log('Pagamento iniciado com sucesso:', data);
     setIsDialogOpen(false);
     toast({
       title: "Redirecionando para pagamento",
@@ -58,12 +61,15 @@ export function SubscribeButton({
   };
 
   const handlePaymentError = (error: any) => {
+    console.error('Erro no pagamento:', error);
     toast({
       title: "Erro no pagamento",
       description: error.message || "Houve um erro ao processar seu pagamento. Tente novamente.",
       variant: "destructive",
     });
   };
+
+  console.log('SubscribeButton render:', { planId, planName, planPrice, isDialogOpen });
 
   return (
     <>
