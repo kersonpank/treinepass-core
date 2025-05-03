@@ -1,3 +1,6 @@
 
-[functions.asaas-webhook]
-verify_jwt=false 
+[functions]
+node_version = 18
+
+[functions.mercadopago-webhook]
+verify_jwt = false

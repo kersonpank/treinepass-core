@@ -39,6 +39,11 @@ export function useMercadoPago(config?: MercadoPagoConfig) {
         planId, userId, amount, description
       });
 
+      // URL base para o webhook do Mercado Pago
+      const webhookUrl = import.meta.env.VITE_SUPABASE_URL 
+        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/mercadopago-webhook`
+        : `${window.location.origin}/api/webhooks/mercadopago`;
+
       // Preparar objeto de preferência
       const preferenceData = {
         items: [
@@ -57,9 +62,12 @@ export function useMercadoPago(config?: MercadoPagoConfig) {
           pending: `${window.location.origin}/payment/pending`
         },
         auto_return: 'approved',
-        notification_url: `${window.location.origin}/api/webhooks/mercadopago`,
+        notification_url: webhookUrl,
         external_reference: `plan_${planId}_user_${userId}`,
       };
+
+      console.log('[useMercadoPago] Webhook URL:', webhookUrl);
+      console.log('[useMercadoPago] Dados da preferência:', preferenceData);
 
       // Chamar API para criar preferência
       const response = await fetch('/api/mercadopago/create-preference', {
