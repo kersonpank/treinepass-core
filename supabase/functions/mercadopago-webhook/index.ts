@@ -15,9 +15,15 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 // Cliente Supabase com a service role key para ter acesso completo ao banco
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+// Webhook secret do Mercado Pago para validação (opcional)
+const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET')
+
 serve(async (req) => {
+  console.log('[MercadoPago Webhook] Requisição recebida')
+  
   // Tratar requisições OPTIONS (CORS preflight)
   if (req.method === 'OPTIONS') {
+    console.log('[MercadoPago Webhook] Respondendo a requisição OPTIONS')
     return new Response(null, {
       status: 204,
       headers: corsHeaders,
@@ -31,14 +37,15 @@ serve(async (req) => {
     const topic = searchParams.get('topic') || searchParams.get('type')
     
     // Log para debug
-    console.log('[MercadoPago Webhook] Recebido:', { id, topic })
+    console.log('[MercadoPago Webhook] Recebido:', { id, topic, headers: Object.fromEntries(req.headers.entries()) })
 
     // Tentar obter o corpo da requisição como JSON
     let body = {}
     try {
       body = await req.json()
+      console.log('[MercadoPago Webhook] Corpo da requisição:', JSON.stringify(body, null, 2))
     } catch (e) {
-      console.log('[MercadoPago Webhook] Sem corpo JSON na requisição')
+      console.log('[MercadoPago Webhook] Sem corpo JSON na requisição ou formato inválido:', e.message)
     }
     
     // Registrar o evento no banco de dados para auditoria
@@ -68,6 +75,7 @@ serve(async (req) => {
       
       try {
         // Buscar detalhes do pagamento diretamente na API do Mercado Pago
+        console.log(`[MercadoPago Webhook] Buscando dados do pagamento ${id}`)
         const paymentResponse = await fetch(
           `https://api.mercadopago.com/v1/payments/${id}`,
           {
@@ -78,7 +86,12 @@ serve(async (req) => {
           }
         )
         
+        console.log(`[MercadoPago Webhook] Status da resposta: ${paymentResponse.status}`)
+        
         if (!paymentResponse.ok) {
+          const errorText = await paymentResponse.text()
+          console.error(`[MercadoPago Webhook] Erro ao buscar pagamento: ${paymentResponse.status} - ${paymentResponse.statusText}`)
+          console.error(`[MercadoPago Webhook] Detalhes do erro: ${errorText}`)
           throw new Error(`Erro ao buscar pagamento: ${paymentResponse.statusText}`)
         }
         
@@ -115,10 +128,13 @@ serve(async (req) => {
           
         if (updatePaymentError) {
           console.error('[MercadoPago Webhook] Erro ao atualizar pagamento:', updatePaymentError)
+        } else {
+          console.log('[MercadoPago Webhook] Registro de pagamento atualizado com sucesso')
         }
         
         // Se o pagamento foi aprovado, atualizar a assinatura
         if (paymentData.status === 'approved' && userId && planId) {
+          console.log('[MercadoPago Webhook] Pagamento aprovado. Atualizando assinatura')
           const { error: subscriptionError } = await supabase
             .from('user_plan_subscriptions')
             .update({
@@ -139,7 +155,7 @@ serve(async (req) => {
         }
         
         // Atualizar o status do evento webhook
-        await supabase
+        const { error: updateEventError } = await supabase
           .from('mercadopago_webhook_events')
           .update({
             status: 'processed',
@@ -147,21 +163,30 @@ serve(async (req) => {
           })
           .eq('event_id', id)
           
+        if (updateEventError) {
+          console.error('[MercadoPago Webhook] Erro ao atualizar evento webhook:', updateEventError)
+        }
+        
       } catch (error) {
         console.error('[MercadoPago Webhook] Erro ao processar pagamento:', error)
         
         // Registrar erro no evento
-        await supabase
+        const { error: updateEventError } = await supabase
           .from('mercadopago_webhook_events')
           .update({
             status: 'error',
             error_message: error.message
           })
           .eq('event_id', id)
+          
+        if (updateEventError) {
+          console.error('[MercadoPago Webhook] Erro ao atualizar status do evento webhook:', updateEventError)
+        }
       }
     }
     
     // Retornar resposta de sucesso
+    console.log('[MercadoPago Webhook] Processamento concluído com sucesso')
     return new Response(
       JSON.stringify({ success: true }),
       { 
