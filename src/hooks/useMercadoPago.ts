@@ -1,268 +1,168 @@
 
-import { useState, useEffect, useCallback } from 'react';
-import { toast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { useState, useCallback } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
-import { 
-  MP_PUBLIC_KEY, 
-  initMercadoPagoSDK, 
-  createPaymentBrick, 
-  createPaymentPreference, 
-  getInitPoint,
-  MercadoPagoItem,
-  MercadoPagoPayer
-} from '@/services/mercadopago';
-
-interface UseMercadoPagoOptions {
+interface MercadoPagoConfig {
   onPaymentSuccess?: (data: any) => void;
   onPaymentError?: (error: any) => void;
-  onInitError?: (error: any) => void;
   redirectToSuccessPage?: boolean;
 }
 
-export function useMercadoPago(options: UseMercadoPagoOptions = {}) {
-  const [isInitialized, setIsInitialized] = useState(false);
+/**
+ * Hook para integração com o Mercado Pago
+ */
+export function useMercadoPago(config?: MercadoPagoConfig) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const navigate = useNavigate();
-
+  const { toast } = useToast();
   const { 
     onPaymentSuccess, 
-    onPaymentError, 
-    onInitError, 
-    redirectToSuccessPage = false
-  } = options;
+    onPaymentError,
+    redirectToSuccessPage = true 
+  } = config || {};
 
-  // Initialize the SDK
-  useEffect(() => {
-    try {
-      if (!MP_PUBLIC_KEY) {
-        throw new Error('Mercado Pago public key not configured');
-      }
-
-      initMercadoPagoSDK();
-      setIsInitialized(true);
-    } catch (err: any) {
-      console.error('Error initializing Mercado Pago:', err);
-      setError(err);
-      if (onInitError) {
-        onInitError(err);
-      }
-    }
-  }, [onInitError]);
-
-  // Create payment brick
-  const initPaymentBrick = useCallback((
-    containerId: string,
+  /**
+   * Cria uma preferência de pagamento e redireciona para o checkout do Mercado Pago
+   */
+  const createSubscriptionAndRedirect = useCallback(async (
+    planId: string, 
+    userId: string, 
     amount: number,
-    metadata?: Record<string, any>
-  ) => {
-    if (!isInitialized || !MP_PUBLIC_KEY) {
-      setError(new Error('Mercado Pago not initialized'));
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      
-      createPaymentBrick(containerId, {
-        amount,
-        metadata,
-        callbackSuccess: async (data) => {
-          console.log('Payment successful:', data);
-          setIsLoading(false);
-          
-          if (onPaymentSuccess) {
-            onPaymentSuccess(data);
-          }
-          
-          toast({
-            title: 'Pagamento realizado com sucesso!',
-            description: 'Sua assinatura está ativa.',
-          });
-          
-          if (redirectToSuccessPage) {
-            navigate('/payment-success');
-          }
-        },
-        callbackError: (error) => {
-          console.error('Payment error:', error);
-          setIsLoading(false);
-          setError(error);
-          
-          if (onPaymentError) {
-            onPaymentError(error);
-          }
-          
-          toast({
-            title: 'Erro no pagamento',
-            description: error.message || 'Ocorreu um erro ao processar seu pagamento.',
-            variant: 'destructive',
-          });
-        }
-      });
-    } catch (err: any) {
-      console.error('Error initializing payment brick:', err);
-      setIsLoading(false);
-      setError(err);
-      
-      toast({
-        title: 'Erro na inicialização',
-        description: 'Não foi possível inicializar o formulário de pagamento.',
-        variant: 'destructive',
-      });
-    }
-  }, [isInitialized, navigate, onPaymentError, onPaymentSuccess, redirectToSuccessPage]);
-
-  // Create a payment preference
-  const createPreference = useCallback(async (
-    items: MercadoPagoItem[],
-    payer?: MercadoPagoPayer,
-    externalReference?: string
+    description: string
   ) => {
     try {
       setIsLoading(true);
-      
-      const preference = await createPaymentPreference({
-        items,
-        payer,
+      setError(null);
+
+      console.log('[useMercadoPago] Criando preferência para assinatura:', {
+        planId, userId, amount, description
+      });
+
+      // Preparar objeto de preferência
+      const preferenceData = {
+        items: [
+          {
+            id: planId,
+            title: description,
+            description: `Assinatura: ${description}`,
+            quantity: 1,
+            currency_id: 'BRL',
+            unit_price: amount
+          }
+        ],
         back_urls: {
-          success: `${window.location.origin}/payment-success`,
-          failure: `${window.location.origin}/payment-failure`,
-          pending: `${window.location.origin}/payment-pending`,
+          success: `${window.location.origin}/payment/success`,
+          failure: `${window.location.origin}/payment/failure`,
+          pending: `${window.location.origin}/payment/pending`
         },
         auto_return: 'approved',
-        external_reference: externalReference,
+        notification_url: `${window.location.origin}/api/webhooks/mercadopago`,
+        external_reference: `plan_${planId}_user_${userId}`,
+      };
+
+      // Chamar API para criar preferência
+      const response = await fetch('/api/mercadopago/create-preference', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(preferenceData)
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao criar preferência de pagamento');
+      }
+
+      const data = await response.json();
+      console.log('[useMercadoPago] Preferência criada com sucesso:', data);
       
-      setIsLoading(false);
-      return preference;
-    } catch (err: any) {
-      console.error('Error creating preference:', err);
-      setIsLoading(false);
-      setError(err);
+      // Registrar checkout no banco de dados
+      try {
+        const registerResponse = await fetch('/api/mercadopago/register-checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            plan_id: planId,
+            preference_id: data.id,
+            amount
+          })
+        });
+
+        if (!registerResponse.ok) {
+          console.warn('[useMercadoPago] Aviso ao registrar checkout, mas continuando');
+        }
+      } catch (registerError) {
+        console.error('[useMercadoPago] Erro ao registrar checkout:', registerError);
+      }
+
+      // Determinar URL de checkout baseado no ambiente
+      const isSandbox = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX === 'true';
+      const checkoutUrl = isSandbox ? data.sandbox_init_point : data.init_point;
+
+      if (!checkoutUrl) {
+        throw new Error('URL de checkout não recebida');
+      }
+
+      // Chamar callback de sucesso se fornecido
+      if (onPaymentSuccess) {
+        onPaymentSuccess({ 
+          preferenceId: data.id, 
+          checkoutUrl 
+        });
+      }
+
+      // Redirecionar para o checkout se configurado
+      if (redirectToSuccessPage) {
+        console.log('[useMercadoPago] Redirecionando para:', checkoutUrl);
+        window.location.href = checkoutUrl;
+      }
+
+      return {
+        preferenceId: data.id,
+        checkoutUrl
+      };
+    } catch (error: any) {
+      console.error('[useMercadoPago] Erro ao criar preferência:', error);
+      setError(error);
+      
+      // Chamar callback de erro se fornecido
+      if (onPaymentError) {
+        onPaymentError(error);
+      }
       
       toast({
-        title: 'Erro na criação do pagamento',
-        description: err.message || 'Ocorreu um erro ao criar o link de pagamento.',
+        title: 'Erro ao processar pagamento',
+        description: error.message || 'Erro desconhecido ao iniciar checkout',
         variant: 'destructive',
       });
       
-      throw err;
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
+  }, [toast, onPaymentSuccess, onPaymentError, redirectToSuccessPage]);
+
+  /**
+   * Inicializa o brick de pagamento (não usado no fluxo de redirecionamento)
+   */
+  const initPaymentBrick = useCallback(() => {
+    // Não implementado para o fluxo de redirecionamento
+    setIsInitialized(true);
+    return null;
   }, []);
 
-  // Redirect to checkout
-  const redirectToCheckout = useCallback(async (
-    items: MercadoPagoItem[],
-    payer?: MercadoPagoPayer,
-    externalReference?: string
-  ) => {
-    try {
-      const preference = await createPreference(items, payer, externalReference);
-      const checkoutUrl = getInitPoint(preference);
-      
-      // Redirect to Mercado Pago checkout
-      window.location.href = checkoutUrl;
-    } catch (err) {
-      // Error already handled in createPreference
-      console.error('Error redirecting to checkout:', err);
-    }
-  }, [createPreference]);
-
-  // Save subscription record before redirecting
-  const createSubscriptionAndRedirect = useCallback(async (
-    planId: string,
-    userId: string,
-    amount: number,
-    planName: string
-  ) => {
-    try {
-      setIsLoading(true);
-      
-      // Create pending subscription
-      const { data: subscription, error: subscriptionError } = await supabase
-        .from('user_plan_subscriptions')
-        .insert({
-          user_id: userId,
-          plan_id: planId,
-          status: 'pending',
-          payment_status: 'pending',
-          payment_method: 'mercadopago',
-          start_date: new Date().toISOString().split('T')[0],
-          total_value: amount,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-      
-      if (subscriptionError) {
-        throw new Error(`Error creating subscription: ${subscriptionError.message}`);
-      }
-      
-      // Get user details
-      const { data: user, error: userError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (userError) {
-        console.warn(`Could not fetch user details: ${userError.message}`);
-      }
-      
-      // Create items for checkout
-      const items = [{
-        id: planId,
-        title: `Assinatura ${planName}`,
-        quantity: 1,
-        unit_price: amount,
-        description: `Assinatura do plano ${planName}`,
-      }];
-      
-      // Create payer object if user details available
-      const payer = user ? {
-        email: user.email || '',
-        name: user.full_name ? user.full_name.split(' ')[0] : '',
-        surname: user.full_name ? user.full_name.split(' ').slice(1).join(' ') : '',
-        ...(user.cpf && {
-          identification: {
-            type: 'CPF',
-            number: user.cpf.replace(/\D/g, '')
-          }
-        })
-      } : undefined;
-      
-      // Redirect to Mercado Pago checkout
-      await redirectToCheckout(
-        items,
-        payer,
-        subscription.id
-      );
-      
-      setIsLoading(false);
-    } catch (err: any) {
-      console.error('Error creating subscription and redirecting:', err);
-      setIsLoading(false);
-      setError(err);
-      
-      toast({
-        title: 'Erro na preparação do pagamento',
-        description: err.message || 'Ocorreu um erro ao preparar o pagamento.',
-        variant: 'destructive',
-      });
-    }
-  }, [redirectToCheckout]);
-
   return {
-    isInitialized,
     isLoading,
+    isInitialized,
     error,
-    initPaymentBrick,
-    createPreference,
-    redirectToCheckout,
     createSubscriptionAndRedirect,
+    initPaymentBrick
   };
 }
+
+export default useMercadoPago;

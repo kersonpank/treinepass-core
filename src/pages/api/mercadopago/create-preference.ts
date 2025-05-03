@@ -15,12 +15,16 @@ export default async function handler(
   }
 
   try {
-    const accessToken = process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN;
+    const accessToken = process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN || import.meta.env.VITE_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN;
     
     if (!accessToken) {
       console.error('[API] create-preference - Token de acesso não configurado');
       return res.status(500).json({ 
-        message: 'MercadoPago access token not configured'
+        message: 'MercadoPago access token not configured',
+        env: {
+          hasToken: !!process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN,
+          hasViteToken: !!import.meta.env.VITE_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN,
+        }
       });
     }
 
@@ -74,7 +78,12 @@ export default async function handler(
     
     return res.status(500).json({ 
       message: 'Failed to create payment preference',
-      error: error.message || 'Unknown error'
+      error: error.message || 'Unknown error',
+      stack: error.stack,
+      details: error.response ? {
+        status: error.response.status,
+        data: error.response.data
+      } : null
     });
   }
 }

@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 export function useMercadoPagoStatus() {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [envVariables, setEnvVariables] = useState<Record<string, string | undefined>>({});
+  const [statusOk, setStatusOk] = useState<boolean>(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export function useMercadoPagoStatus() {
         // Coletar variáveis de ambiente relacionadas ao Mercado Pago
         const variables = {
           PUBLIC_KEY: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY,
+          ACCESS_TOKEN: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN,
           SANDBOX: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX,
           SITE_URL: import.meta.env.VITE_PUBLIC_SITE_URL,
         };
@@ -38,17 +40,29 @@ export function useMercadoPagoStatus() {
         
         console.log('[MercadoPagoStatus] Variáveis de ambiente:', maskedVariables);
         
-        // Verificar se o token existe
+        // Verificar se as chaves existem
         if (!variables.PUBLIC_KEY) {
           toast({
             title: "Configuração incompleta",
             description: "A chave pública do Mercado Pago não está configurada.",
             variant: "destructive"
           });
+          setStatusOk(false);
+        } else if (!variables.ACCESS_TOKEN) {
+          toast({
+            title: "Configuração incompleta",
+            description: "O token de acesso do Mercado Pago não está configurado.",
+            variant: "destructive"
+          });
+          setStatusOk(false);
+        } else {
+          console.log('[MercadoPagoStatus] Configuração do Mercado Pago parece OK');
+          setStatusOk(true);
         }
         
       } catch (error: any) {
         console.error('[MercadoPagoStatus] Erro ao verificar status:', error);
+        setStatusOk(false);
       } finally {
         setIsCheckingStatus(false);
       }
@@ -57,7 +71,7 @@ export function useMercadoPagoStatus() {
     checkStatus();
   }, [toast]);
   
-  return { isCheckingStatus, envVariables };
+  return { isCheckingStatus, envVariables, statusOk };
 }
 
 export default useMercadoPagoStatus;

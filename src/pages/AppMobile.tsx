@@ -19,7 +19,7 @@ export default function AppMobile() {
   const location = useLocation();
   const { toast } = useToast();
   const [showDebug, setShowDebug] = useState(false);
-  const { envVariables } = useMercadoPagoStatus();
+  const { envVariables, statusOk } = useMercadoPagoStatus();
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -32,6 +32,72 @@ export default function AppMobile() {
       return;
     }
     navigate("/");
+  };
+
+  const testMercadoPagoPreference = async () => {
+    try {
+      toast({
+        title: "Teste iniciado",
+        description: "Testando criação de preferência do Mercado Pago..."
+      });
+
+      const testData = {
+        items: [
+          {
+            id: "test-plan",
+            title: "Plano Teste",
+            description: "Plano para teste de integração",
+            quantity: 1,
+            currency_id: "BRL",
+            unit_price: 0.01
+          }
+        ],
+        back_urls: {
+          success: `${window.location.origin}/payment/success`,
+          failure: `${window.location.origin}/payment/failure`,
+          pending: `${window.location.origin}/payment/pending`
+        },
+        auto_return: "approved",
+        notification_url: `${window.location.origin}/api/webhooks/mercadopago`,
+        external_reference: `test_user_test`,
+      };
+
+      const response = await fetch('/api/mercadopago/create-preference', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testData)
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao criar preferência');
+      }
+      
+      toast({
+        title: "Teste concluído",
+        description: "Preferência criada com sucesso. Verifique o console para detalhes."
+      });
+      
+      console.log("Preferência criada com sucesso:", result);
+      
+      // Mostrar link para o checkout
+      const isSandbox = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX === 'true';
+      const checkoutUrl = isSandbox ? result.sandbox_init_point : result.init_point;
+      
+      if (confirm("Deseja abrir a página de checkout para teste?")) {
+        window.open(checkoutUrl, "_blank");
+      }
+    } catch (error: any) {
+      console.error("Erro ao testar mercado pago:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro no teste",
+        description: error.message || "Não foi possível testar o Mercado Pago"
+      });
+    }
   };
 
   const defaultTab = location.pathname.includes('/plans') ? 'plans' : 'search';
@@ -58,23 +124,41 @@ export default function AppMobile() {
           <Alert className="mb-4">
             <AlertTitle>Informações de Debug</AlertTitle>
             <AlertDescription>
-              <div className="text-xs">
+              <div className="text-xs space-y-1">
                 <p>Mercado Pago Public Key: {envVariables.PUBLIC_KEY || 'Não configurada'}</p>
+                <p>Mercado Pago Access Token: {envVariables.ACCESS_TOKEN || 'Não configurado'}</p>
                 <p>Sandbox: {envVariables.SANDBOX || 'Não configurado'}</p>
                 <p>Site URL: {envVariables.SITE_URL || window.location.origin}</p>
                 <p>Current Route: {location.pathname}</p>
-                <button 
-                  className="mt-2 text-xs text-blue-500 hover:underline"
-                  onClick={() => {
-                    console.log('Testando console log');
-                    toast({ 
-                      title: "Teste de Toast", 
-                      description: "Este é um teste de notificação" 
-                    });
-                  }}
-                >
-                  Testar log/toast
-                </button>
+                
+                <div className="flex space-x-2 mt-2">
+                  <button 
+                    className="text-xs text-blue-500 hover:underline"
+                    onClick={() => {
+                      console.log('Testando console log');
+                      toast({ 
+                        title: "Teste de Toast", 
+                        description: "Este é um teste de notificação" 
+                      });
+                    }}
+                  >
+                    Testar log/toast
+                  </button>
+                  
+                  <button 
+                    className="text-xs text-green-500 hover:underline"
+                    onClick={testMercadoPagoPreference}
+                  >
+                    Testar Mercado Pago
+                  </button>
+                </div>
+                
+                <div className="mt-2">
+                  <p className="font-semibold">Status da integração: {statusOk ? '✅ OK' : '❌ Não configurado corretamente'}</p>
+                  {!statusOk && (
+                    <p className="text-red-500">Verifique as configurações das variáveis de ambiente.</p>
+                  )}
+                </div>
               </div>
             </AlertDescription>
           </Alert>
