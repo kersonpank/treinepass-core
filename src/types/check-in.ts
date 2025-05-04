@@ -6,6 +6,6 @@ export interface CheckInCode {
   status: 'active' | 'expired' | 'used';
   created_at: string;
   expires_at: string;
-  access_token?: string;
-  token_expires_at?: string;
+  used_at?: string;
+  academia_id?: string;
 }

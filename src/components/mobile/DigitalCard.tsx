@@ -1,110 +1,123 @@
 
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useParams } from "react-router-dom";
-import { CheckInCode } from "@/types/check-in";
 import { CheckInButton } from "./check-in/CheckInButton";
-import { CheckInDisplay } from "./check-in/CheckInDisplay";
+import { CheckInCode } from "@/types/check-in";
+import { formatDateTime } from "@/lib/utils";
 
-export function DigitalCard() {
+interface DigitalCardProps {
+  academiaId: string;
+  academiaName: string;
+}
+
+export function DigitalCard({ academiaId, academiaName }: DigitalCardProps) {
+  const { user } = useAuth();
   const [activeCode, setActiveCode] = useState<CheckInCode | null>(null);
-  const { academiaId } = useParams();
+  const [timeLeft, setTimeLeft] = useState<number>(0);
 
-  const { data: userProfile } = useQuery({
-    queryKey: ["userProfile"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not found");
-
-      const { data, error } = await supabase
-        .from("user_profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: checkInCode, refetch: refetchCheckInCode } = useQuery({
-    queryKey: ["activeCheckInCode", userProfile?.id],
-    queryFn: async () => {
-      if (!userProfile?.id) return null;
-
-      // Verificar se há códigos de check-in ativos no banco de dados
-      const currentTime = new Date().toISOString();
-      const { data, error } = await supabase
-        .from("check_in_codes")
-        .select("*")
-        .eq("user_id", userProfile.id)
-        .eq("status", "active")
-        .gt("expires_at", currentTime)
-        .order("created_at", { ascending: false })
-        .maybeSingle();
-
-      if (error) {
-        console.error("Erro ao buscar código de check-in:", error);
-        return null;
-      }
-      
-      return data as CheckInCode | null;
-    },
-    enabled: !!userProfile?.id,
-  });
-
+  // Buscar código ativo ou gerar um novo
   useEffect(() => {
-    if (!checkInCode || checkInCode.status !== "active") {
-      setActiveCode(null);
-      return;
-    }
-    setActiveCode(checkInCode);
-  }, [checkInCode]);
+    const fetchActiveCode = async () => {
+      if (!user) return;
 
-  const handleCheckInSuccess = (newCode: CheckInCode) => {
+      try {
+        // Buscar código ativo
+        const { data, error } = await supabase
+          .from("check_in_codes")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .eq("academia_id", academiaId)
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!error && data) {
+          setActiveCode(data as CheckInCode);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar código:", error);
+      }
+    };
+
+    fetchActiveCode();
+
+    // Atualizar a cada 10 segundos
+    const interval = setInterval(fetchActiveCode, 10000);
+    return () => clearInterval(interval);
+  }, [user, academiaId]);
+
+  // Atualizar contador de tempo restante
+  useEffect(() => {
+    if (!activeCode) return;
+
+    const updateTimeLeft = () => {
+      const now = new Date();
+      const expiresAt = new Date(activeCode.expires_at);
+      const diff = Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+      setTimeLeft(diff);
+    };
+
+    updateTimeLeft();
+    const interval = setInterval(updateTimeLeft, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeCode]);
+
+  const formatTimeLeft = (seconds: number) => {
+    if (seconds <= 0) return "Expirado";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const handleNewCode = (newCode: CheckInCode) => {
     setActiveCode(newCode);
-    refetchCheckInCode();
   };
-
-  const handleExpire = () => {
-    setActiveCode(null);
-    refetchCheckInCode();
-  };
-
-  if (!userProfile) {
-    return null;
-  }
 
   return (
-    <div className="p-4">
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle className="text-center">Carteirinha Digital</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-center space-y-2">
-            <h3 className="font-semibold text-lg">{userProfile.full_name}</h3>
-            <p className="text-sm text-muted-foreground">CPF: {userProfile.cpf}</p>
-          </div>
+    <Card className="w-full bg-white shadow-lg overflow-hidden">
+      <CardContent className="p-6 flex flex-col items-center">
+        <h3 className="text-xl font-semibold mb-2 text-center">
+          {academiaName}
+        </h3>
+        
+        {activeCode ? (
+          <div className="w-full mt-4 flex flex-col items-center space-y-4">
+            <div className="bg-muted p-4 w-full rounded-lg text-center">
+              <p className="text-sm text-muted-foreground mb-1">Código de Check-in</p>
+              <p className="text-4xl font-bold tracking-widest">
+                {activeCode.code}
+              </p>
+              <p className="text-sm mt-2">
+                Expira em: <span className="font-medium">{formatTimeLeft(timeLeft)}</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Gerado em: {formatDateTime(activeCode.created_at)}
+              </p>
+            </div>
 
-          {activeCode ? (
-            <CheckInDisplay 
-              checkInCode={activeCode} 
-              onExpire={handleExpire}
+            <div className="w-full text-center text-sm text-muted-foreground">
+              <p>Apresente este código na recepção da academia</p>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full mt-4 space-y-4">
+            <p className="text-center text-sm text-muted-foreground">
+              Gere um código para fazer check-in na academia
+            </p>
+            
+            <CheckInButton 
+              academiaId={academiaId} 
+              onSuccess={handleNewCode} 
             />
-          ) : (
-            academiaId && (
-              <CheckInButton
-                academiaId={academiaId}
-                automatic={true}
-                onSuccess={handleCheckInSuccess}
-              />
-            )
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -44,19 +44,6 @@ export function CheckInButton({
         throw new Error("Você precisa estar logado para fazer check-in");
       }
 
-      // Verificar se o usuário pode fazer check-in
-      const { data: validationResult, error: validationError } = await supabase
-        .rpc('validate_check_in_rules', {
-          p_user_id: user.id,
-          p_academia_id: academiaId
-        });
-
-      const validation = validationResult?.[0];
-      
-      if (validationError || !validation?.can_check_in) {
-        throw new Error(validation?.message || "Não foi possível validar o check-in");
-      }
-
       // Criar código de check-in para carteirinha digital
       const { data: checkInCode, error: codeError } = await supabase
         .from("check_in_codes")
@@ -64,7 +51,8 @@ export function CheckInButton({
           user_id: user.id,
           code: Math.random().toString(36).substring(2, 10).toUpperCase(),
           status: "active",
-          expires_at: new Date(Date.now() + 30 * 60000).toISOString() // 30 minutos
+          expires_at: new Date(Date.now() + 30 * 60000).toISOString(), // 30 minutos
+          academia_id: academiaId
         })
         .select()
         .single();
