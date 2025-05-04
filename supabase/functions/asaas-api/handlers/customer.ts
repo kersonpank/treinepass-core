@@ -16,17 +16,14 @@ interface CustomerData {
 export async function handleCreateCustomer(data: CustomerData, apiKey: string, baseUrl: string) {
   console.log(`Creating or finding customer with data:`, data);
   
-  // Validate required fields
+  // Validar campos obrigatórios
   if (!data.name || !data.cpfCnpj) {
-    throw new Error('Customer name and CPF/CNPJ are required');
+    throw new Error('Customer name and cpfCnpj are required');
   }
   
-  // Clean CPF/CNPJ (remove special characters)
-  const cleanedCpfCnpj = data.cpfCnpj.replace(/[^0-9]/g, '');
-  
+  // Primeiro verificar se o cliente já existe pelo CPF/CNPJ
   try {
-    // First check if customer already exists with this CPF/CNPJ
-    const searchResponse = await fetch(`${baseUrl}/customers?cpfCnpj=${cleanedCpfCnpj}`, {
+    const searchResponse = await fetch(`${baseUrl}/customers?cpfCnpj=${data.cpfCnpj}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -36,50 +33,74 @@ export async function handleCreateCustomer(data: CustomerData, apiKey: string, b
     
     const searchResult = await searchResponse.json();
     
-    // If customer exists, return it
-    if (searchResult.data && searchResult.data.length > 0) {
-      console.log(`Customer already exists with CPF/CNPJ ${cleanedCpfCnpj}`);
+    if (searchResponse.ok && searchResult.data && searchResult.data.length > 0) {
+      const existingCustomer = searchResult.data[0];
+      console.log(`Customer already exists with ID: ${existingCustomer.id}`);
       return {
-        id: searchResult.data[0].id,
-        name: searchResult.data[0].name,
-        email: searchResult.data[0].email,
-        cpfCnpj: searchResult.data[0].cpfCnpj,
+        id: existingCustomer.id,
+        name: existingCustomer.name,
+        cpfCnpj: existingCustomer.cpfCnpj,
+        email: existingCustomer.email,
         isExistingCustomer: true
       };
     }
-    
-    // If customer doesn't exist, create it
-    console.log(`Creating new customer with CPF/CNPJ ${cleanedCpfCnpj}`);
-    
+  } catch (searchError) {
+    console.error("Error searching for customer:", searchError);
+    // Continue to create a new customer
+  }
+  
+  // Cliente não existe, criar um novo
+  console.log("Customer not found, creating new one");
+  
+  // Preparar dados para criação do cliente
+  const customerData = {
+    name: data.name,
+    cpfCnpj: data.cpfCnpj,
+    email: data.email || `${data.cpfCnpj}@cliente.com.br`, // Email é obrigatório na API do Asaas
+    mobilePhone: data.mobilePhone || data.phone,
+    address: data.address,
+    addressNumber: data.addressNumber,
+    complement: data.complement,
+    province: data.province,
+    postalCode: data.postalCode,
+    externalReference: data.externalReference,
+    notificationDisabled: false
+  };
+  
+  try {
+    // Fazer requisição para a API do Asaas
     const response = await fetch(`${baseUrl}/customers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'access_token': apiKey
       },
-      body: JSON.stringify({
-        ...data,
-        cpfCnpj: cleanedCpfCnpj
-      })
+      body: JSON.stringify(customerData)
     });
     
+    // Log da resposta bruta para debug
+    const responseText = await response.text();
+    console.log(`Raw Asaas customer create response:`, responseText);
+    
+    // Parse da resposta
+    const customerResult = JSON.parse(responseText);
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Error creating customer: ${response.status} - ${errorText}`);
-      throw new Error(`Error creating customer: ${response.status} - ${errorText}`);
+      throw new Error(`Asaas API error: ${customerResult.errors?.[0]?.description || customerResult.message || 'Unknown error'}`);
     }
     
-    const customer = await response.json();
+    console.log(`New customer created with ID: ${customerResult.id}`);
     
+    // Retornar dados do cliente criado
     return {
-      id: customer.id,
-      name: customer.name,
-      email: customer.email,
-      cpfCnpj: customer.cpfCnpj,
+      id: customerResult.id,
+      name: customerResult.name,
+      cpfCnpj: customerResult.cpfCnpj,
+      email: customerResult.email,
       isExistingCustomer: false
     };
   } catch (error) {
-    console.error(`Error in handleCreateCustomer:`, error);
+    console.error("Error creating customer:", error);
     throw error;
   }
 }

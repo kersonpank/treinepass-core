@@ -12,13 +12,6 @@ import {
 import { Plus, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
 
-interface DiscountField {
-  id: number;
-  min_employees: number;
-  max_employees: number;
-  discount_percentage: number;
-}
-
 export function VolumeDiscountsForm() {
   const [nextId, setNextId] = useState(0);
   const { control, getValues } = useFormContext();
@@ -26,7 +19,7 @@ export function VolumeDiscountsForm() {
   // Use a separate field array name that's within your form schema
   const { fields, append, remove } = useFieldArray({
     control,
-    name: "volumeDiscounts"
+    name: "volumeDiscounts" as any, // Cast to any since it's not in the schema directly
   });
 
   // Initialize with one empty discount on first render if none exist
@@ -44,7 +37,7 @@ export function VolumeDiscountsForm() {
 
   const handleAddDiscount = () => {
     // Get the last discount's values for better UX
-    const lastDiscount = fields[fields.length - 1] as unknown as DiscountField;
+    const lastDiscount = fields[fields.length - 1];
     let newMinEmployees = 5;
     let newMaxEmployees = 10;
     

@@ -1,34 +1,11 @@
-
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useParams } from "react-router-dom";
+import { CheckInCode } from "@/types/check-in";
 import { CheckInButton } from "./check-in/CheckInButton";
-
-// Define the CheckInCode type
-interface CheckInCode {
-  id: string;
-  user_id: string;
-  code: string;
-  status: string;
-  expires_at: string;
-  created_at: string;
-  used_at?: string;
-}
-
-// Define CheckInDisplay component since it's used but not provided in the files
-function CheckInDisplay({ checkInCode, onExpire }: { checkInCode: CheckInCode; onExpire: () => void }) {
-  // Simple component to display active check-in code
-  return (
-    <div className="text-center p-4 border rounded-md">
-      <h3 className="font-bold text-xl">{checkInCode.code}</h3>
-      <p className="text-sm text-gray-500">
-        Válido até {new Date(checkInCode.expires_at).toLocaleTimeString()}
-      </p>
-    </div>
-  );
-}
+import { CheckInDisplay } from "./check-in/CheckInDisplay";
 
 export function DigitalCard() {
   const [activeCode, setActiveCode] = useState<CheckInCode | null>(null);
@@ -51,8 +28,6 @@ export function DigitalCard() {
     },
   });
 
-  // Skip this query since check_in_codes table may not exist yet
-  /*
   const { data: checkInCode, refetch: refetchCheckInCode } = useQuery({
     queryKey: ["activeCheckInCode", userProfile?.id],
     queryFn: async () => {
@@ -70,17 +45,23 @@ export function DigitalCard() {
     },
     enabled: !!userProfile?.id,
   });
-  */
 
-  // Simplified for now without check_in_codes
-  const handleCheckInSuccess = (newCode: any) => {
-    console.log("Check-in successful:", newCode);
-    // setActiveCode(newCode);
+  useEffect(() => {
+    if (!checkInCode || checkInCode.status !== "active") {
+      setActiveCode(null);
+      return;
+    }
+    setActiveCode(checkInCode);
+  }, [checkInCode]);
+
+  const handleCheckInSuccess = (newCode: CheckInCode) => {
+    setActiveCode(newCode);
+    refetchCheckInCode();
   };
 
   const handleExpire = () => {
     setActiveCode(null);
-    // refetchCheckInCode();
+    refetchCheckInCode();
   };
 
   if (!userProfile) {
@@ -108,6 +89,7 @@ export function DigitalCard() {
             academiaId && (
               <CheckInButton
                 academiaId={academiaId}
+                userId={userProfile.id}
                 onSuccess={handleCheckInSuccess}
               />
             )
