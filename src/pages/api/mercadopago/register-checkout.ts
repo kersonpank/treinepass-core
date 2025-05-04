@@ -1,5 +1,5 @@
 
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '@/integrations/supabase/client';
 
 export default async function handler(
@@ -12,31 +12,33 @@ export default async function handler(
 
   try {
     const { user_id, plan_id, preference_id, amount } = req.body;
-
-    if (!user_id || !plan_id || !preference_id || !amount) {
-      return res.status(400).json({
-        message: 'Missing required fields',
+    
+    // Validar dados obrigatórios
+    if (!user_id || !plan_id || !preference_id) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: user_id, plan_id, preference_id are required' 
       });
     }
 
-    // Verificar se já existe uma assinatura ativa para este usuário/plano
-    const { data: existingSubscription } = await supabase
+    // Primeiro, garantir que qualquer assinatura pendente seja cancelada
+    const { error: cancelError } = await supabase
       .from('user_plan_subscriptions')
-      .select('*')
-      .eq('user_id', user_id)
-      .eq('plan_id', plan_id)
-      .eq('status', 'active')
-      .single();
-
-    if (existingSubscription) {
-      return res.status(409).json({
-        message: 'User already has an active subscription for this plan',
-        subscription: existingSubscription
+      .update({ 
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString()
+      })
+      .match({ 
+        user_id,
+        status: 'pending'
       });
+
+    if (cancelError) {
+      console.error('Error cancelling pending subscriptions:', cancelError);
+      // Continuar mesmo com erro
     }
 
-    // Criar uma assinatura pendente
-    const { data: subscription, error: subscriptionError } = await supabase
+    // Criar assinatura pendente
+    const { data, error } = await supabase
       .from('user_plan_subscriptions')
       .insert({
         user_id,
@@ -45,54 +47,49 @@ export default async function handler(
         payment_status: 'pending',
         payment_method: 'mercadopago',
         total_value: amount,
-        metadata: {
-          preference_id,
-          checkout_started_at: new Date().toISOString()
-        }
+        start_date: new Date().toISOString().split('T')[0], // Data atual
       })
-      .select()
-      .single();
+      .select();
 
-    if (subscriptionError) {
-      console.error('Error creating pending subscription:', subscriptionError);
-      return res.status(500).json({
-        message: 'Failed to create subscription',
-        error: subscriptionError
+    if (error) {
+      console.error('Error creating subscription:', error);
+      return res.status(500).json({ 
+        message: 'Failed to register checkout', 
+        error: error.message || 'Database error' 
       });
     }
 
-    // Registrar uma tentativa de pagamento
+    // Registrar pagamento
     const { error: paymentError } = await supabase
       .from('payments')
       .insert({
-        external_id: preference_id,
         user_id,
+        external_id: preference_id,
         status: 'pending',
         amount,
         payment_method: 'mercadopago',
+        due_date: new Date().toISOString(),
         metadata: {
           plan_id,
-          subscription_id: subscription.id,
-          preference_id
+          preference_id,
+          created_at: new Date().toISOString()
         }
       });
 
     if (paymentError) {
-      console.error('Error registering payment attempt:', paymentError);
-      return res.status(500).json({
-        message: 'Failed to register payment attempt',
-        error: paymentError
-      });
+      console.error('Error registering payment:', paymentError);
+      // Continuar mesmo com erro
     }
 
-    return res.status(200).json({
-      success: true,
-      subscription_id: subscription.id
+    return res.status(200).json({ 
+      success: true, 
+      subscription_id: data?.[0]?.id || null 
     });
+    
   } catch (error: any) {
     console.error('Error registering checkout:', error);
     return res.status(500).json({
-      message: 'Error registering checkout',
+      message: 'Internal server error',
       error: error.message || 'Unknown error'
     });
   }

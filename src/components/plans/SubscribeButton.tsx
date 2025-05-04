@@ -36,7 +36,7 @@ export function SubscribeButton({
   const { toast } = useToast();
 
   const handleSubscribe = async () => {
-    console.log('handleSubscribeToPlan clicked:', { planId, planName, planPrice });
+    console.log('handleSubscribe clicked:', { planId, planName, planPrice });
     
     if (!user) {
       toast({
@@ -68,8 +68,6 @@ export function SubscribeButton({
       variant: "destructive",
     });
   };
-
-  console.log('SubscribeButton render:', { planId, planName, planPrice, isDialogOpen });
 
   return (
     <>

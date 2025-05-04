@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,14 +34,22 @@ export function DigitalCard() {
     queryFn: async () => {
       if (!userProfile?.id) return null;
 
+      // Verificar se há códigos de check-in ativos no banco de dados
+      const currentTime = new Date().toISOString();
       const { data, error } = await supabase
         .from("check_in_codes")
         .select("*")
         .eq("user_id", userProfile.id)
         .eq("status", "active")
+        .gt("expires_at", currentTime)
+        .order("created_at", { ascending: false })
         .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error) {
+        console.error("Erro ao buscar código de check-in:", error);
+        return null;
+      }
+      
       return data as CheckInCode | null;
     },
     enabled: !!userProfile?.id,
@@ -89,7 +98,7 @@ export function DigitalCard() {
             academiaId && (
               <CheckInButton
                 academiaId={academiaId}
-                userId={userProfile.id}
+                automatic={true}
                 onSuccess={handleCheckInSuccess}
               />
             )

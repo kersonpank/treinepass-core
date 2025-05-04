@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,20 +12,27 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { CheckInCode } from "@/types/check-in";
 
 interface CheckInButtonProps {
   academiaId: string;
-  automatic: boolean;
-  onManualCheckIn: () => void;
+  automatic?: boolean;
+  onManualCheckIn?: () => void;
+  onSuccess: (newCode: CheckInCode) => void;
 }
 
-export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckInButtonProps) {
+export function CheckInButton({ 
+  academiaId, 
+  automatic = true, 
+  onManualCheckIn, 
+  onSuccess 
+}: CheckInButtonProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleCheckIn = async () => {
-    if (!automatic) {
+    if (!automatic && onManualCheckIn) {
       onManualCheckIn();
       return;
     }
@@ -66,17 +74,24 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
 
       if (checkInError) throw checkInError;
 
-      // Registrar histórico financeiro
-      await supabase
-        .from("gym_check_in_financial_records")
+      // Criar código de check-in para carteirinha digital
+      const { data: checkInCode, error: codeError } = await supabase
+        .from("check_in_codes")
         .insert({
-          check_in_id: checkInData.id,
-          plan_id: validation.plano_id,
-          valor_repasse: validation.valor_repasse,
-          valor_plano: validation.valor_plano,
-          status_pagamento: "processed",
-          data_processamento: new Date().toISOString()
-        });
+          user_id: user.id,
+          code: Math.random().toString(36).substring(2, 10).toUpperCase(),
+          status: "active",
+          expires_at: new Date(Date.now() + 30 * 60000).toISOString() // 30 minutos
+        })
+        .select()
+        .single();
+
+      if (codeError) {
+        console.error("Erro ao gerar código de check-in:", codeError);
+        // Continuamos mesmo com erro no código
+      } else if (checkInCode) {
+        onSuccess(checkInCode as CheckInCode);
+      }
 
       toast({
         title: "Check-in realizado!",

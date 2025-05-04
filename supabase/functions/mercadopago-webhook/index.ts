@@ -19,17 +19,15 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 // Webhook secret do Mercado Pago para validação
-const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') || 'e45c42beabab6ad09718911cf1a5f2d17bded9d2609772bd98cbd39e128e881e'
+const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') || ''
 
 serve(async (req) => {
   console.log('[MercadoPago Webhook] Requisição recebida')
   console.log('[MercadoPago Webhook] URL:', req.url)
   console.log('[MercadoPago Webhook] Método:', req.method)
-  console.log('[MercadoPago Webhook] Headers:', Object.fromEntries(req.headers.entries()))
   
   // Tratar requisições OPTIONS (CORS preflight)
   if (req.method === 'OPTIONS') {
-    console.log('[MercadoPago Webhook] Respondendo a requisição OPTIONS')
     return new Response(null, {
       status: 204,
       headers: corsHeaders,
@@ -80,7 +78,6 @@ serve(async (req) => {
     let signatureValid = null
     
     console.log('[MercadoPago Webhook] Assinatura recebida:', signatureHeader)
-    console.log('[MercadoPago Webhook] Secret configurado:', webhookSecret ? 'Sim (primeiros 4 caracteres: ' + webhookSecret.substring(0, 4) + '...)' : 'Não')
     
     if (signatureHeader && webhookSecret) {
       try {
@@ -183,70 +180,72 @@ serve(async (req) => {
         console.log('[MercadoPago Webhook] Referências extraídas:', { planId, userId })
         
         // Atualizar registro de pagamento no banco de dados
-        const { error: updatePaymentError, data: updatedPayment } = await supabase
+        const { error: updatePaymentError } = await supabase
           .from('payments')
-          .update({
+          .upsert({
+            external_id: paymentId,
+            user_id: userId,
             status: paymentData.status,
+            amount: paymentData.transaction_amount,
+            payment_method: paymentData.payment_method_id,
             updated_at: new Date().toISOString(),
             metadata: {
               ...paymentData,
               webhook_processed_at: new Date().toISOString()
             }
           })
-          .eq('external_id', paymentId)
-          .select()
           
         if (updatePaymentError) {
           console.error('[MercadoPago Webhook] Erro ao atualizar pagamento:', updatePaymentError)
-        } else if (updatedPayment && updatedPayment.length > 0) {
-          console.log('[MercadoPago Webhook] Registro de pagamento atualizado com sucesso:', updatedPayment)
         } else {
-          console.log('[MercadoPago Webhook] Pagamento não encontrado, verificando se precisamos criar um novo registro')
-          
-          // Se o pagamento não existe no nosso sistema mas temos userId e planId, podemos criar um
-          if (userId && planId) {
-            const { error: createError } = await supabase
-              .from('payments')
-              .insert({
-                external_id: paymentId,
-                user_id: userId,
-                amount: paymentData.transaction_amount,
-                status: paymentData.status,
-                payment_method: paymentData.payment_method_id,
-                metadata: {
-                  plan_id: planId,
-                  payment_details: paymentData
-                }
-              })
-              
-            if (createError) {
-              console.error('[MercadoPago Webhook] Erro ao criar registro de pagamento:', createError)
-            } else {
-              console.log('[MercadoPago Webhook] Novo registro de pagamento criado com sucesso')
-            }
-          }
+          console.log('[MercadoPago Webhook] Registro de pagamento atualizado com sucesso')
         }
         
         // Se o pagamento foi aprovado, atualizar a assinatura
         if (paymentData.status === 'approved' && userId && planId) {
           console.log('[MercadoPago Webhook] Pagamento aprovado. Atualizando assinatura')
-          const { error: subscriptionError, data: updatedSubscription } = await supabase
+          
+          // 1. Cancelar qualquer assinatura pendente desse usuário para esse plano
+          const { error: cancelError } = await supabase
+            .from('user_plan_subscriptions')
+            .update({ 
+              status: 'cancelled', 
+              cancelled_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()  
+            })
+            .eq('user_id', userId)
+            .eq('status', 'pending')
+            .neq('plan_id', planId);
+            
+          if (cancelError) {
+            console.error('[MercadoPago Webhook] Erro ao cancelar assinaturas pendentes:', cancelError)
+          }
+          
+          // 2. Atualizar a assinatura específica para esse plano
+          const endDate = new Date();
+          endDate.setFullYear(endDate.getFullYear() + 1); // 1 ano de assinatura
+          
+          const { error: subscriptionError } = await supabase
             .from('user_plan_subscriptions')
             .update({
               status: 'active',
               payment_status: 'paid',
+              payment_method: 'mercadopago',
               payment_id: paymentId,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+              start_date: new Date().toISOString().split('T')[0],
+              end_date: endDate.toISOString().split('T')[0]
             })
-            .eq('user_id', userId)
-            .eq('plan_id', planId)
-            .eq('status', 'pending')
-            .select()
+            .match({
+              user_id: userId,
+              plan_id: planId,
+              status: 'pending'
+            })
             
           if (subscriptionError) {
             console.error('[MercadoPago Webhook] Erro ao atualizar assinatura:', subscriptionError)
           } else {
-            console.log('[MercadoPago Webhook] Assinatura ativada com sucesso:', updatedSubscription)
+            console.log('[MercadoPago Webhook] Assinatura ativada com sucesso')
           }
         }
         

@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useMercadoPago } from '@/hooks/useMercadoPago';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MercadoPagoCheckoutProps {
   planId: string;
@@ -22,137 +24,73 @@ export function MercadoPagoCheckout({
   onSuccess,
   onError
 }: MercadoPagoCheckoutProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  
+  const { 
+    createSubscriptionAndRedirect, 
+    isLoading: isMercadoPagoLoading,
+    error: mercadoPagoError
+  } = useMercadoPago({
+    onPaymentSuccess: (data) => {
+      if (onSuccess) onSuccess(data);
+    },
+    onPaymentError: (error) => {
+      if (onError) onError(error);
+    },
+    // Não redirecionar automaticamente
+    redirectToSuccessPage: false
+  });
 
-  // Função para criar preferência de pagamento e redirecionar
   const handleCheckout = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-      setDebugInfo(null);
-
-      console.log('[MercadoPagoCheckout] Iniciando checkout com dados:', {
-        planId, planName, planValue, userId
-      });
-
-      // Preparar objeto de preferência
-      const preferenceData = {
-        items: [
-          {
-            id: planId,
-            title: planName,
-            description: `Assinatura: ${planName}`,
-            quantity: 1,
-            currency_id: 'BRL',
-            unit_price: planValue
-          }
-        ],
-        back_urls: {
-          success: `${window.location.origin}/payment/success`,
-          failure: `${window.location.origin}/payment/failure`,
-          pending: `${window.location.origin}/payment/pending`
-        },
-        auto_return: 'approved',
-        notification_url: `${window.location.origin}/api/webhooks/mercadopago`,
-        external_reference: `plan_${planId}_user_${userId}`,
-      };
-
-      console.log('[MercadoPagoCheckout] Enviando dados para criar preferência:', JSON.stringify(preferenceData, null, 2));
-
-      // Chamar API para criar preferência
-      const response = await fetch('/api/mercadopago/create-preference', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(preferenceData)
-      });
-
-      console.log('[MercadoPagoCheckout] Status da resposta:', response.status);
+      setIsProcessing(true);
       
-      const responseText = await response.text();
-      console.log('[MercadoPagoCheckout] Resposta bruta:', responseText);
-      
-      // Tentar parsear a resposta como JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-        setDebugInfo(data);
-      } catch (e) {
-        console.error('[MercadoPagoCheckout] Erro ao parsear resposta:', e);
-        throw new Error('Resposta inválida do servidor');
-      }
-      
-      if (!response.ok) {
-        console.error('[MercadoPagoCheckout] Erro na resposta da API:', data);
-        throw new Error(data.message || 'Erro ao criar preferência de pagamento');
-      }
-
-      console.log('[MercadoPagoCheckout] Preferência criada com sucesso:', data);
-      
-      // Registrar checkout no banco de dados
-      try {
-        console.log('[MercadoPagoCheckout] Registrando checkout no banco de dados');
-        const registerResponse = await fetch('/api/mercadopago/register-checkout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            plan_id: planId,
-            preference_id: data.id,
-            amount: planValue
-          })
+      // Registrar assinatura pendente
+      const { error: subscriptionError } = await supabase
+        .from('user_plan_subscriptions')
+        .insert({
+          user_id: userId,
+          plan_id: planId,
+          status: 'pending',
+          payment_status: 'pending',
+          payment_method: 'mercadopago',
+          total_value: planValue,
+          start_date: new Date().toISOString().split('T')[0]
         });
-
-        if (!registerResponse.ok) {
-          console.warn('[MercadoPagoCheckout] Aviso: Erro ao registrar checkout, mas continuando com pagamento');
-        } else {
-          console.log('[MercadoPagoCheckout] Checkout registrado com sucesso');
-        }
-      } catch (registerErr) {
-        console.error('[MercadoPagoCheckout] Erro ao registrar checkout:', registerErr);
-        // Continua mesmo com erro no registro
-      }
-
-      // Determinar URL de checkout baseado no ambiente
-      const isSandbox = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX === 'true';
-      const checkoutUrl = isSandbox ? data.sandbox_init_point : data.init_point;
-
-      if (!checkoutUrl) {
-        throw new Error('URL de checkout não recebida do Mercado Pago');
-      }
-
-      console.log('[MercadoPagoCheckout] URL de checkout:', checkoutUrl);
-      
-      if (onSuccess) {
-        onSuccess({ preferenceId: data.id, checkoutUrl });
+        
+      if (subscriptionError) {
+        console.error('Erro ao registrar assinatura:', subscriptionError);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível registrar sua assinatura. Tente novamente.',
+          variant: 'destructive',
+        });
+        return;
       }
       
-      // Redirecionar para página de checkout do Mercado Pago após um breve delay
-      // para garantir que os logs sejam enviados
-      console.log('[MercadoPagoCheckout] Redirecionando para Mercado Pago em 1000ms...');
-      setTimeout(() => {
-        console.log('[MercadoPagoCheckout] Redirecionando agora para:', checkoutUrl);
-        window.location.href = checkoutUrl;
-      }, 1000);
+      // Criar preferência e redirecionar
+      const { checkoutUrl } = await createSubscriptionAndRedirect(
+        planId,
+        userId,
+        planValue,
+        planName
+      );
       
-    } catch (err: any) {
-      console.error('[MercadoPagoCheckout] Erro ao iniciar checkout:', err);
-      setError(err);
-      if (onError) {
-        onError(err);
-      }
+      // Redirecionar para o checkout
+      window.location.href = checkoutUrl;
+      
+    } catch (error: any) {
+      console.error('Erro no processo de checkout:', error);
       toast({
         title: 'Erro ao processar pagamento',
-        description: err.message || 'Não foi possível iniciar o checkout',
+        description: error.message || 'Ocorreu um erro ao iniciar o pagamento',
         variant: 'destructive',
       });
-      setIsLoading(false);
+      
+      if (onError) onError(error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -164,27 +102,21 @@ export function MercadoPagoCheckout({
         <p className="text-sm text-muted-foreground">Valor: R$ {planValue.toFixed(2).replace('.', ',')}</p>
       </div>
 
-      {error && (
+      {mercadoPagoError && (
         <Alert variant="destructive">
-          <AlertTitle>Erro ao processar pagamento</AlertTitle>
+          <AlertTitle>Erro ao conectar com Mercado Pago</AlertTitle>
           <AlertDescription>
-            {error.message || 'Ocorreu um erro ao iniciar o pagamento'}
+            {mercadoPagoError.message || 'Ocorreu um erro ao inicializar o serviço de pagamento'}
           </AlertDescription>
         </Alert>
-      )}
-
-      {debugInfo && (
-        <div className="bg-slate-100 p-2 rounded text-xs overflow-auto max-h-32">
-          <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
-        </div>
       )}
 
       <Button
         className="w-full"
         onClick={handleCheckout}
-        disabled={isLoading}
+        disabled={isProcessing || isMercadoPagoLoading}
       >
-        {isLoading ? (
+        {isProcessing ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Processando...

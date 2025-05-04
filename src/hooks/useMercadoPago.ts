@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 interface MercadoPagoConfig {
@@ -8,13 +8,11 @@ interface MercadoPagoConfig {
   redirectToSuccessPage?: boolean;
 }
 
-/**
- * Hook para integração com o Mercado Pago
- */
 export function useMercadoPago(config?: MercadoPagoConfig) {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [mercadoPago, setMercadoPago] = useState<any>(null);
   const { toast } = useToast();
   const { 
     onPaymentSuccess, 
@@ -22,9 +20,50 @@ export function useMercadoPago(config?: MercadoPagoConfig) {
     redirectToSuccessPage = true 
   } = config || {};
 
-  /**
-   * Cria uma preferência de pagamento e redireciona para o checkout do Mercado Pago
-   */
+  // Função para carregar o SDK do MercadoPago
+  useEffect(() => {
+    const loadMercadoPagoSDK = async () => {
+      if (window.MercadoPago) {
+        console.log('SDK do MercadoPago já carregado');
+        setIsInitialized(true);
+        return;
+      }
+
+      try {
+        const script = document.createElement('script');
+        script.src = 'https://sdk.mercadopago.com/js/v2';
+        script.async = true;
+        
+        script.onload = () => {
+          console.log('SDK do MercadoPago carregado com sucesso');
+          setIsInitialized(true);
+          
+          // Inicializar com a chave pública
+          const publicKey = import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY;
+          if (publicKey && window.MercadoPago) {
+            const mp = new window.MercadoPago(publicKey, {
+              locale: 'pt-BR'
+            });
+            setMercadoPago(mp);
+          }
+        };
+        
+        script.onerror = (err) => {
+          console.error('Erro ao carregar SDK do MercadoPago:', err);
+          setError(new Error('Falha ao carregar o SDK do MercadoPago'));
+        };
+        
+        document.body.appendChild(script);
+      } catch (err) {
+        console.error('Erro ao inicializar MercadoPago:', err);
+        setError(err instanceof Error ? err : new Error('Erro desconhecido'));
+      }
+    };
+
+    loadMercadoPagoSDK();
+  }, []);
+
+  // Criar preferência e redirecionar para checkout
   const createSubscriptionAndRedirect = useCallback(async (
     planId: string, 
     userId: string, 
@@ -86,9 +125,9 @@ export function useMercadoPago(config?: MercadoPagoConfig) {
       const data = await response.json();
       console.log('[useMercadoPago] Preferência criada com sucesso:', data);
       
-      // Registrar checkout no banco de dados
+      // Registrar assinatura pendente no banco de dados
       try {
-        const registerResponse = await fetch('/api/mercadopago/register-checkout', {
+        const { error: subscriptionError } = await fetch('/api/mercadopago/register-checkout', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -101,11 +140,12 @@ export function useMercadoPago(config?: MercadoPagoConfig) {
           })
         });
 
-        if (!registerResponse.ok) {
-          console.warn('[useMercadoPago] Aviso ao registrar checkout, mas continuando');
+        if (subscriptionError) {
+          console.warn('[useMercadoPago] Aviso ao registrar checkout, continuando');
         }
       } catch (registerError) {
         console.error('[useMercadoPago] Erro ao registrar checkout:', registerError);
+        // Continuamos mesmo com erro no registro
       }
 
       // Determinar URL de checkout baseado no ambiente
@@ -155,22 +195,11 @@ export function useMercadoPago(config?: MercadoPagoConfig) {
     }
   }, [toast, onPaymentSuccess, onPaymentError, redirectToSuccessPage]);
 
-  /**
-   * Inicializa o brick de pagamento (não usado no fluxo de redirecionamento)
-   */
-  const initPaymentBrick = useCallback(() => {
-    // Não implementado para o fluxo de redirecionamento
-    setIsInitialized(true);
-    return null;
-  }, []);
-
   return {
     isLoading,
     isInitialized,
     error,
-    createSubscriptionAndRedirect,
-    initPaymentBrick
+    mercadoPago,
+    createSubscriptionAndRedirect
   };
 }
-
-export default useMercadoPago;

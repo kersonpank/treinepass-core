@@ -1,11 +1,9 @@
 
-import React from "react";
 import { TableCell, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye } from "lucide-react";
-import { WebhookEventBadge } from "./WebhookEventBadge";
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatDateTime } from "@/lib/utils";
 
 interface WebhookEventRowProps {
   event: any;
@@ -14,95 +12,123 @@ interface WebhookEventRowProps {
 }
 
 export function WebhookEventRow({ event, onViewPayload, gatewayType = "asaas" }: WebhookEventRowProps) {
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "N/A";
-    try {
-      const date = new Date(dateString);
-      return formatDistanceToNow(date, { addSuffix: true, locale: ptBR });
-    } catch {
-      return "Data inválida";
-    }
-  };
-
-  // Format event type differently based on gateway
-  const getEventType = () => {
+  const formatEventType = (type: string) => {
     if (gatewayType === "mercadopago") {
-      return event.event_type || "Desconhecido";
+      return type || "Desconhecido";
     }
-
-    // Default Asaas format
-    return event.event_type || "Desconhecido";
+    
+    switch (type) {
+      case "PAYMENT_CREATED":
+        return "Pagamento Criado";
+      case "PAYMENT_UPDATED":
+        return "Pagamento Atualizado";
+      case "PAYMENT_CONFIRMED":
+        return "Pagamento Confirmado";
+      case "PAYMENT_RECEIVED":
+        return "Pagamento Recebido";
+      case "PAYMENT_OVERDUE":
+        return "Pagamento Atrasado";
+      case "PAYMENT_DELETED":
+        return "Pagamento Excluído";
+      case "PAYMENT_REFUNDED":
+        return "Pagamento Reembolsado";
+      case "PAYMENT_RECEIVED_IN_CASH_UNDONE":
+        return "Pagamento em Dinheiro Desfeito";
+      case "PAYMENT_CHARGEBACK_REQUESTED":
+        return "Chargeback Solicitado";
+      case "PAYMENT_CHARGEBACK_DISPUTE":
+        return "Disputa de Chargeback";
+      case "PAYMENT_AWAITING_CHARGEBACK_REVERSAL":
+        return "Aguardando Reversão de Chargeback";
+      case "PAYMENT_DUNNING_RECEIVED":
+        return "Dunning Recebido";
+      case "PAYMENT_DUNNING_REQUESTED":
+        return "Dunning Solicitado";
+      case "PAYMENT_BANK_SLIP_VIEWED":
+        return "Boleto Visualizado";
+      case "PAYMENT_CHECKOUT_VIEWED":
+        return "Checkout Visualizado";
+      default:
+        return type || "Desconhecido";
+    }
   };
 
-  // Get payment ID based on gateway
   const getPaymentId = () => {
     if (gatewayType === "mercadopago") {
       return event.event_id || "N/A";
     }
-
-    // Default Asaas format
-    return event.payment_id || "N/A"; 
+    return event.payment_id || "N/A";
   };
 
-  // Get status based on gateway
   const getStatus = () => {
     if (gatewayType === "mercadopago") {
       return event.status || "received";
     }
-
-    // Default Asaas format
-    return event.status || "pending";
+    return event.processed ? "processed" : "pending";
   };
 
-  // Check if processed based on gateway
-  const isProcessed = () => {
+  const getStatusColor = () => {
+    const status = getStatus();
+    
     if (gatewayType === "mercadopago") {
-      return event.status === "processed";
+      if (status === "error") return "destructive";
+      if (status === "processed") return "success";
+      return "default";
     }
-
-    // Default Asaas format
-    return event.processed === true;
+    
+    return event.processed ? "success" : "default";
   };
 
-  // Get processed time based on gateway
-  const getProcessedTime = () => {
+  const getStatusText = () => {
+    const status = getStatus();
+    
     if (gatewayType === "mercadopago") {
-      return event.processed_at ? formatDate(event.processed_at) : "Pendente";
+      if (status === "error") return "Erro";
+      if (status === "processed") return "Processado";
+      return "Recebido";
     }
-
-    // Default Asaas format
-    return event.processed_at ? formatDate(event.processed_at) : "Pendente";
+    
+    return event.processed ? "Processado" : "Pendente";
   };
-
-  // Display signature validation status for Mercado Pago
-  const getSignatureValidation = () => {
-    if (gatewayType === "mercadopago" && event.signature_valid !== null) {
-      return event.signature_valid ? 
-        <span className="text-green-600 text-xs">✅ Válida</span> : 
-        <span className="text-red-600 text-xs">❌ Inválida</span>;
+  
+  const isValidSignature = () => {
+    if (gatewayType === "mercadopago") {
+      // Se signature_valid for null, consideramos como não validado
+      return event.signature_valid === true;
     }
-    return null;
+    
+    return true; // Asaas não tem validação de assinatura
   };
-
+  
   return (
     <TableRow>
-      <TableCell>{formatDate(event.created_at)}</TableCell>
-      <TableCell>
-        {getEventType()}
-        {gatewayType === "mercadopago" && getSignatureValidation()}
-      </TableCell>
+      <TableCell>{formatDateTime(event.created_at || event.processed_at)}</TableCell>
+      <TableCell>{formatEventType(event.event_type)}</TableCell>
       <TableCell>{getPaymentId()}</TableCell>
       <TableCell>
-        <WebhookEventBadge 
-          status={getStatus()} 
-          type={gatewayType}
-        />
+        <Badge variant={getStatusColor()}>
+          {getStatusText()}
+        </Badge>
       </TableCell>
-      <TableCell>{getProcessedTime()}</TableCell>
-      <TableCell className="text-right">
-        <Button size="sm" variant="ghost" onClick={() => onViewPayload(event)}>
-          <Eye className="h-4 w-4 mr-1" />
-          Ver Payload
+      <TableCell>
+        {gatewayType === "mercadopago" && (
+          <Badge variant={isValidSignature() ? "outline" : "destructive"}>
+            {isValidSignature() ? "Válida" : "Inválida"}
+          </Badge>
+        )}
+        {gatewayType !== "mercadopago" && (
+          <Badge variant={event.error_message ? "destructive" : "outline"}>
+            {event.error_message ? "Erro" : "OK"}
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onViewPayload(event)}
+        >
+          <Eye className="h-4 w-4" />
         </Button>
       </TableCell>
     </TableRow>
