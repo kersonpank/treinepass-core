@@ -57,23 +57,6 @@ export function CheckInButton({
         throw new Error(validation?.message || "Não foi possível validar o check-in");
       }
 
-      // Registrar check-in com informações financeiras
-      const { data: checkInData, error: checkInError } = await supabase
-        .from("gym_check_ins")
-        .insert({
-          user_id: user.id,
-          academia_id: academiaId,
-          check_in_time: new Date().toISOString(),
-          status: "active",
-          validation_method: "automatic",
-          valor_repasse: validation.valor_repasse,
-          plano_id: validation.plano_id
-        })
-        .select()
-        .single();
-
-      if (checkInError) throw checkInError;
-
       // Criar código de check-in para carteirinha digital
       const { data: checkInCode, error: codeError } = await supabase
         .from("check_in_codes")
@@ -88,14 +71,16 @@ export function CheckInButton({
 
       if (codeError) {
         console.error("Erro ao gerar código de check-in:", codeError);
-        // Continuamos mesmo com erro no código
-      } else if (checkInCode) {
+        throw new Error("Não foi possível gerar o código de check-in");
+      }
+
+      if (checkInCode) {
         onSuccess(checkInCode as CheckInCode);
       }
 
       toast({
-        title: "Check-in realizado!",
-        description: "Check-in realizado com sucesso. Boas atividades!",
+        title: "Código gerado!",
+        description: "Use o código para fazer check-in na academia.",
         duration: 5000,
       });
     } catch (error: any) {

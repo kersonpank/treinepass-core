@@ -5,7 +5,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useMercadoPago } from '@/hooks/useMercadoPago';
-import { supabase } from '@/integrations/supabase/client';
 
 interface MercadoPagoCheckoutProps {
   planId: string;
@@ -46,36 +45,21 @@ export function MercadoPagoCheckout({
     try {
       setIsProcessing(true);
       
-      // Registrar assinatura pendente
-      const { error: subscriptionError } = await supabase
-        .from('user_plan_subscriptions')
-        .insert({
-          user_id: userId,
-          plan_id: planId,
-          status: 'pending',
-          payment_status: 'pending',
-          payment_method: 'mercadopago',
-          total_value: planValue,
-          start_date: new Date().toISOString().split('T')[0]
-        });
-        
-      if (subscriptionError) {
-        console.error('Erro ao registrar assinatura:', subscriptionError);
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível registrar sua assinatura. Tente novamente.',
-          variant: 'destructive',
-        });
-        return;
-      }
+      console.log("[MercadoPagoCheckout] Iniciando checkout para:", {
+        planId, userId, planValue, planName
+      });
       
       // Criar preferência e redirecionar
-      const { checkoutUrl } = await createSubscriptionAndRedirect(
+      const { success, checkoutUrl } = await createSubscriptionAndRedirect(
         planId,
         userId,
         planValue,
         planName
       );
+      
+      if (!success || !checkoutUrl) {
+        throw new Error("Não foi possível criar a preferência de pagamento");
+      }
       
       // Redirecionar para o checkout
       window.location.href = checkoutUrl;

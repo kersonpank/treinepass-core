@@ -1,7 +1,6 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { createHmac } from "https://deno.land/std@0.177.0/crypto/mod.ts";
 
 // Configurações de CORS para aceitar requisições de qualquer origem
 const corsHeaders = {
@@ -73,36 +72,6 @@ serve(async (req) => {
     const eventType = topic || body?.type || body?.action || body?.event || 'unknown'
     let payload = body
     
-    // Verificar assinatura do webhook (se disponível)
-    const signatureHeader = req.headers.get('x-signature') || req.headers.get('X-Signature')
-    let signatureValid = null
-    
-    console.log('[MercadoPago Webhook] Assinatura recebida:', signatureHeader)
-    
-    if (signatureHeader && webhookSecret) {
-      try {
-        // Criar HMAC usando o webhookSecret e comparar com o cabeçalho x-signature
-        const computedSignature = createHmac("sha256", webhookSecret)
-          .update(rawBody)
-          .toString("hex");
-          
-        signatureValid = computedSignature === signatureHeader;
-        
-        console.log('[MercadoPago Webhook] Validação de assinatura:', { 
-          recebida: signatureHeader, 
-          calculada: computedSignature, 
-          valida: signatureValid 
-        });
-      } catch (e) {
-        console.error('[MercadoPago Webhook] Erro ao validar assinatura:', e.message);
-        signatureValid = false;
-      }
-    } else {
-      console.log('[MercadoPago Webhook] Assinatura não fornecida ou secret não configurado');
-      // Como estamos no modo de teste/desenvolvimento, continuamos mesmo sem validação
-      signatureValid = null;  // null significa que não foi possível validar
-    }
-    
     // Registrar o evento no banco de dados para auditoria
     const { error: logError, data: eventRecord } = await supabase
       .from('mercadopago_webhook_events')
@@ -110,8 +79,7 @@ serve(async (req) => {
         event_id: eventId,
         event_type: eventType,
         payload: payload,
-        status: 'received',
-        signature_valid: signatureValid
+        status: 'received'
       })
       .select()
       
@@ -182,18 +150,15 @@ serve(async (req) => {
         // Atualizar registro de pagamento no banco de dados
         const { error: updatePaymentError } = await supabase
           .from('payments')
-          .upsert({
-            external_id: paymentId,
-            user_id: userId,
+          .update({
             status: paymentData.status,
-            amount: paymentData.transaction_amount,
-            payment_method: paymentData.payment_method_id,
             updated_at: new Date().toISOString(),
             metadata: {
               ...paymentData,
               webhook_processed_at: new Date().toISOString()
             }
           })
+          .eq('external_id', paymentId)
           
         if (updatePaymentError) {
           console.error('[MercadoPago Webhook] Erro ao atualizar pagamento:', updatePaymentError)
@@ -205,7 +170,7 @@ serve(async (req) => {
         if (paymentData.status === 'approved' && userId && planId) {
           console.log('[MercadoPago Webhook] Pagamento aprovado. Atualizando assinatura')
           
-          // 1. Cancelar qualquer assinatura pendente desse usuário para esse plano
+          // 1. Cancelar qualquer assinatura pendente desse usuário
           const { error: cancelError } = await supabase
             .from('user_plan_subscriptions')
             .update({ 

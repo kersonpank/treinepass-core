@@ -72,11 +72,11 @@ export function WebhookEventRow({ event, onViewPayload, gatewayType = "asaas" }:
     
     if (gatewayType === "mercadopago") {
       if (status === "error") return "destructive";
-      if (status === "processed") return "success";
+      if (status === "processed") return "outline"; // usando outline com classe
       return "default";
     }
     
-    return event.processed ? "success" : "default";
+    return event.processed ? "outline" : "default"; // usando outline com classe
   };
 
   const getStatusText = () => {
@@ -92,8 +92,7 @@ export function WebhookEventRow({ event, onViewPayload, gatewayType = "asaas" }:
   };
   
   const isValidSignature = () => {
-    if (gatewayType === "mercadopago") {
-      // Se signature_valid for null, consideramos como não validado
+    if (gatewayType === "mercadopago" && event.signature_valid !== undefined) {
       return event.signature_valid === true;
     }
     
@@ -106,17 +105,20 @@ export function WebhookEventRow({ event, onViewPayload, gatewayType = "asaas" }:
       <TableCell>{formatEventType(event.event_type)}</TableCell>
       <TableCell>{getPaymentId()}</TableCell>
       <TableCell>
-        <Badge variant={getStatusColor()}>
+        <Badge 
+          variant={getStatusColor() === "outline" ? "outline" : (getStatusColor() as "default" | "destructive")}
+          className={getStatusColor() === "outline" ? "bg-green-100 text-green-800 border-green-300" : ""}
+        >
           {getStatusText()}
         </Badge>
       </TableCell>
       <TableCell>
-        {gatewayType === "mercadopago" && (
+        {gatewayType === "mercadopago" && event.signature_valid !== undefined && (
           <Badge variant={isValidSignature() ? "outline" : "destructive"}>
             {isValidSignature() ? "Válida" : "Inválida"}
           </Badge>
         )}
-        {gatewayType !== "mercadopago" && (
+        {(gatewayType !== "mercadopago" || event.signature_valid === undefined) && (
           <Badge variant={event.error_message ? "destructive" : "outline"}>
             {event.error_message ? "Erro" : "OK"}
           </Badge>

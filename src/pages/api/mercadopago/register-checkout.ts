@@ -11,6 +11,8 @@ export default async function handler(
   }
 
   try {
+    console.log('[API] Registering MercadoPago checkout:', req.body);
+    
     const { user_id, plan_id, preference_id, amount } = req.body;
     
     // Validar dados obrigatórios
@@ -33,7 +35,7 @@ export default async function handler(
       });
 
     if (cancelError) {
-      console.error('Error cancelling pending subscriptions:', cancelError);
+      console.error('[API] Error cancelling pending subscriptions:', cancelError);
       // Continuar mesmo com erro
     }
 
@@ -52,7 +54,7 @@ export default async function handler(
       .select();
 
     if (error) {
-      console.error('Error creating subscription:', error);
+      console.error('[API] Error creating subscription:', error);
       return res.status(500).json({ 
         message: 'Failed to register checkout', 
         error: error.message || 'Database error' 
@@ -77,9 +79,11 @@ export default async function handler(
       });
 
     if (paymentError) {
-      console.error('Error registering payment:', paymentError);
+      console.error('[API] Error registering payment:', paymentError);
       // Continuar mesmo com erro
     }
+
+    console.log('[API] MercadoPago checkout registered successfully');
 
     return res.status(200).json({ 
       success: true, 
@@ -87,7 +91,7 @@ export default async function handler(
     });
     
   } catch (error: any) {
-    console.error('Error registering checkout:', error);
+    console.error('[API] Error registering checkout:', error);
     return res.status(500).json({
       message: 'Internal server error',
       error: error.message || 'Unknown error'

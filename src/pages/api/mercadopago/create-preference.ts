@@ -11,8 +11,11 @@ export default async function handler(
   }
 
   try {
-    const accessToken = process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN;
+    console.log('[API] Creating MercadoPago preference:', req.body);
+    
+    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN || process.env.NEXT_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN;
     if (!accessToken) {
+      console.error('[API] MercadoPago access token not configured');
       return res.status(500).json({ message: 'MercadoPago access token not configured' });
     }
 
@@ -28,9 +31,17 @@ export default async function handler(
       return res.status(400).json({ message: 'Items are required' });
     }
 
+    console.log('[API] Creating MercadoPago preference with data:', JSON.stringify(preferenceData, null, 2));
+
     // Criar preferência no MercadoPago
     const result = await preference.create({
       body: preferenceData,
+    });
+    
+    console.log('[API] MercadoPago preference created:', {
+      id: result.id,
+      init_point: result.init_point?.substring(0, 50) + '...',
+      sandbox_init_point: result.sandbox_init_point?.substring(0, 50) + '...',
     });
 
     return res.status(200).json({
