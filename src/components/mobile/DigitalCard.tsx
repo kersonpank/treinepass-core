@@ -1,7 +1,6 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckInButton } from "./check-in/CheckInButton";
@@ -24,6 +23,16 @@ export function DigitalCard({ academiaId, academiaName }: DigitalCardProps) {
       if (!user) return;
 
       try {
+        // Verificar se existe a tabela check_in_codes
+        const { count, error: tableCheckError } = await supabase
+          .from("check_in_codes")
+          .select("*", { count: 'exact', head: true });
+
+        if (tableCheckError) {
+          console.error("Erro ao verificar tabela check_in_codes:", tableCheckError);
+          return;
+        }
+
         // Buscar código ativo
         const { data, error } = await supabase
           .from("check_in_codes")

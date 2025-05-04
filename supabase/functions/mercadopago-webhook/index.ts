@@ -17,9 +17,6 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 // Cliente Supabase com a service role key para ter acesso completo ao banco
 const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-// Webhook secret do Mercado Pago para validação
-const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') || ''
-
 serve(async (req) => {
   console.log('[MercadoPago Webhook] Requisição recebida')
   console.log('[MercadoPago Webhook] URL:', req.url)
