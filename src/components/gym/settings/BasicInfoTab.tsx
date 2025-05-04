@@ -1,17 +1,17 @@
 
-import { UseFormRegister, FieldErrors, UseFormSetValue } from "react-hook-form";
+import { FieldErrors } from "react-hook-form";
 import { CepInput } from "@/components/shared/CepInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Building2, Phone, Mail, MapPin } from "lucide-react";
 
 interface BasicInfoTabProps {
-  register: UseFormRegister<any>;
+  register: any;
   errors: FieldErrors;
+  setValue?: any;
 }
 
-export function BasicInfoTab({ register, errors }: BasicInfoTabProps) {
+export function BasicInfoTab({ register, errors, setValue }: BasicInfoTabProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -66,13 +66,22 @@ export function BasicInfoTab({ register, errors }: BasicInfoTabProps) {
       {/* CEP + Endereço detalhado, mobile first */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="col-span-1">
-          <CepInput
-            register={register}
-            errors={errors}
-            setValue={setValue}
-            label="CEP"
-            required={true}
-          />
+          {setValue && (
+            <CepInput
+              register={register}
+              errors={errors}
+              setValue={setValue}
+              label="CEP"
+              required={true}
+            />
+          )}
+          {!setValue && (
+            <>
+              <Label htmlFor="cep">CEP</Label>
+              <Input id="cep" {...register("cep", { required: "CEP é obrigatório" })} />
+              {errors.cep && <p className="text-sm text-red-500">{errors.cep.message as string}</p>}
+            </>
+          )}
         </div>
         <div className="col-span-1">
           <Label htmlFor="street">Rua</Label>

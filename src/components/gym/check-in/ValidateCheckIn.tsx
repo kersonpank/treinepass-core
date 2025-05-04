@@ -172,6 +172,8 @@ export function ValidateCheckIn() {
         throw updateError;
       }
 
+      // Skip financial record update since the table may not exist
+      /*
       // Check if the table exists before trying to update it
       try {
         // Atualizar registro financeiro
@@ -190,6 +192,7 @@ export function ValidateCheckIn() {
       } catch (error) {
         console.error("Erro ao atualizar registro financeiro (tabela pode não existir):", error);
       }
+      */
 
       setValidationResult({
         success: true,

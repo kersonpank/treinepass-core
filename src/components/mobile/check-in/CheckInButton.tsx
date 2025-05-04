@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,17 +15,23 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface CheckInButtonProps {
   academiaId: string;
-  automatic: boolean;
-  onManualCheckIn: () => void;
+  automatic?: boolean;
+  onManualCheckIn?: () => void;
+  onSuccess?: (checkInData: any) => void;
 }
 
-export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckInButtonProps) {
+export function CheckInButton({ 
+  academiaId, 
+  automatic = true, 
+  onManualCheckIn, 
+  onSuccess 
+}: CheckInButtonProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleCheckIn = async () => {
-    if (!automatic) {
+    if (!automatic && onManualCheckIn) {
       onManualCheckIn();
       return;
     }
@@ -66,7 +73,9 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
 
       if (checkInError) throw checkInError;
 
-      // Registrar histórico financeiro
+      // No need for this table if it doesn't exist yet
+      // Skip the financial records insertion since the table doesn't exist
+      /*
       await supabase
         .from("gym_check_in_financial_records")
         .insert({
@@ -77,12 +86,17 @@ export function CheckInButton({ academiaId, automatic, onManualCheckIn }: CheckI
           status_pagamento: "processed",
           data_processamento: new Date().toISOString()
         });
+      */
 
       toast({
         title: "Check-in realizado!",
         description: "Check-in realizado com sucesso. Boas atividades!",
         duration: 5000,
       });
+      
+      if (onSuccess) {
+        onSuccess(checkInData);
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
