@@ -1,159 +1,154 @@
 
+import React, { useEffect } from "react";
 import { useFieldArray, useFormContext } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
+  FormMessage
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { Plus, Trash } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { cuid } from "@/lib/utils";
 
 export function VolumeDiscountsForm() {
-  const [nextId, setNextId] = useState(0);
-  const { control, getValues } = useFormContext();
-  
-  // Use a separate field array name that's within your form schema
+  const form = useFormContext();
   const { fields, append, remove } = useFieldArray({
-    control,
-    name: "volumeDiscounts" as any, // Cast to any since it's not in the schema directly
+    name: "volume_discounts",
+    control: form.control,
   });
 
-  // Initialize with one empty discount on first render if none exist
-  useEffect(() => {
-    if (fields.length === 0) {
-      append({
-        id: nextId,
-        min_employees: 5, 
-        max_employees: 10,
-        discount_percentage: 5
-      });
-      setNextId(nextId + 1);
-    }
-  }, []);
-
-  const handleAddDiscount = () => {
-    // Get the last discount's values for better UX
-    const lastDiscount = fields[fields.length - 1];
-    let newMinEmployees = 5;
-    let newMaxEmployees = 10;
-    
-    if (lastDiscount) {
-      // Set new min to previous max + 1
-      newMinEmployees = (lastDiscount.max_employees || 0) + 1;
-      newMaxEmployees = newMinEmployees + 5; // Add 5 as a reasonable step
-    }
-    
+  const addDiscount = () => {
     append({
-      id: nextId,
-      min_employees: newMinEmployees,
-      max_employees: newMaxEmployees,
-      discount_percentage: 5
+      id: cuid(),
+      min_employees: 10,
+      max_employees: 50,
+      discount_percentage: 5,
     });
-    setNextId(nextId + 1);
   };
 
+  useEffect(() => {
+    // If no discounts exist, add a default one
+    if (fields.length === 0) {
+      addDiscount();
+    }
+  }, [fields.length]);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">Descontos por volume</h3>
+        <h3 className="text-lg font-medium">Descontos por Volume</h3>
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={handleAddDiscount}
+          onClick={addDiscount}
         >
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar faixa
+          <Plus className="h-4 w-4 mr-2" />
+          Adicionar Faixa
         </Button>
       </div>
 
       <div className="space-y-4">
-        {fields.map((field, index) => (
-          <div key={field.id} className="grid grid-cols-12 gap-4 items-end">
-            <div className="col-span-3">
-              <FormField
-                control={control}
-                name={`volumeDiscounts.${index}.min_employees`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Mín. funcionários</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        placeholder="5"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="col-span-3">
-              <FormField
-                control={control}
-                name={`volumeDiscounts.${index}.max_employees`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Máx. funcionários</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        placeholder="10"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="col-span-4">
-              <FormField
-                control={control}
-                name={`volumeDiscounts.${index}.discount_percentage`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Desconto (%)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        placeholder="5"
-                        {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <div className="col-span-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="w-full text-red-500 hover:text-red-700"
-                onClick={() => fields.length > 1 && remove(index)}
-                disabled={fields.length <= 1}
-              >
-                <Trash className="h-4 w-4" />
-                <span className="sr-only">Remover</span>
-              </Button>
-            </div>
-          </div>
-        ))}
+        {fields.map((field, index) => {
+          // Safe access using optional chaining and type checking
+          const fieldValue = form.getValues(`volume_discounts.${index}`) || {};
+          const maxEmployees = fieldValue.max_employees !== undefined ? 
+                              fieldValue.max_employees : 
+                              null;
+          
+          return (
+            <Card key={field.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <FormField
+                    control={form.control}
+                    name={`volume_discounts.${index}.min_employees`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>Mín. Funcionários</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value) || 0)
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`volume_discounts.${index}.max_employees`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>Máx. Funcionários</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="Ilimitado"
+                            {...field}
+                            value={field.value || ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value ? Number(value) : null);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name={`volume_discounts.${index}.discount_percentage`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>Desconto (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(Number(e.target.value) || 0)
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex items-end mb-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => remove(index)}
+                      disabled={fields.length === 1}
+                    >
+                      <Trash className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="text-sm text-muted-foreground mt-2">
+                  {maxEmployees
+                    ? `${fieldValue.discount_percentage || 0}% de desconto para empresas com ${fieldValue.min_employees || 0} a ${maxEmployees} funcionários.`
+                    : `${fieldValue.discount_percentage || 0}% de desconto para empresas com ${fieldValue.min_employees || 0} ou mais funcionários.`}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

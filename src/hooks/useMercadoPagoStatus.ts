@@ -1,77 +1,99 @@
 
 import { useState, useEffect } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useInterval } from './use-interval';
 
-/**
- * Hook para verificar o status do Mercado Pago no ambiente
- */
-export function useMercadoPagoStatus() {
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
-  const [envVariables, setEnvVariables] = useState<Record<string, string | undefined>>({});
-  const [statusOk, setStatusOk] = useState<boolean>(false);
-  const { toast } = useToast();
+interface UseMercadoPagoStatusProps {
+  paymentId?: string;
+  onStatusChange?: (status: string) => void;
+  checkInterval?: number;
+}
 
+export function useMercadoPagoStatus({
+  paymentId,
+  onStatusChange,
+  checkInterval = 5000
+}: UseMercadoPagoStatusProps) {
+  const [isChecking, setIsChecking] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch initial status
   useEffect(() => {
-    const checkStatus = async () => {
+    if (!paymentId) return;
+    
+    const fetchStatus = async () => {
       try {
-        setIsCheckingStatus(true);
+        setIsChecking(true);
+        const { data, error } = await supabase
+          .from('payments')
+          .select('status, metadata')
+          .eq('external_id', paymentId)
+          .single();
         
-        // Coletar variáveis de ambiente relacionadas ao Mercado Pago
-        const variables = {
-          PUBLIC_KEY: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY,
-          ACCESS_TOKEN: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN,
-          SANDBOX: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX,
-          SITE_URL: import.meta.env.VITE_PUBLIC_SITE_URL,
-        };
-        
-        // Vamos mascarar parte dos valores para segurança
-        const maskedVariables = Object.entries(variables).reduce((acc, [key, value]) => {
-          if (!value) {
-            acc[key] = undefined;
-          } else if (typeof value === 'string' && value.length > 10) {
-            acc[key] = `${value.substring(0, 5)}...${value.substring(value.length - 5)}`;
-          } else {
-            acc[key] = value;
-          }
-          return acc;
-        }, {} as Record<string, string | undefined>);
-        
-        setEnvVariables(maskedVariables);
-        
-        console.log('[MercadoPagoStatus] Variáveis de ambiente:', maskedVariables);
-        
-        // Verificar se as chaves existem
-        if (!variables.PUBLIC_KEY) {
-          toast({
-            title: "Configuração incompleta",
-            description: "A chave pública do Mercado Pago não está configurada.",
-            variant: "destructive"
-          });
-          setStatusOk(false);
-        } else if (!variables.ACCESS_TOKEN) {
-          toast({
-            title: "Configuração incompleta",
-            description: "O token de acesso do Mercado Pago não está configurado.",
-            variant: "destructive"
-          });
-          setStatusOk(false);
-        } else {
-          console.log('[MercadoPagoStatus] Configuração do Mercado Pago parece OK');
-          setStatusOk(true);
+        if (error) {
+          console.error("Error fetching payment status:", error);
+          setError(error.message);
+          return;
         }
         
-      } catch (error: any) {
-        console.error('[MercadoPagoStatus] Erro ao verificar status:', error);
-        setStatusOk(false);
+        if (data) {
+          setStatus(data.status);
+          if (onStatusChange) onStatusChange(data.status);
+        }
+      } catch (err) {
+        console.error("Error in status check:", err);
+        setError('Failed to fetch payment status');
       } finally {
-        setIsCheckingStatus(false);
+        setIsChecking(false);
       }
     };
     
-    checkStatus();
-  }, [toast]);
-  
-  return { isCheckingStatus, envVariables, statusOk };
-}
+    fetchStatus();
+  }, [paymentId]);
 
-export default useMercadoPagoStatus;
+  // Setup polling interval
+  useInterval(
+    async () => {
+      if (!paymentId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('payments')
+          .select('status, metadata')
+          .eq('external_id', paymentId)
+          .single();
+        
+        if (error) {
+          console.error("Error checking payment status:", error);
+          setError(error.message);
+          return;
+        }
+        
+        if (data) {
+          const newStatus = data.status;
+          
+          if (newStatus !== status) {
+            setStatus(newStatus);
+            if (onStatusChange) onStatusChange(newStatus);
+          }
+          
+          // If payment is approved or completed, stop checking
+          if (['approved', 'completed'].includes(newStatus)) {
+            setIsChecking(false);
+          }
+        }
+      } catch (err) {
+        console.error("Error in interval check:", err);
+      }
+    },
+    isChecking ? checkInterval : null
+  );
+  
+  return {
+    isChecking,
+    status,
+    error,
+    setIsChecking
+  };
+}

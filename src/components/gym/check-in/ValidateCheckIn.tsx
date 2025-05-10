@@ -1,324 +1,273 @@
 
-import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState, useEffect } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle2, QrCode, XCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { QRCodeSVG } from "qrcode.react";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useParams } from "react-router-dom";
+import { Check, Clock, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatFullName } from "@/lib/utils";
 
 export function ValidateCheckIn() {
-  const { id: academiaId } = useParams<{ id: string }>();
-  const [qrCode, setQrCode] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [accessToken, setAccessToken] = useState("");
+  const [code, setCode] = useState('');
   const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<{
-    success: boolean;
-    message: string;
-    userName?: string;
-  } | null>(null);
+  const [validationResult, setValidationResult] = useState<any>(null);
+  const [academiaId, setAcademiaId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!academiaId) return;
-    
-    // Subscribe to real-time check-ins
-    const channel = supabase
-      .channel('public:gym_check_ins')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'gym_check_ins',
-          filter: `academia_id=eq.${academiaId}`
-        },
-        (payload) => {
-          console.log("Novo check-in detectado:", payload);
-          // Show a toast for new check-ins
+    // Get the academia ID from the user's session
+    const getAcademiaId = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
           toast({
-            title: "Novo check-in registrado",
-            description: "Um novo check-in foi registrado com sucesso!",
+            variant: "destructive",
+            title: "Erro",
+            description: "Usuário não autenticado.",
           });
+          return;
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [academiaId, toast]);
-
-  const generateQRCode = async () => {
-    if (!academiaId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "ID da academia não encontrado",
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      // Generate random code
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      const { error } = await supabase
-        .from("gym_qr_codes")
-        .insert({
-          code,
-          academia_id: academiaId,
-          expires_at: expiresAt.toISOString(),
-          status: "active"
-        });
-
-      if (error) {
-        console.error("Erro ao gerar QR code:", error);
-        throw error;
+        
+        // Get user's gym role
+        const { data: gymRole, error: roleError } = await supabase
+          .from('user_gym_roles')
+          .select('gym_id')
+          .eq('user_id', user.id)
+          .eq('active', true)
+          .single();
+        
+        if (roleError) {
+          console.error("Erro ao buscar academia:", roleError);
+          toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Não foi possível determinar sua academia.",
+          });
+          return;
+        }
+        
+        setAcademiaId(gymRole.gym_id);
+      } catch (error) {
+        console.error("Erro ao obter ID da academia:", error);
       }
+    };
+    
+    getAcademiaId();
+  }, [toast]);
 
-      setQrCode(code);
-      toast({
-        title: "QR Code gerado",
-        description: "Novo QR Code gerado com sucesso!",
-      });
-
-      // Auto-expire after 5 minutes
-      setTimeout(() => {
-        setQrCode(null);
-        setValidationResult(null);
-      }, 5 * 60 * 1000);
-
-    } catch (error: any) {
-      console.error("Erro ao gerar QR code:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao gerar QR Code",
-        description: "Não foi possível gerar o QR Code. Tente novamente.",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const validateAccessToken = async () => {
-    if (!academiaId) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "ID da academia não encontrado",
-      });
-      return;
-    }
-
-    if (!accessToken.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Token inválido",
-        description: "Por favor, insira um token de acesso.",
-      });
-      return;
-    }
-
+  const validateCode = async () => {
+    if (!code || !academiaId) return;
+    
     setIsValidating(true);
     try {
-      console.log("Validando token:", accessToken, "para academia:", academiaId);
-      
-      // Buscar check-in pendente pelo token de validação
-      const { data: checkInData, error: checkInError } = await supabase
-        .from("gym_check_ins")
-        .select(`
-          *,
-          user:user_id (
-            id,
-            full_name,
-            email
-          )
-        `)
-        .eq("validation_token", accessToken)
-        .eq("academia_id", academiaId)
-        .eq("status", "pending")
+      // First, find the check-in code
+      const { data: checkInCode, error: codeError } = await supabase
+        .from('check_in_codes')
+        .select('*')
+        .eq('code', code.toUpperCase())
+        .eq('academia_id', academiaId)
+        .eq('status', 'active')
         .single();
-
-      if (checkInError) {
-        console.error("Erro ao buscar check-in:", checkInError);
-        throw new Error("Token inválido ou expirado");
+      
+      if (codeError || !checkInCode) {
+        toast({
+          variant: "destructive",
+          title: "Código inválido",
+          description: "O código informado não é válido ou já foi utilizado.",
+        });
+        setValidationResult({ success: false, message: "Código inválido" });
+        return;
       }
-
-      if (!checkInData) {
-        throw new Error("Check-in não encontrado");
+      
+      // Check if the code is expired
+      if (new Date(checkInCode.expires_at) < new Date()) {
+        toast({
+          variant: "destructive",
+          title: "Código expirado",
+          description: "Este código de check-in já expirou.",
+        });
+        setValidationResult({ success: false, message: "Código expirado" });
+        return;
       }
-
-      console.log("Check-in encontrado:", checkInData);
-
-      // Atualizar status do check-in
+      
+      // Get user info
+      const { data: userInfo, error: userError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', checkInCode.user_id)
+        .single();
+      
+      if (userError) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível encontrar informações do usuário.",
+        });
+        return;
+      }
+      
+      // Mark code as used and register check-in
       const { error: updateError } = await supabase
-        .from("gym_check_ins")
-        .update({
-          status: "active",
-          validated_at: new Date().toISOString()
+        .from('check_in_codes')
+        .update({ 
+          status: 'used',
+          used_at: new Date().toISOString()
         })
-        .eq("id", checkInData.id);
-
+        .eq('id', checkInCode.id);
+      
       if (updateError) {
-        console.error("Erro ao atualizar check-in:", updateError);
-        throw updateError;
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Não foi possível validar o check-in.",
+        });
+        return;
       }
-
-      // Check if the table exists before trying to update it
+      
+      // Register check-in in gym_check_ins table if it exists
       try {
-        // Verificar se existe a tabela gym_check_in_financial_records
-        const { count, error: tableCheckError } = await supabase
-          .from("gym_check_in_financial_records")
-          .select("*", { count: 'exact', head: true })
-          .limit(0);
-
-        if (!tableCheckError && count !== null) {
-          // Tabela existe, podemos atualizar
-          const { error: financialError } = await supabase
-            .from("gym_check_in_financial_records")
-            .update({
-              status_pagamento: "processed",
-              data_processamento: new Date().toISOString()
-            })
-            .eq("check_in_id", checkInData.id);
-
-          if (financialError) {
-            console.error("Erro ao atualizar registro financeiro:", financialError);
-            // Não falhar o processo por causa do financeiro
-          }
-        } else {
-          console.log("Tabela gym_check_in_financial_records não existe ou não está acessível");
-        }
-      } catch (error) {
-        console.error("Erro ao verificar ou atualizar registro financeiro:", error);
+        const { error: checkInError } = await supabase
+          .from('gym_check_ins')
+          .insert({
+            user_id: checkInCode.user_id,
+            academia_id: academiaId,
+            check_in_code_id: checkInCode.id,
+            validation_method: 'manual',
+            check_in_time: new Date().toISOString(),
+            status: 'used'
+          });
+        
+        if (checkInError) console.error("Erro ao registrar check-in:", checkInError);
+      } catch (err) {
+        // Ignore errors if the table doesn't exist
+        console.log("Aviso: não foi possível registrar check-in completo:", err);
       }
 
+      // Set successful validation result
       setValidationResult({
         success: true,
-        message: "Check-in validado com sucesso",
-        userName: checkInData.user?.full_name
+        user: userInfo,
+        checkInTime: new Date().toISOString(),
       });
-
+      
       toast({
-        title: "Check-in validado!",
-        description: `Check-in confirmado para ${checkInData.user?.full_name}`,
+        title: "Check-in validado com sucesso",
+        description: `Check-in realizado para ${userInfo.full_name}.`,
       });
-
+      
     } catch (error: any) {
-      console.error("Erro ao validar token:", error);
-      setValidationResult({
-        success: false,
-        message: error.message || "Erro ao validar token",
-      });
+      console.error("Erro na validação do check-in:", error);
       toast({
         variant: "destructive",
         title: "Erro na validação",
-        description: error.message || "Não foi possível validar o token. Tente novamente.",
+        description: error.message || "Ocorreu um erro ao validar o check-in.",
       });
+      setValidationResult({ success: false, message: "Erro na validação" });
     } finally {
       setIsValidating(false);
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <Tabs defaultValue="qrcode" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="qrcode">QR Code</TabsTrigger>
-          <TabsTrigger value="token">Token de Acesso</TabsTrigger>
-        </TabsList>
+  const handleNewValidation = () => {
+    setCode("");
+    setValidationResult(null);
+  };
 
-        <TabsContent value="qrcode">
-          <Card>
-            <CardContent className="pt-6">
-              {qrCode ? (
-                <div className="flex flex-col items-center gap-4">
-                  <QRCodeSVG
-                    value={qrCode}
-                    size={200}
-                    level="H"
-                    includeMargin
-                    className="border-8 border-white rounded-lg shadow-lg"
-                  />
-                  <p className="text-lg font-semibold">Código: {qrCode}</p>
+  return (
+    <div className="w-full max-w-md mx-auto">
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle className="text-center">Validar Check-in</CardTitle>
+          <CardDescription className="text-center">
+            Digite o código fornecido pelo usuário para validar o check-in
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {validationResult ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center">
+                {validationResult.success ? (
+                  <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
+                    <Check className="h-10 w-10 text-green-500" />
+                  </div>
+                ) : (
+                  <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center">
+                    <X className="h-10 w-10 text-red-500" />
+                  </div>
+                )}
+              </div>
+              
+              {validationResult.success ? (
+                <div className="text-center space-y-2">
+                  <h3 className="font-bold text-xl">Check-in Validado!</h3>
+                  <p>Nome: {formatFullName(validationResult.user.full_name)}</p>
                   <p className="text-sm text-muted-foreground">
-                    Este QR Code expira em 5 minutos
+                    {new Date(validationResult.checkInTime).toLocaleString()}
                   </p>
-                  <Button
-                    onClick={generateQRCode}
-                    disabled={isGenerating}
-                    variant="outline"
-                  >
-                    Gerar Novo QR Code
-                  </Button>
                 </div>
               ) : (
-                <div className="flex justify-center">
-                  <Button
-                    onClick={generateQRCode}
-                    disabled={isGenerating}
-                    className="w-full md:w-auto"
+                <div className="text-center">
+                  <h3 className="font-bold text-xl text-red-500">Código Inválido</h3>
+                  <p className="text-sm text-muted-foreground">{validationResult.message}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {!academiaId ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Input 
+                    type="text" 
+                    placeholder="Digite o código" 
+                    value={code} 
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    className="text-center text-2xl tracking-widest"
+                    maxLength={10}
+                    disabled={isValidating}
+                  />
+                  <Button 
+                    className="w-full" 
+                    onClick={validateCode} 
+                    disabled={!code || isValidating || code.length < 4}
                   >
-                    <QrCode className="mr-2 h-4 w-4" />
-                    Gerar QR Code para Check-in
+                    {isValidating ? (
+                      <>
+                        <Clock className="mr-2 h-4 w-4 animate-spin" />
+                        Validando...
+                      </>
+                    ) : (
+                      "Validar Check-in"
+                    )}
                   </Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="token">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col gap-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Digite o token de acesso"
-                    value={accessToken}
-                    onChange={(e) => setAccessToken(e.target.value)}
-                  />
-                  <Button 
-                    onClick={validateAccessToken}
-                    disabled={isValidating}
-                  >
-                    Validar
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground text-center">
-                  Insira o token de acesso fornecido pelo usuário
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {validationResult && (
-        <Alert variant={validationResult.success ? "default" : "destructive"}>
-          {validationResult.success ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <XCircle className="h-4 w-4" />
+            </>
           )}
-          <AlertTitle>
-            {validationResult.success ? "Check-in confirmado" : "Check-in inválido"}
-          </AlertTitle>
-          <AlertDescription>
-            {validationResult.success && validationResult.userName
-              ? `${validationResult.message} - ${validationResult.userName}`
-              : validationResult.message}
-          </AlertDescription>
-        </Alert>
-      )}
+        </CardContent>
+        
+        {validationResult && (
+          <CardFooter>
+            <Button className="w-full" onClick={handleNewValidation}>
+              Novo Check-in
+            </Button>
+          </CardFooter>
+        )}
+      </Card>
     </div>
   );
 }

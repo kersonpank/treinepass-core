@@ -1,255 +1,154 @@
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckInLimitsDisplay } from "./components/CheckInLimitsDisplay";
-import { NoPlanDialog } from "./components/NoPlanDialog";
-import { CheckInDialog } from "./components/CheckInDialog";
+import { useToast } from "@/hooks/use-toast";
+import { CheckInCode } from "@/types/check-in";
+import { Loader2 } from "lucide-react";
 
 interface ManualCheckInProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   academiaId: string;
+  onSuccess: (checkInCode: CheckInCode) => void;
 }
 
-interface CheckInLimits {
-  remainingDaily: number | null;
-  remainingWeekly: number | null;
-  remainingMonthly: number | null;
-}
-
-export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
-  const [showCheckInDialog, setShowCheckInDialog] = useState(false);
-  const [showNoPlanDialog, setShowNoPlanDialog] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [checkInLimits, setCheckInLimits] = useState<CheckInLimits | null>(null);
-  const [accessCode, setAccessCode] = useState("");
-  const [timeLeft, setTimeLeft] = useState(1200); // 20 minutes in seconds
+export function ManualCheckIn({
+  open,
+  onOpenChange,
+  academiaId,
+  onSuccess,
+}: ManualCheckInProps) {
+  const [code, setCode] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Access code generation and refresh
-  useEffect(() => {
-    if (showCheckInDialog) {
-      generateAccessCode();
-      setTimeLeft(1200); // Reset timer when dialog opens
-      const interval = setInterval(generateAccessCode, 1200000); // 20 minutes
-      return () => clearInterval(interval);
-    }
-  }, [showCheckInDialog]);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code) return;
 
-  // Timer countdown
-  useEffect(() => {
-    if (showCheckInDialog && timeLeft > 0) {
-      const timer = setInterval(() => {
-        setTimeLeft((prevTime) => {
-          if (prevTime <= 1) {
-            generateAccessCode();
-            return 1200;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [showCheckInDialog, timeLeft]);
-
-  // Auto-open scan/token dialog without extra button
-  useEffect(() => {
-    setShowCheckInDialog(true);
-  }, []);
-
-  const generateAccessCode = async () => {
+    setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Você precisa estar logado para fazer check-in",
-        });
-        return;
+        throw new Error("Você precisa estar logado para fazer check-in");
       }
 
-      const { data: limitsData, error: limitsError } = await supabase.rpc('validate_check_in_rules', {
-        p_user_id: user.id,
-        p_academia_id: academiaId
-      });
+      // Get the check-in code
+      const { data: checkInCode, error: codeError } = await supabase
+        .from("check_in_codes")
+        .select("*")
+        .eq("code", code.toUpperCase())
+        .eq("status", "active")
+        .eq("academia_id", academiaId)
+        .single();
 
-      if (limitsError) {
-        console.error("Erro ao validar regras de check-in:", limitsError);
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Não foi possível verificar as regras de check-in",
-        });
-        return;
+      if (codeError || !checkInCode) {
+        throw new Error("Código de check-in inválido ou expirado");
       }
 
-      if (limitsData?.[0]) {
-        if (!limitsData[0].can_check_in) {
-          setShowCheckInDialog(false);
-          setShowNoPlanDialog(true);
-          return;
-        }
-
-        setCheckInLimits({
-          remainingDaily: limitsData[0].remaining_daily,
-          remainingWeekly: limitsData[0].remaining_weekly,
-          remainingMonthly: limitsData[0].remaining_monthly
-        });
-
-        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        setAccessCode(code);
-        setTimeLeft(1200);
+      // Verify if code is expired
+      if (new Date(checkInCode.expires_at) < new Date()) {
+        // Update the code status to expired
+        await supabase
+          .from("check_in_codes")
+          .update({ status: "expired" })
+          .eq("id", checkInCode.id);
+        throw new Error("Código de check-in expirado");
       }
-    } catch (error: any) {
-      console.error("Erro ao gerar código:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao gerar código",
-        description: error.message,
-      });
-    }
-  };
 
-  const handleScanResult = async (result: string) => {
-    console.log("QR Code escaneado:", result);
-    if (result && !isProcessing) {
-      setIsProcessing(true);
+      // Register check-in
+      const { error: usedError } = await supabase
+        .from("check_in_codes")
+        .update({
+          status: "used",
+          used_at: new Date().toISOString(),
+        })
+        .eq("id", checkInCode.id);
+
+      if (usedError) {
+        throw new Error("Erro ao registrar check-in");
+      }
+
+      // Register check-in in gym_check_ins table if it exists
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Usuário não autenticado");
-
-        // Validar QR Code
-        const { data: qrCodeData, error: qrError } = await supabase
-          .from("gym_qr_codes")
-          .select("*")
-          .eq("code", result)
-          .eq("academia_id", academiaId)
-          .eq("status", "active")
-          .single();
-
-        if (qrError || !qrCodeData) {
-          throw new Error("QR Code inválido ou expirado");
-        }
-
-        // Validar regras de check-in
-        const { data: validationResult, error: validationError } = await supabase
-          .rpc('validate_check_in_rules', {
-            p_user_id: user.id,
-            p_academia_id: academiaId
-          });
-
-        if (validationError) {
-          console.error("Erro ao validar regras:", validationError);
-          throw new Error("Erro ao validar regras de check-in");
-        }
-
-        const validation = validationResult?.[0];
-        if (!validation?.can_check_in) {
-          throw new Error(validation?.message || "Check-in não permitido");
-        }
-
-        // Gerar token único para este check-in
-        const token = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-        // Registrar check-in
-        const { data: checkInData, error: checkInError } = await supabase
+        const { error: checkInError } = await supabase
           .from("gym_check_ins")
           .insert({
             user_id: user.id,
             academia_id: academiaId,
+            check_in_code_id: checkInCode.id,
+            validation_method: "manual",
             check_in_time: new Date().toISOString(),
-            status: "pending",
-            validation_method: "qrcode",
-            validation_token: token,
-            qr_code_id: qrCodeData.id,
-            valor_repasse: validation.valor_repasse || 0,
-            plano_id: validation.plano_id
-          })
-          .select()
-          .single();
+            status: "used",
+          });
 
-        if (checkInError) {
-          console.error("Erro ao registrar check-in:", checkInError);
-          throw checkInError;
-        }
-
-        // Verificar se a tabela gym_check_in_financial_records existe antes de usá-la
-        try {
-          const { count, error: tableCheckError } = await supabase
-            .from("gym_check_in_financial_records")
-            .select("*", { count: 'exact', head: true })
-            .limit(0);
-
-          if (!tableCheckError && count !== null) {
-            // A tabela existe, podemos registrar o histórico financeiro
-            const { error: financialError } = await supabase
-              .from("gym_check_in_financial_records")
-              .insert({
-                check_in_id: checkInData.id,
-                plan_id: validation.plano_id,
-                valor_repasse: validation.valor_repasse || 0,
-                valor_plano: validation.valor_plano || 0,
-                status_pagamento: "pending",
-                data_processamento: new Date().toISOString()
-              });
-
-            if (financialError) {
-              console.error("Erro ao registrar financeiro:", financialError);
-              // Não falhar o processo por causa do financeiro
-            }
-          } else {
-            console.log("Tabela gym_check_in_financial_records não existe ou não está acessível");
-          }
-        } catch (error) {
-          console.error("Erro ao verificar ou registrar financeiro:", error);
-        }
-
-        setShowCheckInDialog(false);
-        toast({
-          title: "Check-in registrado!",
-          description: `Seu token de validação é: ${token}. Apresente este token na academia.`,
-          duration: 10000,
-        });
-
-      } catch (error: any) {
-        console.error("Erro ao realizar check-in:", error);
-        toast({
-          variant: "destructive",
-          title: "Erro ao realizar check-in",
-          description: error.message,
-          duration: 5000,
-        });
-      } finally {
-        setIsProcessing(false);
+        if (checkInError) console.error("Erro ao registrar check-in:", checkInError);
+      } catch (err) {
+        // Ignore errors if the table doesn't exist
+        console.log("Aviso: não foi possível registrar check-in completo:", err);
       }
+
+      toast({
+        title: "Check-in realizado!",
+        description: "Seu check-in foi registrado com sucesso.",
+      });
+
+      onSuccess(checkInCode as CheckInCode);
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao realizar check-in",
+        description: error.message,
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <>
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>Check-in</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* CheckInDialog opens automatically on mount; no initial button needed */}
-          <CheckInLimitsDisplay limits={checkInLimits} />
-        </CardContent>
-      </Card>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Check-in Manual</DialogTitle>
+          <DialogDescription>
+            Digite o código de check-in fornecido pela academia.
+          </DialogDescription>
+        </DialogHeader>
 
-      <CheckInDialog
-        open={showCheckInDialog}
-        onOpenChange={setShowCheckInDialog}
-        accessCode={accessCode}
-        timeLeft={timeLeft}
-        onScan={handleScanResult}
-      />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            placeholder="Código de check-in"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            className="text-center text-xl tracking-widest"
+            maxLength={10}
+          />
 
-      <NoPlanDialog
-        open={showNoPlanDialog}
-        onOpenChange={setShowNoPlanDialog}
-      />
-    </>
+          <DialogFooter>
+            <Button type="submit" className="w-full" disabled={!code || isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                "Realizar Check-in"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

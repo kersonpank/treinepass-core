@@ -1,164 +1,142 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { useNavigate } from "react-router-dom";
 
 interface NoActivePlanDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubscribe?: () => void;
 }
 
-export function NoActivePlanDialog({
-  open,
-  onOpenChange,
-  onSubscribe,
-}: NoActivePlanDialogProps) {
+export function NoActivePlanDialog({ open, onOpenChange }: NoActivePlanDialogProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [recommendedPlanId, setRecommendedPlanId] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [isSubscribing, setIsSubscribing] = useState(false);
 
-  const { data: plans, isLoading } = useQuery({
-    queryKey: ["availablePlans"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("plans")
-        .select("*")
-        .eq("status", "active")
-        .order("price");
+  useEffect(() => {
+    const fetchRecommendedPlan = async () => {
+      if (!open) return;
 
-      if (error) throw error;
-      return data;
-    },
-  });
+      try {
+        // Check if benefit_plans table exists and get a recommended plan
+        try {
+          const { data: plans, error: plansError } = await supabase
+            .from('benefit_plans')
+            .select('id')
+            .eq('status', 'active')
+            .order('monthly_cost', { ascending: true })
+            .limit(1);
 
-  const handleSubscribe = async () => {
-    if (!selectedPlanId || !user) return;
+          if (!plansError && plans && plans.length > 0) {
+            setRecommendedPlanId(plans[0].id);
+            setIsLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.log("Tabela benefit_plans não encontrada, tentando user_plan_subscriptions");
+        }
 
-    setIsSubscribing(true);
-    try {
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30); // 30 dias de plano
+        // Check if the user has any previous subscription that might have expired
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          try {
+            const { data: subscriptions } = await supabase
+              .from('user_plan_subscriptions')
+              .select('plan_id')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(1);
+              
+            if (subscriptions && subscriptions.length > 0) {
+              setRecommendedPlanId(subscriptions[0].plan_id);
+            }
+          } catch (err) {
+            console.log("Erro ao buscar assinatura anterior:", err);
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar plano recomendado:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-      const { error } = await supabase.from("subscriptions").insert({
-        user_id: user.id,
-        plan_id: selectedPlanId,
-        start_date: startDate.toISOString(),
-        end_date: endDate.toISOString(),
-        status: "active",
-        payment_status: "paid", // Em produção, isso seria definido após confirmação do pagamento
-      });
+    fetchRecommendedPlan();
+  }, [open]);
 
-      if (error) throw error;
+  const handleViewPlans = () => {
+    onOpenChange(false);
+    navigate("/app/plans");
+  };
 
-      toast({
-        title: "Plano ativado com sucesso!",
-        description: "Você já pode começar a treinar.",
-      });
-
-      onSubscribe?.();
-      onOpenChange(false);
-    } catch (error) {
-      console.error("Error subscribing to plan:", error);
+  const handleSubscribeToPlan = () => {
+    if (!recommendedPlanId) {
       toast({
         variant: "destructive",
-        title: "Erro ao ativar plano",
-        description: "Não foi possível ativar o plano. Tente novamente.",
+        title: "Erro",
+        description: "Não foi possível encontrar um plano recomendado.",
       });
-    } finally {
-      setIsSubscribing(false);
+      return;
     }
+    
+    onOpenChange(false);
+    navigate(`/app/plans/${recommendedPlanId}`);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Escolha seu plano</DialogTitle>
+          <DialogTitle>Plano Necessário</DialogTitle>
           <DialogDescription>
-            Para fazer check-in, você precisa ter um plano ativo. Escolha um dos planos abaixo:
+            Para fazer check-in nesta academia, você precisa ter um plano ativo.
           </DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plans?.map((plan) => (
-              <Card
-                key={plan.id}
-                className={`cursor-pointer transition-colors ${
-                  selectedPlanId === plan.id
-                    ? "border-primary"
-                    : "hover:border-primary/50"
-                }`}
-                onClick={() => setSelectedPlanId(plan.id)}
-              >
-                <CardHeader>
-                  <CardTitle>{plan.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold">
-                    R$ {plan.price.toFixed(2)}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      /mês
-                    </span>
-                  </p>
-                  <ul className="mt-4 space-y-2">
-                    {plan.features?.map((feature: string, index: number) => (
-                      <li key={index} className="text-sm">
-                        ✓ {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    variant={selectedPlanId === plan.id ? "default" : "outline"}
-                    className="w-full"
-                    onClick={() => setSelectedPlanId(plan.id)}
-                  >
-                    {selectedPlanId === plan.id ? "Selecionado" : "Selecionar"}
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+          <div className="space-y-4 py-4">
+            <p>
+              Você não possui um plano ativo no momento. Para continuar,
+              assine um de nossos planos.
+            </p>
           </div>
         )}
 
-        <div className="flex justify-end gap-4 mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSubscribe}
-            disabled={!selectedPlanId || isSubscribing}
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleViewPlans} 
+            className="w-full sm:w-auto"
           >
-            {isSubscribing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Ativando plano...
-              </>
-            ) : (
-              "Ativar plano"
-            )}
+            Ver Todos os Planos
           </Button>
-        </div>
+          
+          {recommendedPlanId && (
+            <Button 
+              onClick={handleSubscribeToPlan}
+              className="w-full sm:w-auto"
+            >
+              Assinar Plano Recomendado
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
