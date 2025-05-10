@@ -1,7 +1,7 @@
-
+import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CreditCard, Landmark, Qrcode } from "lucide-react";
+import { CreditCard, Landmark, QrCode } from "lucide-react";
 
 interface PaymentMethodDialogProps {
   open: boolean;
@@ -40,7 +40,7 @@ export function PaymentMethodDialog({
             disabled={loading}
           >
             <div className="bg-emerald-100 p-2 rounded-full">
-              <Qrcode className="h-6 w-6 text-emerald-600" />
+              <QrCode className="h-6 w-6 text-emerald-600" />
             </div>
             <div className="text-left">
               <div className="font-medium">PIX</div>

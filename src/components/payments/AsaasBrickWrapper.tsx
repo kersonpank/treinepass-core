@@ -1,121 +1,38 @@
-
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2, ExclamationTriangle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MercadoPagoBrick } from './MercadoPagoBrick';
+import React from 'react';
+import { AlertTriangle as ExclamationTriangle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AsaasBrickWrapperProps {
-  planId: string;
-  planName: string;
-  amount: number;
-  userId: string;
-  onSuccess?: () => void;
-  onError?: (error: any) => void;
-  showSuccessRedirect?: boolean;
+  containerId: string;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 export function AsaasBrickWrapper({
-  planId,
-  planName,
-  amount,
-  userId,
-  onSuccess,
-  onError,
-  showSuccessRedirect = true
+  containerId,
+  isLoading = false,
+  error = null
 }: AsaasBrickWrapperProps) {
-  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState<string>('');
-  const navigate = useNavigate();
-  const { toast } = useToast();
-
-  const handlePaymentSuccess = () => {
-    setStatus('success');
-    toast({
-      title: "Pagamento aprovado!",
-      description: "Sua assinatura foi ativada com sucesso.",
-      variant: "default",
-    });
-    
-    if (onSuccess) {
-      onSuccess();
-    }
-    
-    if (showSuccessRedirect) {
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
-    }
-  };
-
-  const handlePaymentError = (error: any) => {
-    setStatus('error');
-    setErrorMessage(error.message || 'Ocorreu um erro ao processar o pagamento');
-    
-    toast({
-      title: "Erro no pagamento",
-      description: error.message || 'Ocorreu um erro ao processar o pagamento',
-      variant: "destructive",
-    });
-    
-    if (onError) {
-      onError(error);
-    }
-  };
-
   return (
-    <div className="w-full max-w-md mx-auto">
-      <div className="mb-4 p-4 bg-muted rounded-md">
-        <h3 className="text-lg font-medium">Detalhes do pagamento</h3>
-        <p className="text-sm text-muted-foreground">Plano: {planName}</p>
-        <p className="text-sm text-muted-foreground">Valor: R$ {amount.toFixed(2).replace('.', ',')}</p>
-      </div>
-      
-      {status === 'processing' && (
-        <div className="flex justify-center items-center p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
-          <p>Processando pagamento...</p>
-        </div>
-      )}
-      
-      {status === 'success' && (
-        <Alert className="mb-4 bg-green-50 border-green-200">
-          <AlertDescription className="text-green-800">
-            <div className="flex items-center">
-              <div className="mr-2 rounded-full bg-green-100 p-1">
-                <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                </svg>
-              </div>
-              <span>Pagamento processado com sucesso! {showSuccessRedirect ? 'Redirecionando...' : ''}</span>
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {status === 'error' && (
-        <Alert variant="destructive" className="mb-4">
-          <ExclamationTriangle className="h-4 w-4 mr-2" />
-          <AlertDescription>{errorMessage}</AlertDescription>
-        </Alert>
-      )}
-      
-      {status === 'idle' && (
-        <MercadoPagoBrick
-          amount={amount}
-          payerEmail={undefined}
-          onPaymentSuccess={handlePaymentSuccess}
-          onPaymentError={handlePaymentError}
-          metadata={{
-            user_id: userId,
-            plan_id: planId,
-            plan_name: planName
-          }}
-        />
-      )}
-    </div>
+    <Card className="w-full">
+      <CardContent className="p-6">
+        {isLoading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center p-4 text-center">
+            <ExclamationTriangle className="h-10 w-10 text-destructive mb-2" />
+            <h3 className="font-semibold text-lg">Erro ao carregar pagamento</h3>
+            <p className="text-sm text-muted-foreground mt-1">{error}</p>
+          </div>
+        ) : (
+          <div id={containerId} className="w-full"></div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
-
-export default AsaasBrickWrapper;

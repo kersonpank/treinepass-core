@@ -1,3 +1,4 @@
+
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -24,4 +25,18 @@ export function formatDateTime(date: string | Date): string {
     hour: '2-digit',
     minute: '2-digit'
   }).format(d);
+}
+
+/**
+ * Formats a full name by capitalizing the first letter of each name part
+ * @param name The full name to format
+ * @returns The formatted full name
+ */
+export function formatFullName(name: string | null | undefined): string {
+  if (!name) return '';
+  
+  return name
+    .split(' ')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
 }
