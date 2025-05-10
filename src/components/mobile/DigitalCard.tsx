@@ -23,16 +23,6 @@ export function DigitalCard({ academiaId, academiaName }: DigitalCardProps) {
       if (!user) return;
 
       try {
-        // Verificar se existe a tabela check_in_codes
-        const { count, error: tableCheckError } = await supabase
-          .from("check_in_codes")
-          .select("*", { count: 'exact', head: true });
-
-        if (tableCheckError) {
-          console.error("Erro ao verificar tabela check_in_codes:", tableCheckError);
-          return;
-        }
-
         // Buscar código ativo
         const { data, error } = await supabase
           .from("check_in_codes")

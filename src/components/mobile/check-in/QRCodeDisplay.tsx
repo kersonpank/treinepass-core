@@ -1,3 +1,4 @@
+
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckInCode } from "@/types/check-in";
@@ -14,12 +15,18 @@ export function QRCodeDisplay({ checkInCode, timeLeft }: QRCodeDisplayProps) {
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
+  // Create QR code data object
+  const qrData = JSON.stringify({
+    code: checkInCode.code,
+    academia_id: checkInCode.academia_id
+  });
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardContent className="space-y-4 p-6">
         <div className="flex justify-center">
           <QRCodeSVG
-            value={JSON.stringify(checkInCode.qr_data)}
+            value={qrData}
             size={200}
             level="H"
             includeMargin

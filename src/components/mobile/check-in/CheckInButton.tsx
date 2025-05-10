@@ -43,36 +43,6 @@ export function CheckInButton({
       if (!user) {
         throw new Error("Você precisa estar logado para fazer check-in");
       }
-
-      // Verificar se existe a tabela check_in_codes
-      const { count, error: tableCheckError } = await supabase
-        .from("check_in_codes")
-        .select("*", { count: 'exact', head: true });
-
-      if (tableCheckError) {
-        console.error("Erro ao verificar tabela check_in_codes:", tableCheckError);
-        
-        // Tentar criar uma tabela temporária para continuar o fluxo
-        const tempCode = {
-          id: crypto.randomUUID(),
-          user_id: user.id,
-          code: Math.random().toString(36).substring(2, 8).toUpperCase(),
-          status: "active",
-          created_at: new Date().toISOString(),
-          expires_at: new Date(Date.now() + 30 * 60000).toISOString(), // 30 minutos
-          academia_id: academiaId
-        };
-        
-        onSuccess(tempCode as CheckInCode);
-        
-        toast({
-          title: "Código gerado em modo temporário",
-          description: "Use o código para fazer check-in na academia.",
-          duration: 5000,
-        });
-        
-        return;
-      }
       
       // Criar código de check-in para carteirinha digital
       const { data: checkInCode, error: codeError } = await supabase

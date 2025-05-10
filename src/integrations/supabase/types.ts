@@ -1017,6 +1017,47 @@ export type Database = {
         }
         Relationships: []
       }
+      check_in_codes: {
+        Row: {
+          academia_id: string | null
+          code: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          status: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          academia_id?: string | null
+          code: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          status?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          academia_id?: string | null
+          code?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          status?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_in_codes_academia_id_fkey"
+            columns: ["academia_id"]
+            isOneToOne: false
+            referencedRelation: "academias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkout_sessions: {
         Row: {
           created_at: string | null

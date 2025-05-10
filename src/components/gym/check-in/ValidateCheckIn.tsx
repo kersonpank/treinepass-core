@@ -174,21 +174,31 @@ export function ValidateCheckIn() {
 
       // Check if the table exists before trying to update it
       try {
-        // Atualizar registro financeiro
-        const { error: financialError } = await supabase
+        // Verificar se existe a tabela gym_check_in_financial_records
+        const { count, error: tableCheckError } = await supabase
           .from("gym_check_in_financial_records")
-          .update({
-            status_pagamento: "processed",
-            data_processamento: new Date().toISOString()
-          })
-          .eq("check_in_id", checkInData.id);
+          .select("*", { count: 'exact', head: true })
+          .limit(0);
 
-        if (financialError) {
-          console.error("Erro ao atualizar registro financeiro:", financialError);
-          // Não falhar o processo por causa do financeiro
+        if (!tableCheckError && count !== null) {
+          // Tabela existe, podemos atualizar
+          const { error: financialError } = await supabase
+            .from("gym_check_in_financial_records")
+            .update({
+              status_pagamento: "processed",
+              data_processamento: new Date().toISOString()
+            })
+            .eq("check_in_id", checkInData.id);
+
+          if (financialError) {
+            console.error("Erro ao atualizar registro financeiro:", financialError);
+            // Não falhar o processo por causa do financeiro
+          }
+        } else {
+          console.log("Tabela gym_check_in_financial_records não existe ou não está acessível");
         }
       } catch (error) {
-        console.error("Erro ao atualizar registro financeiro (tabela pode não existir):", error);
+        console.error("Erro ao verificar ou atualizar registro financeiro:", error);
       }
 
       setValidationResult({

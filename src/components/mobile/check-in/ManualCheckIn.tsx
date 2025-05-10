@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -173,21 +174,35 @@ export function ManualCheckIn({ academiaId }: ManualCheckInProps) {
           throw checkInError;
         }
 
-        // Registrar histórico financeiro
-        const { error: financialError } = await supabase
-          .from("gym_check_in_financial_records")
-          .insert({
-            check_in_id: checkInData.id,
-            plan_id: validation.plano_id,
-            valor_repasse: validation.valor_repasse || 0,
-            valor_plano: validation.valor_plano || 0,
-            status_pagamento: "pending",
-            data_processamento: new Date().toISOString()
-          });
+        // Verificar se a tabela gym_check_in_financial_records existe antes de usá-la
+        try {
+          const { count, error: tableCheckError } = await supabase
+            .from("gym_check_in_financial_records")
+            .select("*", { count: 'exact', head: true })
+            .limit(0);
 
-        if (financialError) {
-          console.error("Erro ao registrar financeiro:", financialError);
-          // Não falhar o processo por causa do financeiro
+          if (!tableCheckError && count !== null) {
+            // A tabela existe, podemos registrar o histórico financeiro
+            const { error: financialError } = await supabase
+              .from("gym_check_in_financial_records")
+              .insert({
+                check_in_id: checkInData.id,
+                plan_id: validation.plano_id,
+                valor_repasse: validation.valor_repasse || 0,
+                valor_plano: validation.valor_plano || 0,
+                status_pagamento: "pending",
+                data_processamento: new Date().toISOString()
+              });
+
+            if (financialError) {
+              console.error("Erro ao registrar financeiro:", financialError);
+              // Não falhar o processo por causa do financeiro
+            }
+          } else {
+            console.log("Tabela gym_check_in_financial_records não existe ou não está acessível");
+          }
+        } catch (error) {
+          console.error("Erro ao verificar ou registrar financeiro:", error);
         }
 
         setShowCheckInDialog(false);
