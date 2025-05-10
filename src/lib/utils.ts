@@ -40,3 +40,10 @@ export function formatFullName(name: string | null | undefined): string {
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(' ');
 }
+
+/**
+ * Generate a unique ID (simple implementation)
+ */
+export function cuid(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
+}

@@ -3,97 +3,37 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useInterval } from './use-interval';
 
-interface UseMercadoPagoStatusProps {
-  paymentId?: string;
-  onStatusChange?: (status: string) => void;
-  checkInterval?: number;
+interface MercadoPagoEnvironmentVars {
+  PUBLIC_KEY: string;
+  ACCESS_TOKEN: string;
+  SANDBOX: string;
+  SITE_URL: string;
 }
 
-export function useMercadoPagoStatus({
-  paymentId,
-  onStatusChange,
-  checkInterval = 5000
-}: UseMercadoPagoStatusProps) {
-  const [isChecking, setIsChecking] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+interface UseMercadoPagoStatusReturn {
+  envVariables: MercadoPagoEnvironmentVars;
+  statusOk: boolean;
+}
 
-  // Fetch initial status
+export function useMercadoPagoStatus(): UseMercadoPagoStatusReturn {
+  const [envVariables, setEnvVariables] = useState<MercadoPagoEnvironmentVars>({
+    PUBLIC_KEY: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || '',
+    ACCESS_TOKEN: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_ACCESS_TOKEN || '',
+    SANDBOX: import.meta.env.VITE_PUBLIC_MERCADO_PAGO_SANDBOX || 'true',
+    SITE_URL: import.meta.env.VITE_PUBLIC_SITE_URL || ''
+  });
+
+  const [statusOk, setStatusOk] = useState<boolean>(false);
+
+  // Check if Mercado Pago is properly configured
   useEffect(() => {
-    if (!paymentId) return;
-    
-    const fetchStatus = async () => {
-      try {
-        setIsChecking(true);
-        const { data, error } = await supabase
-          .from('payments')
-          .select('status, metadata')
-          .eq('external_id', paymentId)
-          .single();
-        
-        if (error) {
-          console.error("Error fetching payment status:", error);
-          setError(error.message);
-          return;
-        }
-        
-        if (data) {
-          setStatus(data.status);
-          if (onStatusChange) onStatusChange(data.status);
-        }
-      } catch (err) {
-        console.error("Error in status check:", err);
-        setError('Failed to fetch payment status');
-      } finally {
-        setIsChecking(false);
-      }
-    };
-    
-    fetchStatus();
-  }, [paymentId]);
+    // Basic validation of environment variables
+    const isConfigured = !!(envVariables.PUBLIC_KEY && envVariables.ACCESS_TOKEN);
+    setStatusOk(isConfigured);
+  }, [envVariables]);
 
-  // Setup polling interval
-  useInterval(
-    async () => {
-      if (!paymentId) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('payments')
-          .select('status, metadata')
-          .eq('external_id', paymentId)
-          .single();
-        
-        if (error) {
-          console.error("Error checking payment status:", error);
-          setError(error.message);
-          return;
-        }
-        
-        if (data) {
-          const newStatus = data.status;
-          
-          if (newStatus !== status) {
-            setStatus(newStatus);
-            if (onStatusChange) onStatusChange(newStatus);
-          }
-          
-          // If payment is approved or completed, stop checking
-          if (['approved', 'completed'].includes(newStatus)) {
-            setIsChecking(false);
-          }
-        }
-      } catch (err) {
-        console.error("Error in interval check:", err);
-      }
-    },
-    isChecking ? checkInterval : null
-  );
-  
   return {
-    isChecking,
-    status,
-    error,
-    setIsChecking
+    envVariables,
+    statusOk
   };
 }
