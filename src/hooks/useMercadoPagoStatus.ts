@@ -10,12 +10,15 @@ interface UseMercadoPagoStatusProps {
   checkInterval?: number;
 }
 
-export function useMercadoPagoStatus({
-  paymentId,
-  onStatusChange,
-  onPaymentConfirmed,
-  checkInterval = 5000
-}: UseMercadoPagoStatusProps) {
+export function useMercadoPagoStatus(props?: UseMercadoPagoStatusProps) {
+  // Use default empty object if props is undefined
+  const { 
+    paymentId, 
+    onStatusChange, 
+    onPaymentConfirmed, 
+    checkInterval = 5000 
+  } = props || {};
+
   const [isChecking, setIsChecking] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);

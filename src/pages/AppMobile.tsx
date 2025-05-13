@@ -12,14 +12,14 @@ import { GymProfile } from "@/pages/GymProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { useMercadoPagoStatus } from "@/hooks/useMercadoPagoStatus";
+import { useMercadoPagoConfig } from "@/hooks/useMercadoPagoStatus";
 
 export default function AppMobile() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const [showDebug, setShowDebug] = useState(false);
-  const { envVariables, statusOk } = useMercadoPagoStatus();
+  const { envVariables, statusOk } = useMercadoPagoConfig();
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
