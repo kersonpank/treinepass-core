@@ -71,6 +71,14 @@ export function useSubscriptionCreation() {
         open: true,
         paymentMethod: paymentMethod
       });
+      
+      console.log("Opening checkout dialog with data:", {
+        planId,
+        planName: planDetails.name,
+        planValue: Number(planDetails.monthly_cost),
+        paymentMethod: paymentMethod
+      });
+      
       setShowCheckout(true);
       
       return { planId, planDetails, userProfile };

@@ -74,6 +74,7 @@ export default async function handler(
         metadata: {
           plan_id,
           preference_id,
+          subscription_id: data?.[0]?.id,
           created_at: new Date().toISOString()
         }
       });

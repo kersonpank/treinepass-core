@@ -59,8 +59,8 @@ export function PlanCard({
       }
       
       console.log("Confirming payment for plan:", plan.id, "with method:", selectedPaymentMethod);
-      await onSubscribe(plan.id, selectedPaymentMethod);
       setShowDialog(false);
+      await onSubscribe(plan.id, selectedPaymentMethod);
     } catch (error) {
       console.error("Error confirming payment:", error);
       toast({
@@ -107,6 +107,21 @@ export function PlanCard({
                   </li>
                 ))}
               </ul>
+
+              <Button 
+                className="w-full mt-4" 
+                onClick={() => onSubscribe(plan.id, "mercadopago")}
+                disabled={isSubscribing}
+              >
+                {isSubscribing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  'Contratar Plano'
+                )}
+              </Button>
             </CardContent>
           </Card>
         </DialogTrigger>
@@ -173,6 +188,20 @@ export function PlanCard({
                   <Label htmlFor={`${id}-boleto`}>Boleto</Label>
                   <p id={`${id}-boleto-description`} className="text-xs text-muted-foreground">
                     Pagamento via boleto bancário
+                  </p>
+                </div>
+              </div>
+              <div className="relative flex w-full items-center gap-2 rounded-lg border border-input px-4 py-3 shadow-sm shadow-black/5 has-[[data-state=checked]]:border-ring has-[[data-state=checked]]:bg-accent">
+                <RadioGroupItem
+                  value="mercadopago"
+                  id={`${id}-mercadopago`}
+                  aria-describedby={`${id}-mercadopago-description`}
+                  className="order-1 after:absolute after:inset-0"
+                />
+                <div className="grid grow gap-1">
+                  <Label htmlFor={`${id}-mercadopago`}>Mercado Pago</Label>
+                  <p id={`${id}-mercadopago-description`} className="text-xs text-muted-foreground">
+                    Várias formas de pagamento
                   </p>
                 </div>
               </div>

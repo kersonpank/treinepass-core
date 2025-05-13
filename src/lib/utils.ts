@@ -6,38 +6,44 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value);
+export function formatDate(date: Date | string): string {
+  const d = new Date(date);
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 }
 
-export function formatDateTime(date: string | Date): string {
-  if (!date) return '';
-  
-  const d = typeof date === 'string' ? new Date(date) : date;
-  
-  return new Intl.DateTimeFormat('pt-BR', {
+export function formatDateTime(date: Date | string): string {
+  const d = new Date(date);
+  return d.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
-  }).format(d);
+    minute: '2-digit',
+  });
 }
 
-/**
- * Formats a full name by capitalizing the first letter of each name part
- * @param name The full name to format
- * @returns The formatted full name
- */
-export function formatFullName(name: string | null | undefined): string {
-  if (!name) return '';
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value);
+}
+
+export function formatCPF(cpf: string): string {
+  // Remove non-numeric characters
+  cpf = cpf.replace(/\D/g, '');
   
-  return name
-    .split(' ')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+  // Format as XXX.XXX.XXX-XX
+  return cpf.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+}
+
+export function formatFullName(firstName: string, lastName: string): string {
+  return [firstName, lastName]
+    .filter(Boolean)
     .join(' ');
 }
 
